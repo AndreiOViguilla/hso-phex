@@ -1,9 +1,8 @@
 require("dotenv").config();
-const express      = require("express");
-const cors         = require("cors");
-const cookieParser = require("cookie-parser");
-const connectDB    = require("./db");
-const seedSlots    = require("./services/seedSlots");
+const express  = require("express");
+const cors     = require("cors");
+const connectDB  = require("./db");
+const seedSlots  = require("./services/seedSlots");
 
 const authRoutes        = require("./routes/auth");
 const studentRoutes     = require("./routes/students");
@@ -27,7 +26,6 @@ async function start() {
   }));
 
   app.use(express.json());
-  app.use(cookieParser());
 
   app.use("/api/auth",         authRoutes);
   app.use("/api/students",     studentRoutes);
