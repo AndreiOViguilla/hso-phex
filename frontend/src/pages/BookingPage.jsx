@@ -131,10 +131,33 @@ function StepPicker({ activity, onSelect }) {
   const daysInMonth = getDaysInMonth(calYear, calMonth);
   const firstDay    = getFirstDayOfMonth(calYear, calMonth);
 
-  // Use dates from DB (daysData) instead of hardcoded available dates
+  // Check if a time string has passed today
+  const isTimePast = (timeStr) => {
+    const now = new Date();
+    const [timePart, ampm] = [timeStr.slice(0, -2), timeStr.slice(-2)];
+    let [h, m] = timePart.split(":").map(Number);
+    if (ampm === "pm" && h !== 12) h += 12;
+    if (ampm === "am" && h === 12) h = 0;
+    const slotTime = new Date();
+    slotTime.setHours(h, m, 0, 0);
+    return slotTime < now;
+  };
+
+  // Use dates from DB — a date is available only if it has at least one bookable, non-past slot
   const isAvailable = (d) => {
     const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-    return daysData.some(day => day.date === dateStr && day.slots.some(s => s.booked < s.capacity));
+    const dayData = daysData.find(day => day.date === dateStr);
+    if (!dayData) return false;
+
+    const today = new Date();
+    const dateObj = new Date(calYear, calMonth, d);
+    const isToday = dateObj.toDateString() === today.toDateString();
+
+    return dayData.slots.some(s => {
+      if (s.booked >= s.capacity) return false; // full
+      if (isToday && isTimePast(s.time)) return false; // past time today
+      return true;
+    });
   };
 
   const prevMonth = () => {
