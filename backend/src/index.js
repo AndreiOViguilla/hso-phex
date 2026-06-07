@@ -18,17 +18,12 @@ async function start() {
   await connectDB();
   await seedSlots();
 
-  const allowedOrigins = [
-    "http://localhost:3000",
-    process.env.FRONTEND_URL,
-  ].filter(Boolean);
-
   app.use(cors({
-    origin: (origin, cb) => {
-      if (!origin || allowedOrigins.includes(origin)) cb(null, true);
-      else cb(new Error("Not allowed by CORS"));
-    },
-    credentials: true,  // required for cookies
+    origin: [
+      "http://localhost:3000",
+      process.env.FRONTEND_URL,
+    ].filter(Boolean),
+    credentials: true,
   }));
 
   app.use(express.json());
@@ -40,7 +35,7 @@ async function start() {
   app.use("/api/forms",        formRoutes);
   app.use("/api/hso",          hsoRoutes);
 
-  app.get("/api/health", (req, res) => res.json({ status: "ok", timestamp: new Date() }));
+  app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
   app.listen(PORT, () => console.log(`HSO PHEx backend running on port ${PORT}`));
 }

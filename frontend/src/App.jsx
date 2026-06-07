@@ -11,9 +11,7 @@ import DEFPage          from "./pages/DEFPage";
 import SuccessPage      from "./pages/SuccessPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 
-// All API calls go through here — handles both dev and production URL
-export const API = process.env.REACT_APP_API_URL || "";
-
+// All API calls use /api/ — Vercel proxies to Render backend (same domain = cookies work)
 function RequireAuth({ userData, authLoading, children }) {
   if (authLoading) return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, background: "#f0f2f5" }}>
@@ -47,8 +45,7 @@ function AppInner() {
   }, []);
 
   useEffect(() => {
-    // Verify session via httpOnly cookie — no localStorage needed
-    fetch(`${API}/api/students/me`, { credentials: "include" })
+    fetch("/api/students/me", { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
       .then(user => {
         if (user) {
@@ -60,7 +57,7 @@ function AppInner() {
       })
       .catch(() => { setAuthLoading(false); });
 
-    fetch(`${API}/api/appointments/mine`, { credentials: "include" })
+    fetch("/api/appointments/mine", { credentials: "include" })
       .then(r => r.ok ? r.json() : [])
       .then(bookings => {
         bookings.forEach(b => {
@@ -78,7 +75,7 @@ function AppInner() {
     setPhexBooking(null);
     setDtBooking(null);
     try {
-      const bookings = await fetch(`${API}/api/appointments/mine`, { credentials: "include" }).then(r => r.json());
+      const bookings = await fetch("/api/appointments/mine", { credentials: "include" }).then(r => r.json());
       bookings.forEach(b => {
         const booking = { date: b.appointmentDate, time: b.timeSlot, code: b.bookingCode };
         if (b.appointmentType === "phex") setPhexBooking(booking);
@@ -91,7 +88,7 @@ function AppInner() {
   };
 
   const handleLogout = async () => {
-    await fetch(`${API}/api/auth/logout`, { method: "POST", credentials: "include" });
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
     setStudentId(""); setSched(null);
     setPhexBooking(null); setDtBooking(null); setUserData(null);
     navigate("/");
@@ -106,32 +103,11 @@ function AppInner() {
         <Route path="/login" element={<LoginPage onBack={() => navigate("/")} onLogin={handleLogin} />} />
         <Route path="/guide" element={<BookingGuidePage onBack={() => navigate(-1)} />} />
         <Route path="/unauthorized" element={<UnauthorizedPage onBack={() => navigate("/")} />} />
-
-        <Route path="/schedule" element={
-          <RequireAuth userData={userData} authLoading={authLoading}>
-            <SchedulePage studentId={studentId} sched={sched} onBack={() => navigate("/")} onGuide={() => navigate("/guide")} onMEF={() => navigate("/mef")} onBookPHEx={() => openBooking("phex")} onBookDT={() => openBooking("dt")} onDEF={() => navigate("/def")} phexBooking={phexBooking} dtBooking={dtBooking} onLogout={handleLogout} />
-          </RequireAuth>
-        } />
-        <Route path="/booking" element={
-          <RequireAuth userData={userData} authLoading={authLoading}>
-            <BookingPage activity={bookActivity} studentId={studentId} onBack={() => navigate("/schedule")} onBooked={(booking) => { if (bookActivity === "phex") setPhexBooking(booking); else setDtBooking(booking); navigate("/schedule"); }} />
-          </RequireAuth>
-        } />
-        <Route path="/mef" element={
-          <RequireAuth userData={userData} authLoading={authLoading}>
-            <MEFPage prefillId={studentId} prefillFirstName={userData?.firstName || ""} prefillLastName={userData?.lastName || ""} prefillMI={userData?.middleInitial || ""} prefillGender={userData?.gender || ""} onBack={() => navigate("/schedule")} onSuccess={() => navigate("/schedule")} />
-          </RequireAuth>
-        } />
-        <Route path="/def" element={
-          <RequireAuth userData={userData} authLoading={authLoading}>
-            <DEFPage prefillId={studentId} prefillName={userData ? [userData.firstName, userData.middleInitial, userData.lastName].filter(Boolean).join(" ") : ""} onBack={() => navigate("/schedule")} onSuccess={() => navigate("/schedule")} />
-          </RequireAuth>
-        } />
-        <Route path="/success" element={
-          <RequireAuth userData={userData} authLoading={authLoading}>
-            <SuccessPage onHome={() => navigate("/schedule")} />
-          </RequireAuth>
-        } />
+        <Route path="/schedule" element={<RequireAuth userData={userData} authLoading={authLoading}><SchedulePage studentId={studentId} sched={sched} onBack={() => navigate("/")} onGuide={() => navigate("/guide")} onMEF={() => navigate("/mef")} onBookPHEx={() => openBooking("phex")} onBookDT={() => openBooking("dt")} onDEF={() => navigate("/def")} phexBooking={phexBooking} dtBooking={dtBooking} onLogout={handleLogout} /></RequireAuth>} />
+        <Route path="/booking" element={<RequireAuth userData={userData} authLoading={authLoading}><BookingPage activity={bookActivity} studentId={studentId} onBack={() => navigate("/schedule")} onBooked={(booking) => { if (bookActivity === "phex") setPhexBooking(booking); else setDtBooking(booking); navigate("/schedule"); }} /></RequireAuth>} />
+        <Route path="/mef" element={<RequireAuth userData={userData} authLoading={authLoading}><MEFPage prefillId={studentId} prefillFirstName={userData?.firstName || ""} prefillLastName={userData?.lastName || ""} prefillMI={userData?.middleInitial || ""} prefillGender={userData?.gender || ""} onBack={() => navigate("/schedule")} onSuccess={() => navigate("/schedule")} /></RequireAuth>} />
+        <Route path="/def" element={<RequireAuth userData={userData} authLoading={authLoading}><DEFPage prefillId={studentId} prefillName={userData ? [userData.firstName, userData.middleInitial, userData.lastName].filter(Boolean).join(" ") : ""} onBack={() => navigate("/schedule")} onSuccess={() => navigate("/schedule")} /></RequireAuth>} />
+        <Route path="/success" element={<RequireAuth userData={userData} authLoading={authLoading}><SuccessPage onHome={() => navigate("/schedule")} /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

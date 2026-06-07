@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { API } from "../App";
 
 const Logo = () => (
   <div style={{ width: 60, height: 60, borderRadius: "50%", background: "#eff6ff", border: "2px solid #bfdbfe", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
@@ -48,7 +47,7 @@ export default function LoginPage({ onLogin, onBack }) {
     if (password !== confirm)        { setError("Passwords do not match."); return; }
     setLoading(true);
     try {
-      const resp = await fetch(`${API}/api/auth/register`, {
+      const resp = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -69,7 +68,7 @@ export default function LoginPage({ onLogin, onBack }) {
     if (!password)             { setError("Enter your password."); return; }
     setLoading(true);
     try {
-      const resp = await fetch(`${API}/api/auth/login`, {
+      const resp = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

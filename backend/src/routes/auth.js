@@ -8,8 +8,8 @@ const JWT_SECRET = process.env.JWT_SECRET || "hso_phex_fallback_secret_2026";
 
 const COOKIE_OPTS = {
   httpOnly: true,
-  secure:   true,           // always HTTPS in production
-  sameSite: "none",         // cross-domain (Vercel → Render)
+  secure:   true,
+  sameSite: "lax",
   maxAge:   7 * 24 * 60 * 60 * 1000,
   path:     "/",
 };
@@ -61,7 +61,7 @@ router.post("/login", [
 });
 
 router.post("/logout", (req, res) => {
-  res.clearCookie("token", { path: "/", sameSite: "none", secure: true });
+  res.clearCookie("token", { path: "/" });
   res.json({ message: "Logged out" });
 });
 

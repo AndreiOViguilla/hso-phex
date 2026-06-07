@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { API } from "../App";
 import { useIsMobile } from "../utils/useIsMobile";
 import { NavBar } from "../components/UI";
 
@@ -99,7 +98,7 @@ function StepPicker({ activity, onSelect }) {
     const fetchDays = async () => {
       setDaysLoading(true);
       try {
-        const resp = await fetch(`${API}/api/appointments/days?type=${activity}`, {
+        const resp = await fetch(`/api/appointments/days?type=${activity}`, {
           credentials: "include",
         });
         if (resp.ok) {
@@ -296,7 +295,7 @@ function StepDetails({ activity, date, slot, onBack, onConfirm }) {
           const existing = await mineResp.json();
           const old = existing.find(b => b.appointmentType === activity);
           if (old) {
-            await fetch(`${API}/api/appointments/${old._id}`, {
+            await fetch(`/api/appointments/${old._id}`, {
               method: "DELETE",
               credentials: "include",
             });
