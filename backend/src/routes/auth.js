@@ -5,15 +5,6 @@ const { body, validationResult } = require("express-validator");
 const User     = require("../models/User");
 
 const JWT_SECRET = process.env.JWT_SECRET || "hso_phex_fallback_secret_2026";
-
-const COOKIE_OPTS = {
-  httpOnly: true,
-  secure:   true,
-  sameSite: "lax",
-  maxAge:   7 * 24 * 60 * 60 * 1000,
-  path:     "/",
-};
-
 const router = express.Router();
 
 router.post("/register", [
@@ -32,8 +23,7 @@ router.post("/register", [
     const passwordHash = await bcrypt.hash(password, 12);
     const user = await User.create({ studentId, email, passwordHash, firstName, middleInitial: middleInitial || "", lastName, gender: gender || "", college: college || "" });
     const token = jwt.sign({ id: user._id, studentId: user.studentId, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
-    res.cookie("token", token, COOKIE_OPTS);
-    res.status(201).json({ user: { id: user._id, studentId: user.studentId, email: user.email, firstName: user.firstName, middleInitial: user.middleInitial, lastName: user.lastName, gender: user.gender, college: user.college, role: user.role } });
+    res.status(201).json({ token, user: { id: user._id, studentId: user.studentId, email: user.email, firstName: user.firstName, middleInitial: user.middleInitial, lastName: user.lastName, gender: user.gender, college: user.college, role: user.role } });
   } catch (err) {
     if (err.code === 11000) { const field = Object.keys(err.keyPattern)[0]; return res.status(409).json({ error: field === "email" ? "Email already registered" : "Student ID already registered" }); }
     console.error(err); res.status(500).json({ error: "Registration failed" });
@@ -53,16 +43,12 @@ router.post("/login", [
     const isValid = await user.comparePassword(password);
     if (!isValid) return res.status(401).json({ error: "Incorrect password" });
     const token = jwt.sign({ id: user._id, studentId: user.studentId, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
-    res.cookie("token", token, COOKIE_OPTS);
-    res.json({ user: { id: user._id, studentId: user.studentId, email: user.email, firstName: user.firstName, middleInitial: user.middleInitial, lastName: user.lastName, gender: user.gender, college: user.college, role: user.role } });
+    res.json({ token, user: { id: user._id, studentId: user.studentId, email: user.email, firstName: user.firstName, middleInitial: user.middleInitial, lastName: user.lastName, gender: user.gender, college: user.college, role: user.role } });
   } catch (err) {
     console.error(err); res.status(500).json({ error: "Login failed" });
   }
 });
 
-router.post("/logout", (req, res) => {
-  res.clearCookie("token", { path: "/" });
-  res.json({ message: "Logged out" });
-});
+router.post("/logout", (req, res) => res.json({ message: "Logged out" }));
 
 module.exports = router;

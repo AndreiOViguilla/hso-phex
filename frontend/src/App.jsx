@@ -11,7 +11,11 @@ import DEFPage          from "./pages/DEFPage";
 import SuccessPage      from "./pages/SuccessPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 
-// All API calls use /api/ — Vercel proxies to Render backend (same domain = cookies work)
+export function getAuthHeader() {
+  const token = localStorage.getItem("token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 function RequireAuth({ userData, authLoading, children }) {
   if (authLoading) return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, background: "#f0f2f5" }}>
@@ -28,7 +32,6 @@ function RequireAuth({ userData, authLoading, children }) {
 
 function AppInner() {
   const navigate = useNavigate();
-
   const [studentId,    setStudentId]    = useState("");
   const [sched,        setSched]        = useState(null);
   const [bookActivity, setBookActivity] = useState("phex");
@@ -45,19 +48,24 @@ function AppInner() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/students/me", { credentials: "include" })
+    const token = localStorage.getItem("token");
+    if (!token) { setAuthLoading(false); return; }
+
+    fetch("/api/students/me", { headers: getAuthHeader() })
       .then(r => r.ok ? r.json() : null)
       .then(user => {
         if (user) {
           setUserData(user);
           setStudentId(user.studentId);
           setSched(getSchedule(user.studentId));
+        } else {
+          localStorage.removeItem("token");
         }
         setAuthLoading(false);
       })
       .catch(() => { setAuthLoading(false); });
 
-    fetch("/api/appointments/mine", { credentials: "include" })
+    fetch("/api/appointments/mine", { headers: getAuthHeader() })
       .then(r => r.ok ? r.json() : [])
       .then(bookings => {
         bookings.forEach(b => {
@@ -69,13 +77,14 @@ function AppInner() {
       .catch(() => {});
   }, []);
 
-  const handleLogin = async (id, user) => {
+  const handleLogin = async (id, user, token) => {
+    if (token) localStorage.setItem("token", token);
     setUserData(user);
     setStudentId(id);
     setPhexBooking(null);
     setDtBooking(null);
     try {
-      const bookings = await fetch("/api/appointments/mine", { credentials: "include" }).then(r => r.json());
+      const bookings = await fetch("/api/appointments/mine", { headers: getAuthHeader() }).then(r => r.json());
       bookings.forEach(b => {
         const booking = { date: b.appointmentDate, time: b.timeSlot, code: b.bookingCode };
         if (b.appointmentType === "phex") setPhexBooking(booking);
@@ -87,8 +96,8 @@ function AppInner() {
     else navigate("/");
   };
 
-  const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+  const handleLogout = () => {
+    localStorage.removeItem("token");
     setStudentId(""); setSched(null);
     setPhexBooking(null); setDtBooking(null); setUserData(null);
     navigate("/");

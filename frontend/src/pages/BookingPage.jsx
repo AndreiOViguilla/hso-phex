@@ -99,7 +99,7 @@ function StepPicker({ activity, onSelect }) {
       setDaysLoading(true);
       try {
         const resp = await fetch(`/api/appointments/days?type=${activity}`, {
-          credentials: "include",
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         });
         if (resp.ok) {
           const data = await resp.json();
@@ -289,7 +289,7 @@ function StepDetails({ activity, date, slot, onBack, onConfirm }) {
       try {
         // Cancel existing booking first (reschedule flow)
         const mineResp = await fetch("/api/appointments/mine", {
-          credentials: "include",
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         });
         if (mineResp.ok) {
           const existing = await mineResp.json();
@@ -297,7 +297,7 @@ function StepDetails({ activity, date, slot, onBack, onConfirm }) {
           if (old) {
             await fetch(`/api/appointments/${old._id}`, {
               method: "DELETE",
-              credentials: "include",
+              headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
             });
           }
         }
@@ -305,8 +305,7 @@ function StepDetails({ activity, date, slot, onBack, onConfirm }) {
         // Create new booking
         const resp = await fetch("/api/appointments", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` },
           body: JSON.stringify({
             appointmentType: activity,
             appointmentDate: dateStr,
@@ -429,8 +428,9 @@ export default function BookingPage({ activity = "phex", studentId, onBack, onBo
   useEffect(() => {
     const verify = async () => {
       try {
+        const token = localStorage.getItem("token");
         const resp = await fetch("/api/students/me", {
-          credentials: "include",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (resp.ok) {
           setAuthValid(true);
