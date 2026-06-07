@@ -2,14 +2,14 @@ const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET || "hso_phex_fallback_secret_2026";
 
 function authMiddleware(req, res, next) {
-  const token = req.cookies?.token
-    || (req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.split(" ")[1] : null);
+  // Read from httpOnly cookie
+  const token = req.cookies?.token;
   if (!token) return res.status(401).json({ error: "Not authenticated. Please log in." });
   try {
     req.user = jwt.verify(token, JWT_SECRET);
     next();
   } catch (err) {
-    if (res.clearCookie) res.clearCookie("token", { path: "/" });
+    res.clearCookie("token", { path: "/", sameSite: "none", secure: true });
     return res.status(401).json({ error: "Session expired. Please log in again." });
   }
 }
