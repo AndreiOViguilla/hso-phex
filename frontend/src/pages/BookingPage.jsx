@@ -323,9 +323,9 @@ function StepPicker({ activity, onSelect }) {
 }
 
 // ── Step 2: Enter details form ────────────────────────────────────────────────
-function StepDetails({ activity, date, slot, onBack, onConfirm }) {
+function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName, prefillLastName, prefillEmail }) {
   const act = ACTIVITIES[activity];
-  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", code: "" });
+  const [form, setForm] = useState({ firstName: prefillFirstName || "", lastName: prefillLastName || "", email: prefillEmail || "", code: "" });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const inp = { width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
@@ -471,7 +471,7 @@ function StepConfirmed({ activity, booking, onDone }) {
 }
 
 // ── Main BookingPage ──────────────────────────────────────────────────────────
-export default function BookingPage({ activity = "phex", studentId, onBack, onBooked }) {
+export default function BookingPage({ activity = "phex", studentId, prefillFirstName, prefillLastName, prefillEmail, onBack, onBooked }) {
   const [step, setStep]       = useState("pick");   // pick | details | confirmed
   const [date, setDate]       = useState(null);
   const [slot, setSlot]       = useState(null);
@@ -550,6 +550,9 @@ export default function BookingPage({ activity = "phex", studentId, onBack, onBo
             <StepDetails activity={activity} date={date} slot={slot}
               onBack={() => setStep("pick")}
               onConfirm={(b) => { setBooking(b); setStep("confirmed"); }}
+              prefillFirstName={prefillFirstName}
+              prefillLastName={prefillLastName}
+              prefillEmail={prefillEmail}
             />
           )}
           {step === "confirmed" && (
