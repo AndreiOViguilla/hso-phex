@@ -211,23 +211,33 @@ function StepPicker({ activity, onSelect }) {
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const d = i + 1;
             const date = new Date(calYear, calMonth, d);
+            // isAvailable already accounts for today's passed slots
+            // so if isAvailable is false AND date is today or past → orange
             const avail = isAvailable(d);
             const isPast = date < new Date(new Date().setHours(0,0,0,0));
+            const isToday = date.toDateString() === new Date().toDateString();
+            // A day is "used up" if it's past OR if it's today with no available slots left
+            const isPassedOrUsedUp = isPast || (isToday && !avail);
             const sel = selected && isSameDay(selected, date);
-            const clickable = avail && !isPast;
+            const clickable = avail && !isPassedOrUsedUp;
+
+            // Determine if this date existed in DB (was ever bookable)
+            const dateStr2 = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+            const wasInDB = daysData.some(day => day.date === dateStr2);
+
             return (
               <div key={d} style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "3px 0" }}>
                 <button onClick={() => { if (clickable) { setSelected(date); setPickedSlot(null); fetchSlots(date); } }}
                   style={{
-                    width: 36, height: 36, borderRadius: "50%", border: "none",
+                    width: 36, height: 36, borderRadius: "50%",
                     cursor: clickable ? "pointer" : "default",
-                    background: sel ? act.color : (avail && isPast) ? "#fff7ed" : (!isPast && avail) ? "#dbeafe" : "transparent",
-                    color: sel ? "#fff" : (avail && isPast) ? "#f97316" : (!isPast && avail) ? act.color : "#d1d5db",
+                    background: sel ? act.color : (wasInDB && isPassedOrUsedUp) ? "#fff7ed" : (avail && !isPassedOrUsedUp) ? "#dbeafe" : "transparent",
+                    color: sel ? "#fff" : (wasInDB && isPassedOrUsedUp) ? "#f97316" : (avail && !isPassedOrUsedUp) ? act.color : "#d1d5db",
                     fontWeight: clickable ? 700 : 400, fontSize: 14,
                     transition: "all 0.15s", flexShrink: 0,
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    opacity: isPast ? 0.5 : 1,
-                    border: (avail && isPast) ? "1.5px solid #fed7aa" : "none",
+                    opacity: isPassedOrUsedUp ? 0.5 : 1,
+                    border: (wasInDB && isPassedOrUsedUp) ? "1.5px solid #fed7aa" : "none",
                   }}>
                   {d}
                 </button>
