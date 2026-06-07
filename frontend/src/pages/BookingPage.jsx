@@ -234,25 +234,48 @@ function StepPicker({ activity, onSelect }) {
                 const isPicked = pickedSlot?.time === slot.time;
                 const isFull   = slot.full || slot.available <= 0;
                 const isLow    = !isFull && slot.available <= 3;
+
+                // Check if this time slot has already passed today
+                const isPastSlot = (() => {
+                  if (!selected) return false;
+                  const now = new Date();
+                  const selectedDate = new Date(selected);
+                  // If selected date is before today, all slots are past
+                  if (selectedDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) return true;
+                  // If selected date is today, check the time
+                  if (selectedDate.toDateString() === now.toDateString()) {
+                    const [timePart, ampm] = [slot.time.slice(0, -2), slot.time.slice(-2)];
+                    let [h, m] = timePart.split(":").map(Number);
+                    if (ampm === "pm" && h !== 12) h += 12;
+                    if (ampm === "am" && h === 12) h = 0;
+                    const slotTime = new Date();
+                    slotTime.setHours(h, m, 0, 0);
+                    return slotTime < now;
+                  }
+                  return false;
+                })();
+
+                const isDisabled = isFull || isPastSlot;
+
                 return (
                   <button key={i}
-                    disabled={isFull}
-                    onClick={() => { if (!isFull) { setPickedSlot(slot); onSelect(selected, slot); } }}
+                    disabled={isDisabled}
+                    onClick={() => { if (!isDisabled) { setPickedSlot(slot); onSelect(selected, slot); } }}
                     style={{
-                      border: `1.5px solid ${isFull ? "#e5e7eb" : isPicked ? act.color : act.color}`,
+                      border: `1.5px solid ${isDisabled ? "#e5e7eb" : isPicked ? act.color : act.color}`,
                       borderRadius: 8, padding: "10px 8px",
-                      background: isPicked ? act.color : isFull ? "#f3f4f6" : "#fff",
-                      color: isPicked ? "#fff" : isFull ? "#c4c4c4" : act.color,
-                      cursor: isFull ? "not-allowed" : "pointer",
+                      background: isPicked ? act.color : isDisabled ? "#f3f4f6" : "#fff",
+                      color: isPicked ? "#fff" : isDisabled ? "#c4c4c4" : act.color,
+                      cursor: isDisabled ? "not-allowed" : "pointer",
                       fontSize: 13, fontWeight: 600, textAlign: "center", transition: "all 0.15s",
-                      opacity: isFull ? 0.5 : 1,
+                      opacity: isDisabled ? 0.5 : 1,
                       position: "relative",
                     }}>
                     <div>{slot.time}</div>
-                    <div style={{ fontSize: 10, fontWeight: 400, marginTop: 2, color: isFull ? "#c4c4c4" : isLow ? "#ef4444" : isPicked ? "rgba(255,255,255,0.8)" : "#9ca3af" }}>
-                      {isFull ? "Full" : isLow ? `Only ${slot.available} left!` : `${slot.available} spots left`}
+                    <div style={{ fontSize: 10, fontWeight: 400, marginTop: 2, color: isDisabled ? "#c4c4c4" : isLow ? "#ef4444" : isPicked ? "rgba(255,255,255,0.8)" : "#9ca3af" }}>
+                      {isPastSlot ? "Passed" : isFull ? "Full" : isLow ? `Only ${slot.available} left!` : `${slot.available} spots left`}
                     </div>
-                    {isFull && (
+                    {isDisabled && (
                       <div style={{ position: "absolute", inset: 0, borderRadius: 7, background: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.03) 4px, rgba(0,0,0,0.03) 8px)" }} />
                     )}
                   </button>
