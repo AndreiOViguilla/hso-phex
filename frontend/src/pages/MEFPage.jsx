@@ -1,0 +1,452 @@
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useIsMobile } from "../utils/useIsMobile";
+import { NavBar, Btn } from "../components/UI";
+
+// Only student-fillable fields
+const EMPTY_FORM = {
+  idNumber:        "",
+  date:            new Date().toISOString().split("T")[0],
+  lastName:        "",
+  firstName:       "",
+  mi:              "",
+  gender:          "",
+  birthday:        "",
+  contact:         "",
+  college:         "",
+  academicYear:    "2025-2026",
+  emergencyName:   "",
+  emergencyRel:    "",
+  emergencyContact:"",
+  studentNameAuth: "",
+  studentAge:      "",
+};
+
+// Maps form state → exact AcroForm field names in the PDF
+function buildFieldMap(f) {
+  return {
+    "ID Number":          f.idNumber,
+    "Date":               f.date,
+    "Last Name":          f.lastName,
+    "First Name":         f.firstName,
+    "MI":                 f.mi,
+    "Birthday":           f.birthday,
+    "Contact Number":     f.contact,
+    "College Section":    f.college,
+    "Academic Year":      f.academicYear,
+    "Emergency Name":     f.emergencyName,
+    "Relationship":       f.emergencyRel,
+    "Emergency Contact":  f.emergencyContact,
+    "Student Name Auth":  f.studentNameAuth,
+    "Student Age":        f.studentAge,
+    // Checkboxes
+    "Gender Female":      f.gender === "Female" ? "Yes" : "Off",
+    "Gender Male":        f.gender === "Male"   ? "Yes" : "Off",
+  };
+}
+
+export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, prefillMI, prefillGender, onBack, onSuccess }) {
+  const isMobile    = useIsMobile();
+  const canvasRef   = useRef(null);
+  const pdfDocRef   = useRef(null);   // pdf.js doc for preview
+  const pdfBytesRef = useRef(null);   // raw bytes for pdf-lib download
+  const renderTimeout = useRef(null);
+
+  const [pdfReady,   setPdfReady]   = useState(false);
+  const [pdfError,   setPdfError]   = useState(false);
+  const [rendering,  setRendering]  = useState(false);
+  const [downloading,setDownloading]= useState(false);
+
+  const buildAuth = (fn, mi, ln) =>
+    fn && ln ? `${fn}${mi ? " " + mi : ""} ${ln}` : "";
+
+  const [form, setForm] = useState({
+    ...EMPTY_FORM,
+    idNumber:        prefillId        || "",
+    firstName:       prefillFirstName || "",
+    lastName:        prefillLastName  || "",
+    mi:              prefillMI        || "",
+    studentNameAuth: buildAuth(prefillFirstName, prefillMI, prefillLastName),
+  });
+
+  // Always sync prefill props into form when they change (DB data arrives async)
+  useEffect(() => {
+    setForm(f => ({
+      ...f,
+      idNumber:        prefillId        || f.idNumber,
+      firstName:       prefillFirstName || f.firstName,
+      lastName:        prefillLastName  || f.lastName,
+      mi:              prefillMI        || f.mi,
+      gender:          prefillGender    || f.gender,
+      studentNameAuth: prefillFirstName && prefillLastName
+        ? buildAuth(prefillFirstName, prefillMI, prefillLastName)
+        : f.studentNameAuth,
+    }));
+  }, [prefillId, prefillFirstName, prefillLastName, prefillMI, prefillGender]);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  // ── Load pdf.js + PDF bytes ──────────────────────────────────────────────
+  useEffect(() => {
+    const load = async () => {
+      try {
+        if (!window.pdfjsLib) {
+          await new Promise((res, rej) => {
+            const s = document.createElement("script");
+            s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+            s.onload = res; s.onerror = rej;
+            document.head.appendChild(s);
+          });
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+            "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+        }
+        const resp = await fetch("/medical-examination-form.pdf");
+        if (!resp.ok) throw new Error("not found");
+        const buf = await resp.arrayBuffer();
+        pdfBytesRef.current = buf.slice(0);  // keep copy for download
+        pdfDocRef.current = await window.pdfjsLib.getDocument({ data: buf }).promise;
+        setPdfReady(true);
+      } catch (e) {
+        setPdfError(true);
+      }
+    };
+    load();
+  }, []);
+
+  // ── Live preview: render PDF + overlay text ──────────────────────────────
+  const renderPreview = useCallback(async (f) => {
+    if (!pdfDocRef.current || !canvasRef.current) return;
+    setRendering(true);
+    try {
+      const page = await pdfDocRef.current.getPage(1);
+      const canvas = canvasRef.current;
+      const container = canvas.parentElement;
+      const dpr = window.devicePixelRatio || 1;
+      const previewPanel = container ? container.parentElement : null;
+      const panelW = (previewPanel ? previewPanel.clientWidth : container ? container.clientWidth : 700) - 24;
+      const pdfNatural = page.getViewport({ scale: 1 });
+
+      // Always fit to width — PDF scales with panel width, height is natural
+      // Minimum width of 280px so PDF never disappears on tiny screens
+      const fitWidth = Math.max(panelW, 280);
+      const fitScale = fitWidth / pdfNatural.width;
+
+      const renderScale = fitScale * Math.max(dpr, 2);
+      const viewport = page.getViewport({ scale: renderScale });
+
+      canvas.width  = viewport.width;
+      canvas.height = viewport.height;
+      canvas.style.width   = `${fitWidth}px`;
+      canvas.style.height  = `${pdfNatural.height * fitScale}px`;
+      canvas.style.display = "block";
+      canvas.style.margin  = "0 auto";
+
+      const ctx = canvas.getContext("2d");
+      await page.render({ canvasContext: ctx, viewport }).promise;
+
+      const s = renderScale; // includes DPR — use for all canvas drawing coords
+
+      // ── AcroForm field definitions (x, y, w, h at 1x PDF scale, top-left origin) ──
+      const TEXT_FIELDS = [
+        { name: "ID Number",          x: 88,  y: 103, w: 125, h: 11, value: f.idNumber        },
+        { name: "Date",               x: 458, y: 104, w: 90,  h: 11, value: f.date            },
+        { name: "Last Name",          x: 88,  y: 117, w: 125, h: 11, value: f.lastName        },
+        { name: "First Name",         x: 271, y: 116, w: 160, h: 11, value: f.firstName       },
+        { name: "MI",                 x: 449, y: 117, w: 99,  h: 11, value: f.mi              },
+        { name: "Birthday",           x: 237, y: 131, w: 70,  h: 11, value: f.birthday        },
+        { name: "Contact Number",     x: 400, y: 131, w: 150, h: 11, value: f.contact         },
+        { name: "College Section",    x: 161, y: 144, w: 210, h: 11, value: f.college         },
+        { name: "Academic Year",      x: 444, y: 145, w: 106, h: 10, value: f.academicYear    },
+        { name: "Emergency Name",     x: 221, y: 158, w: 145, h: 11, value: f.emergencyName   },
+        { name: "Relationship",       x: 435, y: 158, w: 115, h: 11, value: f.emergencyRel    },
+        { name: "Emergency Contact",  x: 182, y: 171, w: 367, h: 11, value: f.emergencyContact},
+        { name: "Student Name Auth",  x: 44,  y: 220, w: 109, h: 11, value: f.studentNameAuth },
+        { name: "Student Age",        x: 161, y: 220, w: 20,  h: 11, value: f.studentAge      },
+      ];
+      const CHECK_FIELDS = [
+        { name: "Gender Female", x: 89,  y: 134, w: 8, h: 8, checked: f.gender === "Female" },
+        { name: "Gender Male",   x: 141, y: 134, w: 8, h: 7, checked: f.gender === "Male"   },
+      ];
+
+      // ── Draw highlight boxes ──────────────────────────────────────────────
+      TEXT_FIELDS.forEach(({ x, y, w, h, value }) => {
+        // Highlight background
+        ctx.fillStyle = value ? "rgba(59,130,246,0.12)" : "rgba(59,130,246,0.06)";
+        ctx.fillRect(x * s, y * s, w * s, h * s);
+        // Border
+        ctx.strokeStyle = value ? "#3b82f6" : "rgba(59,130,246,0.4)";
+        ctx.lineWidth = value ? 1.5 * s : 0.8 * s;
+        ctx.strokeRect(x * s, y * s, w * s, h * s);
+        // Value text
+        if (value) {
+          ctx.fillStyle = "#1d4ed8";
+          ctx.font = `${7 * s}px Arial`;
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(x * s, y * s, w * s, h * s);
+          ctx.clip();
+          ctx.fillText(String(value), (x + 1.5) * s, (y + h - 2.5) * s);
+          ctx.restore();
+        }
+      });
+
+      CHECK_FIELDS.forEach(({ x, y, w, h, checked }) => {
+        // Highlight background
+        ctx.fillStyle = checked ? "rgba(59,130,246,0.2)" : "rgba(59,130,246,0.06)";
+        ctx.fillRect(x * s, y * s, w * s, h * s);
+        // Border
+        ctx.strokeStyle = "#3b82f6";
+        ctx.lineWidth = 1.5 * s;
+        ctx.strokeRect(x * s, y * s, w * s, h * s);
+        // Checkmark
+        if (checked) {
+          ctx.fillStyle = "#1d4ed8";
+          ctx.font = `bold ${8 * s}px Arial`;
+          ctx.fillText("✓", (x + 0.5) * s, (y + h - 0.5) * s);
+        }
+      });
+
+    } catch (e) {
+      console.error("Render error:", e);
+    }
+    setRendering(false);
+  }, []);
+
+  useEffect(() => {
+    if (!pdfReady) return;
+    clearTimeout(renderTimeout.current);
+    renderTimeout.current = setTimeout(() => renderPreview(form), 300);
+    return () => clearTimeout(renderTimeout.current);
+  }, [form, pdfReady, renderPreview]);
+
+  // Re-render on window resize so fit-to-page recalculates
+  useEffect(() => {
+    if (!pdfReady) return;
+    const onResize = () => {
+      clearTimeout(renderTimeout.current);
+      renderTimeout.current = setTimeout(() => renderPreview(form), 200);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [pdfReady, form, renderPreview]);
+
+  // ── Download: fill real AcroForm fields via pdf-lib ──────────────────────
+  const handleDownload = async () => {
+    if (!pdfBytesRef.current) return;
+    setDownloading(true);
+    try {
+      if (!window.PDFLib) {
+        await new Promise((res, rej) => {
+          const s = document.createElement("script");
+          s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js";
+          s.onload = res; s.onerror = rej;
+          document.head.appendChild(s);
+        });
+      }
+      const { PDFDocument } = window.PDFLib;
+      const pdfDoc  = await PDFDocument.load(pdfBytesRef.current.slice(0), {
+        ignoreEncryption: true,
+      });
+      const pdfForm = pdfDoc.getForm();
+      const fieldMap = buildFieldMap(form);
+
+      for (const [name, value] of Object.entries(fieldMap)) {
+        try {
+          if (value === "Yes" || value === "Off") {
+            const cb = pdfForm.getCheckBox(name);
+            value === "Yes" ? cb.check() : cb.uncheck();
+          } else {
+            const tf = pdfForm.getTextField(name);
+            tf.setText(value || "");
+            tf.enableReadOnly(); // lock after filling
+          }
+        } catch (_) {
+          // field not found or unsupported type — skip
+        }
+      }
+
+      // Flatten only the fields we filled — skip signature/unknown fields
+      try {
+        const fields = pdfForm.getFields();
+        fields.forEach(field => {
+          try {
+            // Only flatten text and checkbox fields
+            const type = field.constructor.name;
+            if (type === "PDFTextField" || type === "PDFCheckBox") {
+              field.enableReadOnly();
+            }
+          } catch (_) {}
+        });
+        pdfForm.flatten();
+      } catch (_) {
+        // If flatten fails entirely, save without flattening
+      }
+
+      const bytes = await pdfDoc.save({ updateFieldAppearances: false });
+      const blob  = new Blob([bytes], { type: "application/pdf" });
+      const url   = URL.createObjectURL(blob);
+      const a     = document.createElement("a");
+      a.href      = url;
+      a.download  = `MEF_${form.idNumber || "student"}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      onSuccess();
+    } catch (e) {
+      alert("Download failed: " + e.message);
+    }
+    setDownloading(false);
+  };
+
+  // ── Styles ────────────────────────────────────────────────────────────────
+  const inp = (extra) => ({
+    padding: "9px 12px", border: "1px solid #d1d5db", borderRadius: 8,
+    fontSize: 13, fontFamily: "inherit", outline: "none",
+    width: "100%", boxSizing: "border-box", ...extra,
+  });
+  const lbl = { fontSize: 12, fontWeight: 600, color: "#6b7280", display: "block", marginBottom: 4 };
+  const sec = { fontSize: 11, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1.5px solid #e5e7eb", paddingBottom: 8, marginBottom: 14 };
+  const fld = { display: "flex", flexDirection: "column", gap: 4 };
+  const c2  = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, marginBottom: 12 };
+  const c3  = { display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr) 54px", gap: 10, marginBottom: 12 };
+
+  // ── Form panel ────────────────────────────────────────────────────────────
+  const formPanel = (
+    <div style={{ overflowY: "auto", padding: isMobile ? "16px" : "24px 32px", flex: 1, minWidth: 0 }}>
+
+      {/* Student information */}
+      <div style={{ marginBottom: 22 }}>
+        <div style={sec}>Student information</div>
+        <div style={c2}>
+          <div style={fld}><label style={lbl}>ID number</label>
+            <input style={inp()} value={form.idNumber} onChange={e => set("idNumber", e.target.value)} placeholder="e.g. 12512345" />
+          </div>
+          <div style={fld}><label style={lbl}>Date</label>
+            <input type="date" style={inp()} value={form.date} onChange={e => set("date", e.target.value)} />
+          </div>
+        </div>
+        <div style={c3}>
+          <div style={fld}><label style={lbl}>Last name</label>
+            <input style={inp()} placeholder="Dela Cruz" value={form.lastName} onChange={e => set("lastName", e.target.value)} />
+          </div>
+          <div style={fld}><label style={lbl}>First name</label>
+            <input style={inp()} placeholder="Juan" value={form.firstName} onChange={e => set("firstName", e.target.value)} />
+          </div>
+          <div style={fld}><label style={lbl}>M.I.</label>
+            <input style={inp()} placeholder="A." value={form.mi} onChange={e => set("mi", e.target.value)} />
+          </div>
+        </div>
+        <div style={c2}>
+          <div style={fld}>
+            <label style={lbl}>Gender</label>
+            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+              {["Female", "Male"].map(g => (
+                <label key={g} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, fontWeight: 600, flex: 1, padding: "8px 12px", border: `1.5px solid ${form.gender === g ? "#1d4ed8" : "#d1d5db"}`, borderRadius: 8, background: form.gender === g ? "#eff6ff" : "#fff", color: form.gender === g ? "#1d4ed8" : "#374151", transition: "all 0.15s" }}>
+                  <input type="radio" name="mef-gender" checked={form.gender === g} onChange={() => set("gender", g)} style={{ accentColor: "#1d4ed8" }} />
+                  {g}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div style={fld}><label style={lbl}>Birthday</label>
+            <input type="date" style={inp()} onChange={e => set("birthday", e.target.value)} />
+          </div>
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <div style={fld}><label style={lbl}>Contact number</label>
+            <input style={inp()} placeholder="09XX-XXX-XXXX" onChange={e => set("contact", e.target.value)} />
+          </div>
+        </div>
+        <div style={c2}>
+          <div style={fld}><label style={lbl}>College / Section</label>
+            <input style={inp()} placeholder="CCS / BSCS" onChange={e => set("college", e.target.value)} />
+          </div>
+          <div style={fld}><label style={lbl}>Academic year</label>
+            <input style={inp()} value={form.academicYear} onChange={e => set("academicYear", e.target.value)} />
+          </div>
+        </div>
+      </div>
+
+      {/* Emergency contact */}
+      <div style={{ marginBottom: 22 }}>
+        <div style={sec}>Emergency contact</div>
+        <div style={c2}>
+          <div style={fld}><label style={lbl}>Person to notify</label>
+            <input style={inp()} placeholder="Full name" onChange={e => set("emergencyName", e.target.value)} />
+          </div>
+          <div style={fld}><label style={lbl}>Relationship</label>
+            <input style={inp()} placeholder="Parent" onChange={e => set("emergencyRel", e.target.value)} />
+          </div>
+        </div>
+        <div style={fld}><label style={lbl}>Emergency contact number</label>
+          <input style={inp()} placeholder="09XX-XXX-XXXX" onChange={e => set("emergencyContact", e.target.value)} />
+        </div>
+      </div>
+
+      {/* Authority to conduct */}
+      <div style={{ marginBottom: 22 }}>
+        <div style={sec}>Authority to conduct examination</div>
+        <div style={c2}>
+          <div style={fld}><label style={lbl}>Full name</label>
+            <input style={inp()} placeholder="Juan A. Dela Cruz" value={form.studentNameAuth} onChange={e => set("studentNameAuth", e.target.value)} />
+          </div>
+          <div style={fld}><label style={lbl}>Age</label>
+            <input style={inp()} placeholder="18" type="number" onChange={e => set("studentAge", e.target.value)} />
+          </div>
+        </div>
+        <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#6b7280", lineHeight: 1.7 }}>
+          "I accept and understand that I am required to undergo an offsite entrance physical examination, blood typing, drug test and chest x-ray to determine my fitness and well-being as a student…"
+        </div>
+      </div>
+
+      {/* Consent */}
+      <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 10, padding: "12px 14px", marginBottom: 18, fontSize: 12, color: "#0369a1", lineHeight: 1.7 }}>
+        By generating this form, you confirm you understand the examination requirements. Results are confidential and will be used for your care. Records are retained for 5 years.
+      </div>
+
+      <Btn variant="primary" onClick={handleDownload} style={{ opacity: downloading ? 0.7 : 1 }}>
+        {downloading ? "Generating PDF…" : "Generate & download MEF PDF →"}
+      </Btn>
+      <div style={{ height: 20 }} />
+    </div>
+  );
+
+  // ── Preview panel ─────────────────────────────────────────────────────────
+  const previewPanel = (
+    <div style={{ background: "#374151", display: "flex", flexDirection: "column", flex: 1, minHeight: 320, overflow: "hidden", position: isMobile ? "relative" : "sticky", top: isMobile ? "auto" : 0, height: isMobile ? "auto" : "calc(100vh - 56px)" }}>
+      <div style={{ background: "#1f2937", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "#d1d5db" }}>Live PDF preview</span>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {rendering  && <span style={{ fontSize: 11, color: "#9ca3af" }}>Updating…</span>}
+          {!pdfReady && !pdfError && <span style={{ fontSize: 11, color: "#9ca3af" }}>Loading…</span>}
+          {pdfError   && <span style={{ fontSize: 11, color: "#fca5a5" }}>PDF not found in /public</span>}
+          {pdfReady   && !rendering && <span style={{ fontSize: 11, color: "#6ee7b7" }}>AcroForm ready</span>}
+        </div>
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "12px" }}>
+        {pdfError ? (
+          <div style={{ color: "#d1d5db", fontSize: 13, padding: 20, lineHeight: 1.8 }}>
+            <strong>To enable preview:</strong><br /><br />
+            Place <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>medical-examination-form.pdf</code><br />
+            in your <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>public/</code> folder.
+          </div>
+        ) : (
+          <canvas ref={canvasRef} style={{ borderRadius: 4, display: "block" }} />
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+      <NavBar title="Medical Examination Form" sub="Fill left · See changes live on the right" onBack={onBack} />
+      <div style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", minHeight: 0, overflow: "hidden" }}>
+        {/* Form panel — scrollable */}
+        <div style={{ flex: isMobile ? "none" : "0 0 42%", minWidth: isMobile ? "none" : 380, maxWidth: isMobile ? "none" : 520, borderRight: isMobile ? "none" : "1px solid #e5e7eb", display: "flex", flexDirection: "column", overflowY: isMobile ? "visible" : "auto" }}>
+          {formPanel}
+        </div>
+        {/* Preview panel — sticky on desktop, shown below form on mobile */}
+        <div style={{ flex: 1, position: isMobile ? "relative" : "sticky", top: 0, height: isMobile ? "60vw" : "100%", minHeight: isMobile ? 280 : 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          {previewPanel}
+        </div>
+      </div>
+    </div>
+  );
+}

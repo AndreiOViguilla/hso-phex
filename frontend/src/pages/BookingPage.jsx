@@ -1,0 +1,506 @@
+import { useState, useEffect } from "react";
+import { useIsMobile } from "../utils/useIsMobile";
+import { NavBar } from "../components/UI";
+
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const DAYS   = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+
+// Generate time slots 8am–12nn and 1pm–6pm in 15min intervals
+function generateTimeLabels() {
+  const slots = [];
+  const add = (startH, endH) => {
+    for (let h = startH; h < endH; h++) {
+      for (let m = 0; m < 60; m += 15) {
+        const hour   = h > 12 ? h - 12 : h === 0 ? 12 : h;
+        const ampm   = h >= 12 ? "pm" : "am";
+        const minute = m === 0 ? "00" : m;
+        slots.push(`${hour}:${minute}${ampm}`);
+      }
+    }
+  };
+  add(8, 12);
+  add(13, 18);
+  return slots;
+}
+
+const TIME_LABELS = generateTimeLabels();
+
+// Available dates — Mon–Sat only, within the booking window
+function getAvailableDates(bookStart, bookEnd) {
+  const dates = [];
+  const cur = new Date(bookStart);
+  while (cur <= bookEnd) {
+    const day = cur.getDay();
+    if (day !== 0) dates.push(new Date(cur)); // exclude Sunday
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
+
+function getDaysInMonth(year, month) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function getFirstDayOfMonth(year, month) {
+  return new Date(year, month, 1).getDay();
+}
+
+function isSameDay(a, b) {
+  return a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+}
+
+const ACTIVITIES = {
+  phex: {
+    label:    "PHEx",
+    title:    "PHEX ID:125",
+    org:      "HSO PHEx Booking",
+    duration: "15 min",
+    venue:    "Waldo Perfecto Seminar Room",
+    color:    "#1e3a8a",
+    bookStart: new Date("2026-06-05"),
+    bookEnd:   new Date("2026-06-19"),
+  },
+  dt: {
+    label:    "Drug Test",
+    title:    "DRUG TEST ID:125",
+    org:      "HSO Drug Test Booking",
+    duration: "15 min",
+    venue:    "2nd Floor, Enrique Razon Sports Center (ERSC)",
+    color:    "#0f766e",
+    bookStart: new Date("2026-06-05"),
+    bookEnd:   new Date("2026-06-19"),
+  },
+};
+
+// ── Step 1: Calendar + time slot picker ──────────────────────────────────────
+function StepPicker({ activity, onSelect }) {
+  const act = ACTIVITIES[activity];
+  // available dates now come from daysData (DB) — kept for fallback only
+  const available = getAvailableDates(act.bookStart, act.bookEnd);
+  const today = new Date();
+
+  const [calYear,  setCalYear]  = useState(act.bookStart.getFullYear());
+  const [calMonth, setCalMonth] = useState(act.bookStart.getMonth());
+  const [selected, setSelected] = useState(null);
+  const [slots,    setSlots]    = useState([]);
+  const [slotsLoading] = useState(false); // slots load from daysData instantly
+  const [pickedSlot, setPickedSlot] = useState(null);
+
+  const [expandedDate, setExpandedDate] = useState(null);
+  const [daySlots, setDaySlots] = useState({}); // { "2026-06-08": [...slots] }
+  const [daysData, setDaysData] = useState([]);  // [{ date, totalSlots, bookedSlots, slots }]
+  const [daysLoading, setDaysLoading] = useState(false);
+
+  // Fetch all days summary on mount
+  useEffect(() => {
+    const fetchDays = async () => {
+      setDaysLoading(true);
+      try {
+        const resp = await fetch(`/api/appointments/days?type=${activity}`, {
+          credentials: "include",
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          setDaysData(data);
+        }
+      } catch (_) {}
+      setDaysLoading(false);
+    };
+    fetchDays();
+  }, [activity]);
+
+  // Load slots directly from daysData (already fetched) — no extra API call needed
+  const fetchSlots = (date) => {
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+    const dayData = daysData.find(d => d.date === dateStr);
+    if (dayData && dayData.slots) {
+      setSlots(dayData.slots.map(s => ({
+        time:      s.time,
+        capacity:  s.capacity,
+        booked:    s.booked,
+        available: s.capacity - s.booked,
+        full:      s.booked >= s.capacity,
+      })));
+    } else {
+      setSlots([]);
+    }
+  };
+
+  const daysInMonth = getDaysInMonth(calYear, calMonth);
+  const firstDay    = getFirstDayOfMonth(calYear, calMonth);
+
+  // Use dates from DB (daysData) instead of hardcoded available dates
+  const isAvailable = (d) => {
+    const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    return daysData.some(day => day.date === dateStr && day.slots.some(s => s.booked < s.capacity));
+  };
+
+  const prevMonth = () => {
+    if (calMonth === 0) { setCalYear(y => y - 1); setCalMonth(11); }
+    else setCalMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    if (calMonth === 11) { setCalYear(y => y + 1); setCalMonth(0); }
+    else setCalMonth(m => m + 1);
+  };
+
+  const isMobile = useIsMobile();
+
+  return (
+    <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 0, height: isMobile ? "auto" : 580 }}>
+      {/* Left info panel */}
+      <div style={{ width: isMobile ? "100%" : 220, padding: "24px 20px", borderRight: isMobile ? "none" : "1px solid #e5e7eb", borderBottom: isMobile ? "1px solid #e5e7eb" : "none", flexShrink: 0 }}>
+        <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>{act.org}</div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: act.color, marginBottom: 16 }}>{act.title}</div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, fontSize: 13, color: "#374151" }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          {act.duration}
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, color: "#374151" }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop: 1, flexShrink: 0 }}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          {act.venue}
+        </div>
+      </div>
+
+      {/* Calendar */}
+      <div style={{ flex: 1, padding: "24px 20px", borderRight: selected ? "1px solid #e5e7eb" : "none", minWidth: 0, overflowY: "auto" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#111827", marginBottom: 20 }}>Select a Date & Time</div>
+
+        {/* Month nav */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, marginBottom: 16 }}>
+          <button onClick={prevMonth} style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", fontSize: 18, padding: "4px 8px" }}>‹</button>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>{MONTHS[calMonth]} {calYear}</span>
+          <button onClick={nextMonth} style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", fontSize: 18, padding: "4px 8px" }}>›</button>
+        </div>
+
+        {/* Day headers */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 6 }}>
+          {DAYS.map(d => (
+            <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: "#9ca3af", padding: "4px 0" }}>{d}</div>
+          ))}
+        </div>
+
+        {/* Calendar grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+          {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
+          {Array.from({ length: daysInMonth }).map((_, i) => {
+            const d = i + 1;
+            const date = new Date(calYear, calMonth, d);
+            const avail = isAvailable(d);
+            const isPast = date < new Date(new Date().setHours(0,0,0,0));
+            const sel = selected && isSameDay(selected, date);
+            const clickable = avail && !isPast;
+            return (
+              <div key={d} style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "3px 0" }}>
+                <button onClick={() => { if (clickable) { setSelected(date); setPickedSlot(null); fetchSlots(date); } }}
+                  style={{
+                    width: 36, height: 36, borderRadius: "50%", border: "none",
+                    cursor: clickable ? "pointer" : "default",
+                    background: sel ? act.color : (avail && isPast) ? "#fff7ed" : (!isPast && avail) ? "#dbeafe" : "transparent",
+                    color: sel ? "#fff" : (avail && isPast) ? "#f97316" : (!isPast && avail) ? act.color : "#d1d5db",
+                    fontWeight: clickable ? 700 : 400, fontSize: 14,
+                    transition: "all 0.15s", flexShrink: 0,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    opacity: isPast ? 0.5 : 1,
+                    border: (avail && isPast) ? "1.5px solid #fed7aa" : "none",
+                  }}>
+                  {d}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Timezone */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 16, fontSize: 12, color: "#6b7280" }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          Time zone: Philippine Time (GMT+8)
+        </div>
+      </div>
+
+      {/* Time slots */}
+      {selected && (
+        <div style={{ width: isMobile ? "100%" : 210, padding: "16px", overflowY: "auto", height: isMobile ? 260 : "100%", flexShrink: 0, borderLeft: isMobile ? "none" : "1px solid #e5e7eb", borderTop: isMobile ? "1px solid #e5e7eb" : "none" }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginBottom: 12 }}>
+            {DAYS[selected.getDay()]}, {MONTHS[selected.getMonth()].slice(0,3)} {selected.getDate()}
+          </div>
+          {slotsLoading ? (
+            <div style={{ fontSize: 12, color: "#9ca3af", padding: "12px 0", textAlign: "center" }}>Loading slots…</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {slots.map((slot, i) => {
+                const isPicked = pickedSlot?.time === slot.time;
+                const isFull   = slot.full || slot.available <= 0;
+                const isLow    = !isFull && slot.available <= 3;
+                return (
+                  <button key={i}
+                    disabled={isFull}
+                    onClick={() => { if (!isFull) { setPickedSlot(slot); onSelect(selected, slot); } }}
+                    style={{
+                      border: `1.5px solid ${isFull ? "#e5e7eb" : isPicked ? act.color : act.color}`,
+                      borderRadius: 8, padding: "10px 8px",
+                      background: isPicked ? act.color : isFull ? "#f3f4f6" : "#fff",
+                      color: isPicked ? "#fff" : isFull ? "#c4c4c4" : act.color,
+                      cursor: isFull ? "not-allowed" : "pointer",
+                      fontSize: 13, fontWeight: 600, textAlign: "center", transition: "all 0.15s",
+                      opacity: isFull ? 0.5 : 1,
+                      position: "relative",
+                    }}>
+                    <div>{slot.time}</div>
+                    <div style={{ fontSize: 10, fontWeight: 400, marginTop: 2, color: isFull ? "#c4c4c4" : isLow ? "#ef4444" : isPicked ? "rgba(255,255,255,0.8)" : "#9ca3af" }}>
+                      {isFull ? "Full" : isLow ? `Only ${slot.available} left!` : `${slot.available} spots left`}
+                    </div>
+                    {isFull && (
+                      <div style={{ position: "absolute", inset: 0, borderRadius: 7, background: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.03) 4px, rgba(0,0,0,0.03) 8px)" }} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Step 2: Enter details form ────────────────────────────────────────────────
+function StepDetails({ activity, date, slot, onBack, onConfirm }) {
+  const act = ACTIVITIES[activity];
+  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", code: "" });
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const inp = { width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
+  const lbl = { fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 5 };
+  const isMobile = useIsMobile();
+
+  const dateStr = `${slot.time} – ${MONTHS[date.getMonth()].slice(0,3)} ${date.getDate()}, ${date.getFullYear()}`;
+
+  const handleSubmit = async () => {
+    if (!form.firstName || !form.lastName || !form.email) { alert("Please fill in all required fields."); return; }
+    if (!form.email.endsWith("@dlsu.edu.ph")) { alert("Please use your DLSU email (@dlsu.edu.ph)."); return; }
+
+    const token = localStorage.getItem("token");
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+
+    if (token) {
+      try {
+        // Cancel existing booking first (reschedule flow)
+        const mineResp = await fetch("/api/appointments/mine", {
+          credentials: "include",
+        });
+        if (mineResp.ok) {
+          const existing = await mineResp.json();
+          const old = existing.find(b => b.appointmentType === activity);
+          if (old) {
+            await fetch(`/api/appointments/${old._id}`, {
+              method: "DELETE",
+              credentials: "include",
+            });
+          }
+        }
+
+        // Create new booking
+        const resp = await fetch("/api/appointments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            appointmentType: activity,
+            appointmentDate: dateStr,
+            timeSlot:        slot.time,
+            bookingCode:     form.code,
+          }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) { alert(data.error || "Booking failed"); return; }
+      } catch {
+        // No backend — proceed as demo
+      }
+    }
+
+    onConfirm({ date: `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`, time: slot.time, code: form.code });
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", height: "100%" }}>
+      {/* Left summary */}
+      <div style={{ width: isMobile ? "100%" : 220, padding: "24px 20px", borderRight: isMobile ? "none" : "1px solid #e5e7eb", borderBottom: isMobile ? "1px solid #e5e7eb" : "none", flexShrink: 0 }}>
+        <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: act.color, fontSize: 20, padding: 0, marginBottom: 12 }}>←</button>
+        <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>{act.org}</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: act.color, marginBottom: 14 }}>{act.title}</div>
+        {[
+          { icon: "clock", text: act.duration },
+          { icon: "pin",   text: act.venue },
+          { icon: "cal",   text: dateStr },
+          { icon: "globe", text: "Philippine Time" },
+        ].map(({ icon, text }) => (
+          <div key={text} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 8, fontSize: 12, color: "#374151" }}>
+            {icon === "clock" && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop: 1, flexShrink: 0 }}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
+            {icon === "pin"   && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop: 1, flexShrink: 0 }}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>}
+            {icon === "cal"   && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop: 1, flexShrink: 0 }}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>}
+            {icon === "globe" && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop: 1, flexShrink: 0 }}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>}
+            <span>{text}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Details form */}
+      <div style={{ flex: 1, padding: "24px 24px", overflowY: "auto" }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#111827", marginBottom: 20 }}>Enter Details</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+          <div><label style={lbl}>First Name <span style={{ color: "#ef4444" }}>*</span></label><input style={inp} value={form.firstName} onChange={e => set("firstName", e.target.value)} /></div>
+          <div><label style={lbl}>Last Name <span style={{ color: "#ef4444" }}>*</span></label><input style={inp} value={form.lastName} onChange={e => set("lastName", e.target.value)} /></div>
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={lbl}>DLSU Email <span style={{ color: "#ef4444" }}>*</span></label>
+          <input style={inp} placeholder="yourname@dlsu.edu.ph" value={form.email} onChange={e => set("email", e.target.value)} />
+          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>Must be your DLSU email or you won't receive confirmation.</div>
+        </div>
+        <div style={{ marginBottom: 20 }}>
+          <label style={lbl}>Personal booking code <span style={{ color: "#ef4444" }}>*</span></label>
+          <input style={inp} placeholder="e.g. pikachu" value={form.code} onChange={e => set("code", e.target.value)} />
+          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4, lineHeight: 1.5 }}>Choose any word you'll remember. HSO uses this to cancel duplicate bookings.</div>
+        </div>
+        <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 16 }}>
+          By proceeding, you confirm that you have read and agree to the booking terms.
+        </div>
+        <button onClick={handleSubmit} style={{ background: act.color, color: "#fff", border: "none", borderRadius: 24, padding: "12px 28px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+          Schedule Event
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Step 3: Confirmation ──────────────────────────────────────────────────────
+function StepConfirmed({ activity, booking, onDone }) {
+  const act = ACTIVITIES[activity];
+  // booking = { date: "YYYY-MM-DD", time: "9:00am", code: "..." }
+  const d = new Date(booking.date + "T00:00:00");
+  const dateStr = `${booking.time} – ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", textAlign: "center" }}>
+      <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 800, color: "#111827", marginBottom: 8 }}>You are scheduled!</div>
+      <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 24 }}>A calendar invitation has been sent to your email address.</div>
+
+      <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, padding: "20px 24px", maxWidth: 340, width: "100%", textAlign: "left", marginBottom: 24 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: act.color, marginBottom: 12 }}>{act.title}</div>
+        {[
+          act.org,
+          dateStr,
+          "Philippine Time",
+          act.venue,
+        ].map((label, i) => (
+          <div key={i} style={{ fontSize: 13, color: "#374151", marginBottom: 6, display: "flex", gap: 8, alignItems: "flex-start" }}>
+            <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#9ca3af", marginTop: 5, flexShrink: 0 }} />
+            {label}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 10, padding: "12px 16px", maxWidth: 340, width: "100%", fontSize: 12, color: "#0369a1", marginBottom: 24, textAlign: "left" }}>
+        Show this confirmation email to the guard at the {act.label} station on your appointment day.
+      </div>
+
+      <button onClick={onDone} style={{ background: act.color, color: "#fff", border: "none", borderRadius: 10, padding: "13px 32px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+        Back to Schedule
+      </button>
+    </div>
+  );
+}
+
+// ── Main BookingPage ──────────────────────────────────────────────────────────
+export default function BookingPage({ activity = "phex", studentId, onBack, onBooked }) {
+  const [step, setStep]       = useState("pick");   // pick | details | confirmed
+  const [date, setDate]       = useState(null);
+  const [slot, setSlot]       = useState(null);
+  const [booking, setBooking] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authValid,   setAuthValid]   = useState(false);
+  const act = ACTIVITIES[activity];
+
+  // Verify JWT with backend on mount — prevents URL-bypass attempts
+  useEffect(() => {
+    const verify = async () => {
+      try {
+        const resp = await fetch("/api/students/me", {
+          credentials: "include",
+        });
+        if (resp.ok) {
+          setAuthValid(true);
+        } else {
+          localStorage.removeItem("user");
+          setAuthValid(false);
+        }
+      } catch {
+        setAuthValid(false);
+      }
+      setAuthChecked(true);
+    };
+    verify();
+  }, []);
+
+  // Auth gate
+  if (!authChecked) {
+    return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12 }}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "spin 0.8s linear infinite" }}>
+          <path d="M21 12a9 9 0 1 1-6.22-8.56"/>
+        </svg>
+        <div style={{ fontSize: 13, color: "#9ca3af" }}>Verifying session…</div>
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (!authValid) {
+    return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16, padding: 32 }}>
+        <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#111827" }}>Access denied</div>
+        <div style={{ fontSize: 13, color: "#6b7280", textAlign: "center", maxWidth: 300, lineHeight: 1.6 }}>
+          You must be signed in with a valid session to book an appointment. Please sign in and try again.
+        </div>
+        <button onClick={onBack} style={{ background: "#1d4ed8", color: "#fff", border: "none", borderRadius: 10, padding: "11px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+          Go back
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+      <NavBar
+        title={`Book ${act.label} Appointment`}
+        sub={studentId ? `ID: ${studentId}` : ""}
+        onBack={step === "details" ? () => setStep("pick") : onBack}
+      />
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "#fff", overflow: "hidden" }}>
+        <div style={{ flex: 1, overflow: "auto" }}>
+          {step === "pick" && (
+            <StepPicker activity={activity} onSelect={(d, s) => { setDate(d); setSlot(s); setStep("details"); }} />
+          )}
+          {step === "details" && (
+            <StepDetails activity={activity} date={date} slot={slot}
+              onBack={() => setStep("pick")}
+              onConfirm={(b) => { setBooking(b); setStep("confirmed"); }}
+            />
+          )}
+          {step === "confirmed" && (
+            <StepConfirmed activity={activity} booking={booking} onDone={() => { if (onBooked) onBooked(booking); else onBack(); }} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
