@@ -51,30 +51,36 @@ function AppInner() {
     const token = localStorage.getItem("token");
     if (!token) { setAuthLoading(false); return; }
 
-    fetch("/api/students/me", { headers: getAuthHeader() })
-      .then(r => r.ok ? r.json() : null)
-      .then(user => {
-        if (user) {
+    // Wait for both auth and bookings before rendering
+    const init = async () => {
+      try {
+        const [userResp, bookingsResp] = await Promise.all([
+          fetch("/api/students/me", { headers: getAuthHeader() }),
+          fetch("/api/appointments/mine", { headers: getAuthHeader() }),
+        ]);
+
+        if (userResp.ok) {
+          const user = await userResp.json();
           setUserData(user);
           setStudentId(user.studentId);
           setSched(getSchedule(user.studentId));
         } else {
           localStorage.removeItem("token");
         }
-        setAuthLoading(false);
-      })
-      .catch(() => { setAuthLoading(false); });
 
-    fetch("/api/appointments/mine", { headers: getAuthHeader() })
-      .then(r => r.ok ? r.json() : [])
-      .then(bookings => {
-        bookings.forEach(b => {
-          const booking = { date: b.appointmentDate, time: b.timeSlot, code: b.bookingCode };
-          if (b.appointmentType === "phex") setPhexBooking(booking);
-          if (b.appointmentType === "dt")   setDtBooking(booking);
-        });
-      })
-      .catch(() => {});
+        if (bookingsResp.ok) {
+          const bookings = await bookingsResp.json();
+          bookings.forEach(b => {
+            const booking = { date: b.appointmentDate, time: b.timeSlot, code: b.bookingCode };
+            if (b.appointmentType === "phex") setPhexBooking(booking);
+            if (b.appointmentType === "dt")   setDtBooking(booking);
+          });
+        }
+      } catch (_) {}
+      setAuthLoading(false);
+    };
+
+    init();
   }, []);
 
   const handleLogin = async (id, user, token) => {
