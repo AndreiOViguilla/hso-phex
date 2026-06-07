@@ -63,6 +63,27 @@ router.post("/", authMiddleware, async (req, res) => {
       error: `You already have a ${otherType.toUpperCase()} at ${timeSlot} on this day. Choose a different time.`
     });
 
+    // Backend check: reject past dates
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const apptDate = new Date(appointmentDate + "T00:00:00");
+    if (apptDate < today) {
+      return res.status(400).json({ error: "Cannot book a past date." });
+    }
+
+    // Backend check: reject past time slots for today
+    if (apptDate.toDateString() === new Date().toDateString()) {
+      const [timePart, ampm] = [timeSlot.slice(0, -2), timeSlot.slice(-2)];
+      let [h, m] = timePart.split(":").map(Number);
+      if (ampm === "pm" && h !== 12) h += 12;
+      if (ampm === "am" && h === 12) h = 0;
+      const slotTime = new Date();
+      slotTime.setHours(h, m, 0, 0);
+      if (slotTime < new Date()) {
+        return res.status(400).json({ error: "This time slot has already passed." });
+      }
+    }
+
     const Model = getModel(appointmentType);
 
     // Use $elemMatch with booked < capacity check (without $expr)
