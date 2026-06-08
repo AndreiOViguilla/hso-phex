@@ -357,17 +357,17 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
             </div>
           </div>
           <div style={fld}><label style={lbl}>Birthday</label>
-            <input type="date" style={inp()} onChange={e => set("birthday", e.target.value)} />
+            <input type="date" style={inp()} value={form.birthday} onChange={e => set("birthday", e.target.value)} />
           </div>
         </div>
         <div style={{ marginBottom: 12 }}>
           <div style={fld}><label style={lbl}>Contact number</label>
-            <input style={inp()} placeholder="09XX-XXX-XXXX" onChange={e => set("contact", e.target.value)} />
+            <input style={inp()} placeholder="09XX-XXX-XXXX" value={form.contact} onChange={e => set("contact", e.target.value)} />
           </div>
         </div>
         <div style={c2}>
           <div style={fld}><label style={lbl}>College / Section</label>
-            <input style={inp()} placeholder="CCS / BSCS" onChange={e => set("college", e.target.value)} />
+            <input style={inp()} placeholder="CCS / BSCS" value={form.college} onChange={e => set("college", e.target.value)} />
           </div>
           <div style={fld}><label style={lbl}>Academic year</label>
             <input style={inp()} value={form.academicYear} onChange={e => set("academicYear", e.target.value)} />
@@ -380,14 +380,14 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         <div style={sec}>Emergency contact</div>
         <div style={c2}>
           <div style={fld}><label style={lbl}>Person to notify</label>
-            <input style={inp()} placeholder="Full name" onChange={e => set("emergencyName", e.target.value)} />
+            <input style={inp()} placeholder="Full name" value={form.emergencyName} onChange={e => set("emergencyName", e.target.value)} />
           </div>
           <div style={fld}><label style={lbl}>Relationship</label>
-            <input style={inp()} placeholder="Parent" onChange={e => set("emergencyRel", e.target.value)} />
+            <input style={inp()} placeholder="Parent" value={form.emergencyRel} onChange={e => set("emergencyRel", e.target.value)} />
           </div>
         </div>
         <div style={fld}><label style={lbl}>Emergency contact number</label>
-          <input style={inp()} placeholder="09XX-XXX-XXXX" onChange={e => set("emergencyContact", e.target.value)} />
+          <input style={inp()} placeholder="09XX-XXX-XXXX" value={form.emergencyContact} onChange={e => set("emergencyContact", e.target.value)} />
         </div>
       </div>
 
@@ -399,7 +399,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
             <input style={inp()} placeholder="Juan A. Dela Cruz" value={form.studentNameAuth} onChange={e => set("studentNameAuth", e.target.value)} />
           </div>
           <div style={fld}><label style={lbl}>Age</label>
-            <input style={inp()} placeholder="18" type="number" onChange={e => set("studentAge", e.target.value)} />
+            <input style={inp()} placeholder="18" type="number" value={form.studentAge} onChange={e => set("studentAge", e.target.value)} />
           </div>
         </div>
         <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#6b7280", lineHeight: 1.7 }}>
