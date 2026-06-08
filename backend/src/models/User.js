@@ -19,6 +19,10 @@ const userSchema = new mongoose.Schema({
   dtResult:     { type: String, default: "" },
   // Checklist — which items student has checked off
   checklist:    { type: [String], default: [] },
+  // Progress tracking
+  filledMEF:    { type: Boolean, default: false },
+  filledDEF:    { type: Boolean, default: false },
+  currentStep:  { type: Number, default: 1, min: 1, max: 4 },
 }, { timestamps: true });
 
 userSchema.methods.comparePassword = function(password) {

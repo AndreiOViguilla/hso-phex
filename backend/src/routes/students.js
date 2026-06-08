@@ -32,18 +32,20 @@ router.put("/me", authMiddleware, async (req, res) => {
   }
 });
 
-// PUT /api/students/me/checklist — save checklist state
-router.put("/me/checklist", authMiddleware, async (req, res) => {
-  const { checklist } = req.body;
+// PUT /api/students/me/progress — save checklist + step + form progress
+router.put("/me/progress", authMiddleware, async (req, res) => {
+  const { checklist, filledMEF, filledDEF, currentStep } = req.body;
   try {
-    const user = await User.findByIdAndUpdate(
-      req.user.id,
-      { checklist },
-      { new: true }
-    ).select("-passwordHash");
+    const update = {};
+    if (checklist   !== undefined) update.checklist   = checklist;
+    if (filledMEF   !== undefined) update.filledMEF   = filledMEF;
+    if (filledDEF   !== undefined) update.filledDEF   = filledDEF;
+    if (currentStep !== undefined) update.currentStep = currentStep;
+    const user = await User.findByIdAndUpdate(req.user.id, update, { new: true }).select("-passwordHash");
     res.json(user);
   } catch (err) {
-    res.status(500).json({ error: "Failed to update checklist" });
+    console.error("PUT /me/progress error:", err.message);
+    res.status(500).json({ error: "Failed to update progress" });
   }
 });
 
