@@ -1,12 +1,9 @@
 // src/components/Modal.jsx
-// Universal modal system — import useModal and ModalProvider anywhere
-
 import { createContext, useContext, useState, useCallback } from "react";
 import { useTheme } from "../ThemeContext";
 
 const ModalContext = createContext(null);
 
-// ── Modal types ───────────────────────────────────────────────────────────────
 function getIcons(t) {
   return {
     error: (
@@ -66,20 +63,30 @@ function getConfirmColors(t) {
   };
 }
 
-// ── The actual modal UI ───────────────────────────────────────────────────────
-function ModalUI({ modal, onClose }) {
+// ── t is passed from ModalProvider which sits inside ThemeProvider ────────────
+function ModalUI({ modal, onClose, t }) {
   if (!modal) return null;
-  const { t } = useTheme();
   const { type = "info", title, message, confirmLabel = "OK", cancelLabel = "Cancel", onConfirm, showCancel = false } = modal;
   const ICONS = getIcons(t);
   const CONFIRM_COLORS = getConfirmColors(t);
 
   return (
     <div
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16 }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16 }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 18, padding: "32px 28px", maxWidth: 380, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.35)", textAlign: "center", animation: "modalIn 0.18s ease", fontFamily: "'DM Sans', 'Inter', sans-serif" }}>
+      <div style={{
+        background: t.card,
+        border: `1px solid ${t.cardBorder}`,
+        borderRadius: 18,
+        padding: "32px 28px",
+        maxWidth: 380,
+        width: "100%",
+        boxShadow: "0 24px 80px rgba(0,0,0,0.45)",
+        textAlign: "center",
+        animation: "modalIn 0.18s ease",
+        fontFamily: "'DM Sans', 'Inter', sans-serif",
+      }}>
         <style>{`@keyframes modalIn { from { opacity:0; transform:scale(0.93) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }`}</style>
 
         {ICONS[type]}
@@ -93,7 +100,8 @@ function ModalUI({ modal, onClose }) {
 
         <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
           {showCancel && (
-            <button onClick={onClose} style={{ flex: 1, padding: "11px 20px", border: `1.5px solid ${t.cardBorder}`, borderRadius: 10, background: t.card, color: t.text, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            <button onClick={onClose}
+              style={{ flex: 1, padding: "11px 20px", border: `1.5px solid ${t.cardBorder}`, borderRadius: 10, background: t.card, color: t.text, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
               {cancelLabel}
             </button>
           )}
@@ -108,13 +116,14 @@ function ModalUI({ modal, onClose }) {
   );
 }
 
-// ── Provider — wrap your app with this ───────────────────────────────────────
+// ── Provider — must be nested INSIDE ThemeProvider ────────────────────────────
 export function ModalProvider({ children }) {
   const [modal, setModal] = useState(null);
   const close = useCallback(() => setModal(null), []);
+  // useTheme() works here because ModalProvider sits inside ThemeProvider in your tree
+  const { t } = useTheme();
 
   const show = useCallback((options) => {
-    // If string passed, treat as error message
     if (typeof options === "string") {
       setModal({ type: "error", message: options });
       return;
@@ -125,12 +134,12 @@ export function ModalProvider({ children }) {
   return (
     <ModalContext.Provider value={{ show, close }}>
       {children}
-      <ModalUI modal={modal} onClose={close} />
+      {/* t is passed directly — no extra context hop needed */}
+      <ModalUI modal={modal} onClose={close} t={t} />
     </ModalContext.Provider>
   );
 }
 
-// ── Hook — use this anywhere inside ModalProvider ─────────────────────────────
 export function useModal() {
   return useContext(ModalContext);
 }
