@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useIsMobile } from "../utils/useIsMobile";
 import { NavBar, Btn } from "../components/UI";
+import { useTheme } from "../ThemeContext";
 
 const EMPTY_FORM = {
   name: "",
@@ -274,16 +275,16 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
   };
 
   const inp = (extra) => ({
-    padding: "9px 12px", border: "1px solid #d1d5db", borderRadius: 8,
+    padding: "9px 12px", border: `1px solid ${t.inputBorder}`, borderRadius: 8,
     fontSize: 13, fontFamily: "inherit", outline: "none",
-    width: "100%", boxSizing: "border-box", ...extra,
+    width: "100%", boxSizing: "border-box", background: t.input, color: t.text, ...extra,
   });
-  const lbl = { fontSize: 12, fontWeight: 600, color: "#6b7280", display: "block", marginBottom: 4 };
-  const sec = { fontSize: 11, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1.5px solid #e5e7eb", paddingBottom: 8, marginBottom: 14 };
+  const lbl = { fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 4 };
+  const sec = { fontSize: 11, fontWeight: 700, color: t.textSub, textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: `1.5px solid ${t.divider}`, paddingBottom: 8, marginBottom: 14 };
   const c2  = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 12, marginBottom: 12 };
 
   const formPanel = (
-    <div style={{ overflowY: "auto", padding: isMobile ? "16px" : "24px 32px", flex: 1 }}>
+    <div style={{ overflowY: "auto", padding: isMobile ? "16px" : "24px 32px", flex: 1, background: t.bg }}>
       <div style={{ marginBottom: 22 }}>
         <div style={sec}>Student information</div>
         <div style={c2}>
@@ -314,24 +315,24 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
         </div>
       </div>
 
-      <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 12, padding: "14px 16px", marginBottom: 22 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#0369a1", marginBottom: 6 }}>Dentist-filled section</div>
-        <div style={{ fontSize: 12, color: "#0369a1", lineHeight: 1.7 }}>
+      <div style={{ background: t.blueBg, border: `1px solid ${t.blue}44`, borderRadius: 12, padding: "14px 16px", marginBottom: 22 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: t.blueText, marginBottom: 6 }}>Dentist-filled section</div>
+        <div style={{ fontSize: 12, color: t.blueText, lineHeight: 1.7 }}>
           The rest of the Dental Examination Form — including General Condition checkboxes, the tooth chart, and Other Remarks — is completed by your <strong>assigned dentist</strong> during the examination. You only need to provide your name and ID number above.
         </div>
       </div>
 
-      <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 12, padding: "14px 16px", marginBottom: 22 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 8 }}>What to bring</div>
+      <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: "14px 16px", marginBottom: 22 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 8 }}>What to bring</div>
         {["This printed DEF form (or show this screen)", "Your student ID", "Your PHEx appointment confirmation"].map((item, i) => (
           <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 6 }}>
-            <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#1d4ed8", marginTop: 5, flexShrink: 0 }} />
-            <div style={{ fontSize: 13, color: "#374151" }}>{item}</div>
+            <div style={{ width: 5, height: 5, borderRadius: "50%", background: t.accent, marginTop: 5, flexShrink: 0 }} />
+            <div style={{ fontSize: 13, color: t.textSub }}>{item}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "12px 14px", marginBottom: 18, fontSize: 12, color: "#92400e", lineHeight: 1.7 }}>
+      <div style={{ background: t.orangeBg, border: `1px solid ${t.orange}44`, borderRadius: 10, padding: "12px 14px", marginBottom: 18, fontSize: 12, color: t.orangeText, lineHeight: 1.7 }}>
         Dental examination is part of the on-site PHEx. If using an accredited clinic, bring this DEF along with the MEF and request X-ray with dental exam.
       </div>
 
@@ -386,10 +387,10 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
   );
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, background: t.bg }}>
       <NavBar title="Dental Examination Form" sub="Click a field in the preview to jump to it" onBack={onBack} />
       <div style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", minHeight: 0, overflow: "hidden" }}>
-        <div style={{ flex: isMobile ? "none" : "0 0 42%", minWidth: isMobile ? "none" : 380, maxWidth: isMobile ? "none" : 520, borderRight: isMobile ? "none" : "1px solid #e5e7eb", display: "flex", flexDirection: "column", overflowY: isMobile ? "visible" : "auto" }}>
+        <div style={{ flex: isMobile ? "none" : "0 0 42%", minWidth: isMobile ? "none" : 380, maxWidth: isMobile ? "none" : 520, borderRight: isMobile ? "none" : `1px solid ${t.divider}`, display: "flex", flexDirection: "column", overflowY: isMobile ? "visible" : "auto" }}>
           {formPanel}
         </div>
         <div style={{ flex: 1, height: isMobile ? "60vw" : "100%", minHeight: isMobile ? 280 : 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>

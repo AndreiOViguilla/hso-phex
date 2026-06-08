@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTheme } from "../ThemeContext";
 import { useModal } from "../components/Modal";
 import { getAuthHeader } from "../App";
 
@@ -24,6 +25,7 @@ const EyeIcon = ({ open }) => open ? (
 
 export default function LoginPage({ onLogin, onBack }) {
   const { show } = useModal();
+  const { dark, t } = useTheme();
   const [tab,           setTab]           = useState("signin");
   const [idNumber,      setIdNumber]      = useState("");
   const [firstName,     setFirstName]     = useState("");
@@ -37,7 +39,7 @@ export default function LoginPage({ onLogin, onBack }) {
   const [showConf,      setShowConf]      = useState(false);
   const [loading,       setLoading]       = useState(false);
 
-  const inp = (extra) => ({ width: "100%", padding: "11px 14px", border: "1.5px solid #d1d5db", borderRadius: 8, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", background: "#fff", ...extra });
+  const inp = (extra) => ({ width: "100%", padding: "11px 14px", border: `1.5px solid ${t.inputBorder}`, borderRadius: 8, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", background: t.input, color: t.text, ...extra });
   const reset = () => {};
 
   const handleRegister = async () => {
@@ -86,17 +88,17 @@ export default function LoginPage({ onLogin, onBack }) {
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f0f2f5", display: "flex", flexDirection: "column", fontFamily: "'DM Sans','Inter',sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: t.bg, display: "flex", flexDirection: "column", fontFamily: "'DM Sans','Inter',sans-serif" }}>
       <div style={{ background: "#1e3a8a", padding: "12px 24px", display: "flex", alignItems: "center", gap: 10 }}>
         {onBack && <button onClick={onBack} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginRight: 4 }}>←</button>}
         <span style={{ color: "#fff", fontSize: 13, fontWeight: 600, letterSpacing: "0.04em" }}>DLSU · Health Services Office</span>
       </div>
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px" }}>
-        <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e5e7eb", padding: "36px 32px", width: "100%", maxWidth: 400 }}>
+        <div style={{ background: t.card, borderRadius: 16, border: `1px solid ${t.cardBorder}`, padding: "36px 32px", width: "100%", maxWidth: 400 }}>
           <Logo />
           <div style={{ textAlign: "center", marginBottom: 24 }}>
-            <div style={{ fontSize: 20, fontWeight: 800, color: "#111827", marginBottom: 4 }}>PHEx Portal</div>
-            <div style={{ fontSize: 13, color: "#6b7280" }}>AY 2025–2026 · Manila Campus</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: t.text, marginBottom: 4 }}>PHEx Portal</div>
+            <div style={{ fontSize: 13, color: t.textSub }}>AY 2025–2026 · Manila Campus</div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", background: "#f3f4f6", borderRadius: 10, padding: 4, marginBottom: 22, gap: 4 }}>
             {[["signin", "Sign in"], ["register", "Register"]].map(([key, label]) => (
@@ -106,11 +108,11 @@ export default function LoginPage({ onLogin, onBack }) {
 
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {tab === "register" && (<>
-              <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 5 }}>Student ID number</label><input style={inp()} placeholder="e.g. 12512345" value={idNumber} maxLength={10} onChange={e => setIdNumber(e.target.value)} /></div>
+              <div><label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>Student ID number</label><input style={inp()} placeholder="e.g. 12512345" value={idNumber} maxLength={10} onChange={e => setIdNumber(e.target.value)} /></div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 60px", gap: 10 }}>
-                <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 5 }}>First name</label><input style={inp()} placeholder="Juan" value={firstName} onChange={e => setFirstName(e.target.value)} /></div>
-                <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 5 }}>Last name</label><input style={inp()} placeholder="Dela Cruz" value={lastName} onChange={e => setLastName(e.target.value)} /></div>
-                <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 5 }}>M.I.</label><input style={inp()} placeholder="O." value={middleInitial} maxLength={3} onChange={e => setMiddleInitial(e.target.value)} /></div>
+                <div><label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>First name</label><input style={inp()} placeholder="Juan" value={firstName} onChange={e => setFirstName(e.target.value)} /></div>
+                <div><label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>Last name</label><input style={inp()} placeholder="Dela Cruz" value={lastName} onChange={e => setLastName(e.target.value)} /></div>
+                <div><label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>M.I.</label><input style={inp()} placeholder="O." value={middleInitial} maxLength={3} onChange={e => setMiddleInitial(e.target.value)} /></div>
               </div>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 8 }}>Gender</label>
@@ -119,15 +121,15 @@ export default function LoginPage({ onLogin, onBack }) {
                 </div>
               </div>
             </>)}
-            <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 5 }}>Email address</label><input style={inp()} placeholder="you@dlsu.edu.ph" type="email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && tab === "signin" && handleSignIn()} /></div>
+            <div><label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>Email address</label><input style={inp()} placeholder="you@dlsu.edu.ph" type="email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && tab === "signin" && handleSignIn()} /></div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 5 }}>Password</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>Password</label>
               <div style={{ position: "relative" }}>
                 <input style={inp({ paddingRight: 44 })} type={showPass ? "text" : "password"} placeholder="Enter your password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && tab === "signin" && handleSignIn()} />
                 <button onClick={() => setShowPass(v => !v)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4 }}><EyeIcon open={showPass} /></button>
               </div>
             </div>
-            {tab === "register" && (<div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 5 }}>Confirm password</label><div style={{ position: "relative" }}><input style={inp({ paddingRight: 44 })} type={showConf ? "text" : "password"} placeholder="Re-enter your password" value={confirm} onChange={e => setConfirm(e.target.value)} /><button onClick={() => setShowConf(v => !v)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4 }}><EyeIcon open={showConf} /></button></div></div>)}
+            {tab === "register" && (<div><label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>Confirm password</label><div style={{ position: "relative" }}><input style={inp({ paddingRight: 44 })} type={showConf ? "text" : "password"} placeholder="Re-enter your password" value={confirm} onChange={e => setConfirm(e.target.value)} /><button onClick={() => setShowConf(v => !v)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4 }}><EyeIcon open={showConf} /></button></div></div>)}
 
             {tab === "signin" && (<>
               <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "2px 0" }}><div style={{ flex: 1, height: 1, background: "#e5e7eb" }} /><span style={{ fontSize: 11, color: "#9ca3af", whiteSpace: "nowrap" }}>or continue with</span><div style={{ flex: 1, height: 1, background: "#e5e7eb" }} /></div>

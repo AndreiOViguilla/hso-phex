@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useIsMobile } from "../utils/useIsMobile";
 import { NavBar, Btn } from "../components/UI";
+import { useTheme } from "../ThemeContext";
 
 const EMPTY_FORM = {
   idNumber:        "",
@@ -68,6 +69,7 @@ const INPUT_ID_TO_FIELD = Object.fromEntries(
 
 export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, prefillMI, prefillGender, onBack, onSuccess }) {
   const isMobile    = useIsMobile();
+  const { dark, t } = useTheme();
   const canvasRef   = useRef(null);
   const pdfDocRef   = useRef(null);
   const pdfBytesRef = useRef(null);
@@ -413,14 +415,14 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     width: "100%", boxSizing: "border-box",
     ...extra,
   });
-  const lbl = { fontSize: 12, fontWeight: 600, color: "#6b7280", display: "block", marginBottom: 4 };
-  const sec = { fontSize: 11, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1.5px solid #e5e7eb", paddingBottom: 8, marginBottom: 14 };
+  const lbl = { fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 4 };
+  const sec = { fontSize: 11, fontWeight: 700, color: t.textSub, textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: `1.5px solid ${t.divider}`, paddingBottom: 8, marginBottom: 14 };
   const fld = { display: "flex", flexDirection: "column", gap: 4 };
   const c2  = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, marginBottom: 12 };
   const c3  = { display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr) 54px", gap: 10, marginBottom: 12 };
 
   const formPanel = (
-    <div style={{ overflowY: "auto", padding: isMobile ? "16px" : "24px 32px", flex: 1, minWidth: 0 }}>
+    <div style={{ overflowY: "auto", padding: isMobile ? "16px" : "24px 32px", flex: 1, minWidth: 0, background: t.bg }}>
       <div style={{ marginBottom: 22 }}>
         <div style={sec}>Student information</div>
         <div style={c2}>
@@ -449,7 +451,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
               {["Female", "Male"].map(g => (
                 <label key={g} id={`mef-gender-${g}`}
                   onClick={() => setHighlighted(`Gender ${g}`)}
-                  style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, fontWeight: 600, flex: 1, padding: "8px 12px", border: `1.5px solid ${form.gender === g ? "#1d4ed8" : "#d1d5db"}`, borderRadius: 8, background: form.gender === g ? "#eff6ff" : "#fff", color: form.gender === g ? "#1d4ed8" : "#374151", transition: "all 0.15s" }}>
+                  style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, fontWeight: 600, flex: 1, padding: "8px 12px", border: `1.5px solid ${form.gender === g ? t.accent : t.inputBorder}`, borderRadius: 8, background: form.gender === g ? t.accentBg : t.input, color: form.gender === g ? t.accent : t.text, transition: "all 0.15s" }}>
                   <input type="radio" name="mef-gender" checked={form.gender === g} onChange={() => set("gender", g)} style={{ accentColor: "#1d4ed8" }} />
                   {g}
                 </label>
@@ -500,12 +502,12 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
             <input id="mef-studentAge" style={inp()} onFocus={() => setHighlighted(INPUT_ID_TO_FIELD["mef-studentAge"])} onBlur={() => setHighlighted(null)} placeholder="18" type="number" value={form.studentAge} onChange={e => set("studentAge", e.target.value)} />
           </div>
         </div>
-        <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#6b7280", lineHeight: 1.7 }}>
+        <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 8, padding: "10px 12px", fontSize: 12, color: t.textSub, lineHeight: 1.7 }}>
           "I accept and understand that I am required to undergo an offsite entrance physical examination, blood typing, drug test and chest x-ray to determine my fitness and well-being as a student…"
         </div>
       </div>
 
-      <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 10, padding: "12px 14px", marginBottom: 18, fontSize: 12, color: "#0369a1", lineHeight: 1.7 }}>
+      <div style={{ background: t.blueBg, border: `1px solid ${t.blue}44`, borderRadius: 10, padding: "12px 14px", marginBottom: 18, fontSize: 12, color: t.blueText, lineHeight: 1.7 }}>
         By generating this form, you confirm you understand the examination requirements. Results are confidential and will be used for your care. Records are retained for 5 years.
       </div>
 
@@ -566,10 +568,10 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
   );
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, background: t.bg }}>
       <NavBar title="Medical Examination Form" sub="Click a field in the preview to jump to it" onBack={onBack} />
       <div style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", minHeight: 0, overflow: "hidden" }}>
-        <div style={{ flex: isMobile ? "none" : "0 0 42%", minWidth: isMobile ? "none" : 380, maxWidth: isMobile ? "none" : 520, borderRight: isMobile ? "none" : "1px solid #e5e7eb", display: "flex", flexDirection: "column", overflowY: isMobile ? "visible" : "auto" }}>
+        <div style={{ flex: isMobile ? "none" : "0 0 42%", minWidth: isMobile ? "none" : 380, maxWidth: isMobile ? "none" : 520, borderRight: isMobile ? "none" : `1px solid ${t.divider}`, display: "flex", flexDirection: "column", overflowY: isMobile ? "visible" : "auto" }}>
           {formPanel}
         </div>
         <div style={{ flex: 1, height: isMobile ? "60vw" : "100%", minHeight: isMobile ? 280 : 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>

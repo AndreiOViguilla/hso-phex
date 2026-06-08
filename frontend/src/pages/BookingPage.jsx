@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useModal } from "../components/Modal";
+import { useTheme } from "../ThemeContext";
 import { useIsMobile } from "../utils/useIsMobile";
 import { NavBar } from "../components/UI";
 
@@ -78,6 +79,7 @@ const ACTIVITIES = {
 // ── Step 1: Calendar + time slot picker ──────────────────────────────────────
 function StepPicker({ activity, onSelect }) {
   const act = ACTIVITIES[activity];
+  const { t } = useTheme();
   // available dates now come from daysData (DB) — kept for fallback only
   const available = getAvailableDates(act.bookStart, act.bookEnd);
   const today = new Date();
@@ -175,7 +177,7 @@ function StepPicker({ activity, onSelect }) {
   return (
     <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 0, height: isMobile ? "auto" : 580 }}>
       {/* Left info panel */}
-      <div style={{ width: isMobile ? "100%" : 220, padding: "24px 20px", borderRight: isMobile ? "none" : "1px solid #e5e7eb", borderBottom: isMobile ? "1px solid #e5e7eb" : "none", flexShrink: 0 }}>
+      <div style={{ width: isMobile ? "100%" : 220, padding: "24px 20px", borderRight: isMobile ? "none" : `1px solid ${t.cardBorder}`, borderBottom: isMobile ? `1px solid ${t.cardBorder}` : "none", flexShrink: 0, background: t.card }}>
         <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>{act.org}</div>
         <div style={{ fontSize: 20, fontWeight: 800, color: act.color, marginBottom: 16 }}>{act.title}</div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, fontSize: 13, color: "#374151" }}>
@@ -298,7 +300,7 @@ function StepPicker({ activity, onSelect }) {
                     style={{
                       border: `1.5px solid ${isDisabled ? "#e5e7eb" : isPicked ? act.color : act.color}`,
                       borderRadius: 8, padding: "10px 8px",
-                      background: isPicked ? act.color : isDisabled ? "#f3f4f6" : "#fff",
+                      background: isPicked ? act.color : isDisabled ? (t?.card || "#f3f4f6") : (t?.card || "#fff"),
                       color: isPicked ? "#fff" : isDisabled ? "#c4c4c4" : act.color,
                       cursor: isDisabled ? "not-allowed" : "pointer",
                       fontSize: 13, fontWeight: 600, textAlign: "center", transition: "all 0.15s",
@@ -326,12 +328,13 @@ function StepPicker({ activity, onSelect }) {
 // ── Step 2: Enter details form ────────────────────────────────────────────────
 function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName, prefillLastName, prefillEmail }) {
   const act = ACTIVITIES[activity];
+  const { t } = useTheme();
   const [form, setForm] = useState({ firstName: prefillFirstName || "", lastName: prefillLastName || "", email: prefillEmail || "", code: "" });
   const { show } = useModal();
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const inp = { width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
-  const lbl = { fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 5 };
+  const inp = { width: "100%", padding: "10px 12px", border: `1px solid ${t.inputBorder}`, borderRadius: 8, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", background: t.input, color: t.text };
+  const lbl = { fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 };
   const isMobile = useIsMobile();
 
   const dateStr = `${slot.time} – ${MONTHS[date.getMonth()].slice(0,3)} ${date.getDate()}, ${date.getFullYear()}`;
@@ -384,7 +387,7 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
   return (
     <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", height: "100%" }}>
       {/* Left summary */}
-      <div style={{ width: isMobile ? "100%" : 220, padding: "24px 20px", borderRight: isMobile ? "none" : "1px solid #e5e7eb", borderBottom: isMobile ? "1px solid #e5e7eb" : "none", flexShrink: 0 }}>
+      <div style={{ width: isMobile ? "100%" : 220, padding: "24px 20px", borderRight: isMobile ? "none" : `1px solid ${t.cardBorder}`, borderBottom: isMobile ? `1px solid ${t.cardBorder}` : "none", flexShrink: 0, background: t.card }}>
         <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: act.color, fontSize: 20, padding: 0, marginBottom: 12 }}>←</button>
         <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>{act.org}</div>
         <div style={{ fontSize: 18, fontWeight: 800, color: act.color, marginBottom: 14 }}>{act.title}</div>
@@ -474,6 +477,7 @@ function StepConfirmed({ activity, booking, onDone }) {
 
 // ── Main BookingPage ──────────────────────────────────────────────────────────
 export default function BookingPage({ activity = "phex", studentId, prefillFirstName, prefillLastName, prefillEmail, onBack, onBooked }) {
+  const { t } = useTheme();
   const [step, setStep]       = useState("pick");   // pick | details | confirmed
   const [date, setDate]       = useState(null);
   const [slot, setSlot]       = useState(null);
@@ -537,13 +541,13 @@ export default function BookingPage({ activity = "phex", studentId, prefillFirst
   }
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, background: t.bg }}>
       <NavBar
         title={`Book ${act.label} Appointment`}
         sub={studentId ? `ID: ${studentId}` : ""}
         onBack={step === "details" ? () => setStep("pick") : onBack}
       />
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "#fff", overflow: "hidden" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", background: t.card, overflow: "hidden" }}>
         <div style={{ flex: 1, overflow: "auto" }}>
           {step === "pick" && (
             <StepPicker activity={activity} onSelect={(d, s) => { setDate(d); setSlot(s); setStep("details"); }} />

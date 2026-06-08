@@ -1,18 +1,20 @@
+import { useTheme } from "../ThemeContext";
 import { useEffect, useState } from "react";
 
 export default function UnauthorizedPage({ onBack }) {
+  const { t } = useTheme();
   const [count, setCount] = useState(5);
 
   // Auto-redirect countdown
   useEffect(() => {
-    if (count <= 0) { onBack(); return; }
+    if (count <= 0) { onBack(); return; } // onBack goes to /
     const t = setTimeout(() => setCount(c => c - 1), 1000);
     return () => clearTimeout(t);
   }, [count, onBack]);
 
   return (
     <div style={{
-      minHeight: "100vh", background: "#f0f2f5",
+      minHeight: "100vh", background: t.bg,
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
       fontFamily: "'DM Sans','Inter',sans-serif",
@@ -21,7 +23,7 @@ export default function UnauthorizedPage({ onBack }) {
       {/* Icon */}
       <div style={{
         width: 80, height: 80, borderRadius: "50%",
-        background: "#fef2f2", border: "2px solid #fecaca",
+        background: t.redBg, border: `2px solid ${t.red}44`,
         display: "flex", alignItems: "center", justifyContent: "center",
         marginBottom: 24,
       }}>
@@ -32,17 +34,17 @@ export default function UnauthorizedPage({ onBack }) {
       </div>
 
       {/* Text */}
-      <div style={{ fontSize: 24, fontWeight: 800, color: "#111827", marginBottom: 8, textAlign: "center" }}>
+      <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 8, textAlign: "center" }}>
         Access Restricted
       </div>
-      <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 8, textAlign: "center", maxWidth: 340, lineHeight: 1.7 }}>
+      <div style={{ fontSize: 14, color: t.textSub, marginBottom: 8, textAlign: "center", maxWidth: 340, lineHeight: 1.7 }}>
         You need to be signed in to access this page. Please log in with your DLSU account first.
       </div>
 
       {/* Countdown */}
       <div style={{
-        background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10,
-        padding: "12px 20px", marginBottom: 28, fontSize: 13, color: "#6b7280",
+        background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 10,
+        padding: "12px 20px", marginBottom: 28, fontSize: 13, color: t.textSub,
         display: "flex", alignItems: "center", gap: 8,
       }}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -55,17 +57,17 @@ export default function UnauthorizedPage({ onBack }) {
       <button
         onClick={onBack}
         style={{
-          background: "#1d4ed8", color: "#fff", border: "none",
+          background: t.accentBtn, color: "#fff", border: "none",
           borderRadius: 10, padding: "13px 32px",
           fontSize: 14, fontWeight: 700, cursor: "pointer",
           fontFamily: "inherit",
         }}
       >
-        Go back now
+        Go to Home
       </button>
 
       {/* DLSU branding */}
-      <div style={{ marginTop: 40, fontSize: 12, color: "#9ca3af", textAlign: "center" }}>
+      <div style={{ marginTop: 40, fontSize: 12, color: t.textMuted, textAlign: "center" }}>
         DLSU · Health Services Office · PHEx Portal
       </div>
     </div>
