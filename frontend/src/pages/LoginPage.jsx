@@ -39,8 +39,40 @@ export default function LoginPage({ onLogin, onBack }) {
   const [showConf,      setShowConf]      = useState(false);
   const [loading,       setLoading]       = useState(false);
 
+  // Forgot modal state
+  const [forgotOpen,    setForgotOpen]    = useState(false); // false | "password" | "code"
+  const [forgotEmail,   setForgotEmail]   = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+
   const inp = (extra) => ({ width: "100%", padding: "11px 14px", border: `1.5px solid ${t.inputBorder}`, borderRadius: 8, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", background: t.input, color: t.text, ...extra });
   const reset = () => {};
+
+  const handleForgot = async (type) => {
+    if (!forgotEmail.includes("@")) {
+      show({ type: "error", message: "Enter a valid email address." });
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const endpoint = type === "password" ? "/api/auth/forgot-password" : "/api/auth/forgot-booking";
+      const resp = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        show({ type: "error", message: data.error || "Something went wrong." });
+      } else {
+        show({ type: "success", message: "Check your email!" });
+        setForgotOpen(false);
+        setForgotEmail("");
+      }
+    } catch {
+      show({ type: "error", message: "Could not connect to server." });
+    }
+    setForgotLoading(false);
+  };
 
   const handleRegister = async () => {
     reset();
@@ -89,7 +121,7 @@ export default function LoginPage({ onLogin, onBack }) {
 
   const ForgotModal = forgotOpen && (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16 }}
-      onClick={e => { if (e.target === e.currentTarget) setForgotOpen(false); }}>
+      onClick={e => { if (e.target === e.currentTarget) { setForgotOpen(false); setForgotEmail(""); } }}>
       <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 18, padding: "32px 28px", maxWidth: 380, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.22)", fontFamily: "'DM Sans',sans-serif" }}>
         <div style={{ fontSize: 17, fontWeight: 800, color: t.text, marginBottom: 6 }}>
           {forgotOpen === "password" ? "Forgot password?" : "Forgot booking code?"}
@@ -163,6 +195,13 @@ export default function LoginPage({ onLogin, onBack }) {
             {tab === "register" && (<div><label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>Confirm password</label><div style={{ position: "relative" }}><input style={inp({ paddingRight: 44 })} type={showConf ? "text" : "password"} placeholder="Re-enter your password" value={confirm} onChange={e => setConfirm(e.target.value)} /><button onClick={() => setShowConf(v => !v)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4 }}><EyeIcon open={showConf} /></button></div></div>)}
 
             {tab === "signin" && (<>
+              {/* Forgot password link */}
+              <div style={{ textAlign: "right", marginTop: -6 }}>
+                <button onClick={() => setForgotOpen("password")} style={{ background: "none", border: "none", color: "#1d4ed8", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", padding: 0 }}>
+                  Forgot password?
+                </button>
+              </div>
+
               <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "2px 0" }}><div style={{ flex: 1, height: 1, background: "#e5e7eb" }} /><span style={{ fontSize: 11, color: "#9ca3af", whiteSpace: "nowrap" }}>or continue with</span><div style={{ flex: 1, height: 1, background: "#e5e7eb" }} /></div>
               <button disabled title="Coming soon" style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #e5e7eb", borderRadius: 10, background: "#fafafa", cursor: "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, fontSize: 14, fontWeight: 600, color: "#9ca3af", fontFamily: "inherit" }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" style={{ flexShrink: 0 }}><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
@@ -176,6 +215,10 @@ export default function LoginPage({ onLogin, onBack }) {
           </div>
         </div>
       </div>
+
+      {/* Forgot password / booking code modal */}
+      {ForgotModal}
+
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
