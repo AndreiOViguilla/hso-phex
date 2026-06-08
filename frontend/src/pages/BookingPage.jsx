@@ -178,7 +178,7 @@ function StepPicker({ activity, onSelect }) {
     <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 0, height: isMobile ? "auto" : 580 }}>
       {/* Left info panel */}
       <div style={{ width: isMobile ? "100%" : 220, padding: "24px 20px", borderRight: isMobile ? "none" : `1px solid ${t.cardBorder}`, borderBottom: isMobile ? `1px solid ${t.cardBorder}` : "none", flexShrink: 0, background: t.card }}>
-        <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>{act.org}</div>
+        <div style={{ fontSize: 12, color: t.textSub, marginBottom: 4 }}>{act.org}</div>
         <div style={{ fontSize: 20, fontWeight: 800, color: act.color, marginBottom: 16 }}>{act.title}</div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, fontSize: 13, color: "#374151" }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -192,19 +192,19 @@ function StepPicker({ activity, onSelect }) {
 
       {/* Calendar */}
       <div style={{ flex: 1, padding: "24px 20px", borderRight: selected ? "1px solid #e5e7eb" : "none", minWidth: 0, overflowY: "auto" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#111827", marginBottom: 20 }}>Select a Date & Time</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: t.text, marginBottom: 20 }}>Select a Date & Time</div>
 
         {/* Month nav */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, marginBottom: 16 }}>
-          <button onClick={prevMonth} style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", fontSize: 18, padding: "4px 8px" }}>‹</button>
-          <span style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>{MONTHS[calMonth]} {calYear}</span>
-          <button onClick={nextMonth} style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", fontSize: 18, padding: "4px 8px" }}>›</button>
+          <button onClick={prevMonth} style={{ background: "none", border: "none", cursor: "pointer", color: t.textSub, fontSize: 18, padding: "4px 8px" }}>‹</button>
+          <span style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{MONTHS[calMonth]} {calYear}</span>
+          <button onClick={nextMonth} style={{ background: "none", border: "none", cursor: "pointer", color: t.textSub, fontSize: 18, padding: "4px 8px" }}>›</button>
         </div>
 
         {/* Day headers */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 6 }}>
           {DAYS.map(d => (
-            <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: "#9ca3af", padding: "4px 0" }}>{d}</div>
+            <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: t.textMuted, padding: "4px 0" }}>{d}</div>
           ))}
         </div>
 
@@ -235,7 +235,7 @@ function StepPicker({ activity, onSelect }) {
                     width: 36, height: 36, borderRadius: "50%",
                     cursor: clickable ? "pointer" : "default",
                     background: sel ? act.color : (wasInDB && isPassedOrUsedUp) ? "#fff7ed" : (avail && !isPassedOrUsedUp) ? "#dbeafe" : "transparent",
-                    color: sel ? "#fff" : (wasInDB && isPassedOrUsedUp) ? "#f97316" : (avail && !isPassedOrUsedUp) ? act.color : "#d1d5db",
+                    color: sel ? "#fff" : (wasInDB && isPassedOrUsedUp) ? "#f97316" : (avail && !isPassedOrUsedUp) ? act.color : t.textMuted,
                     fontWeight: clickable ? 700 : 400, fontSize: 14,
                     transition: "all 0.15s", flexShrink: 0,
                     display: "flex", alignItems: "center", justifyContent: "center",
@@ -250,7 +250,7 @@ function StepPicker({ activity, onSelect }) {
         </div>
 
         {/* Timezone */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 16, fontSize: 12, color: "#6b7280" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 16, fontSize: 12, color: t.textSub }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
           Time zone: Philippine Time (GMT+8)
         </div>
@@ -298,9 +298,9 @@ function StepPicker({ activity, onSelect }) {
                     disabled={isDisabled}
                     onClick={() => { if (!isDisabled) { setPickedSlot(slot); onSelect(selected, slot); } }}
                     style={{
-                      border: `1.5px solid ${isDisabled ? "#e5e7eb" : isPicked ? act.color : act.color}`,
+                      border: `1.5px solid ${isDisabled ? t.cardBorder : act.color}`,
                       borderRadius: 8, padding: "10px 8px",
-                      background: isPicked ? act.color : isDisabled ? (t?.card || "#f3f4f6") : (t?.card || "#fff"),
+                      background: isPicked ? act.color : isDisabled ? t.card : t.card,
                       color: isPicked ? "#fff" : isDisabled ? "#c4c4c4" : act.color,
                       cursor: isDisabled ? "not-allowed" : "pointer",
                       fontSize: 13, fontWeight: 600, textAlign: "center", transition: "all 0.15s",
@@ -389,7 +389,7 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
       {/* Left summary */}
       <div style={{ width: isMobile ? "100%" : 220, padding: "24px 20px", borderRight: isMobile ? "none" : `1px solid ${t.cardBorder}`, borderBottom: isMobile ? `1px solid ${t.cardBorder}` : "none", flexShrink: 0, background: t.card }}>
         <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: act.color, fontSize: 20, padding: 0, marginBottom: 12 }}>←</button>
-        <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>{act.org}</div>
+        <div style={{ fontSize: 12, color: t.textSub, marginBottom: 4 }}>{act.org}</div>
         <div style={{ fontSize: 18, fontWeight: 800, color: act.color, marginBottom: 14 }}>{act.title}</div>
         {[
           { icon: "clock", text: act.duration },
@@ -408,8 +408,8 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
       </div>
 
       {/* Details form */}
-      <div style={{ flex: 1, padding: "24px 24px", overflowY: "auto" }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: "#111827", marginBottom: 20 }}>Enter Details</div>
+      <div style={{ flex: 1, padding: "24px 24px", overflowY: "auto", background: t.bg }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: t.text, marginBottom: 20 }}>Enter Details</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
           <div><label style={lbl}>First Name <span style={{ color: "#ef4444" }}>*</span></label><input style={inp} value={form.firstName} onChange={e => set("firstName", e.target.value)} /></div>
           <div><label style={lbl}>Last Name <span style={{ color: "#ef4444" }}>*</span></label><input style={inp} value={form.lastName} onChange={e => set("lastName", e.target.value)} /></div>
@@ -424,7 +424,7 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
           <input style={inp} placeholder="e.g. pikachu" value={form.code} onChange={e => set("code", e.target.value)} />
           <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4, lineHeight: 1.5 }}>Choose any word you'll remember. HSO uses this to cancel duplicate bookings.</div>
         </div>
-        <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 16 }}>
           By proceeding, you confirm that you have read and agree to the booking terms.
         </div>
         <button onClick={handleSubmit} style={{ background: act.color, color: "#fff", border: "none", borderRadius: 24, padding: "12px 28px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
