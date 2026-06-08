@@ -206,7 +206,60 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     load();
   }, []);
 
-  // ── Live preview render ──────────────────────────────────────────────────
+  // Offscreen canvas holds the pure PDF render — never redrawn unless form/size changes
+  const offscreenRef = useRef(null);
+
+  const drawOverlay = useCallback((ctx, f, hl, s) => {
+    const fm = buildFieldMap(f);
+    TEXT_FIELDS.forEach(({ name, x, y, w, h }) => {
+      const value = fm[name];
+      const isHl  = hl === name;
+      ctx.fillStyle = isHl ? "rgba(59,130,246,0.28)" : value ? "rgba(59,130,246,0.12)" : "rgba(59,130,246,0.05)";
+      ctx.fillRect(x * s, y * s, w * s, h * s);
+      ctx.strokeStyle = isHl ? "#1d4ed8" : value ? "#3b82f6" : "rgba(59,130,246,0.35)";
+      ctx.lineWidth = isHl ? 2 * s : value ? 1.2 * s : 0.7 * s;
+      ctx.strokeRect(x * s, y * s, w * s, h * s);
+      if (value) {
+        ctx.fillStyle = "#1d4ed8";
+        ctx.font = `${7 * s}px Arial`;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x * s, y * s, w * s, h * s);
+        ctx.clip();
+        ctx.fillText(String(value), (x + 1.5) * s, (y + h - 2.5) * s);
+        ctx.restore();
+      }
+    });
+    CHECK_FIELDS.forEach(({ name, x, y, w, h }) => {
+      const checked = name === "Gender Female" ? f.gender === "Female" : f.gender === "Male";
+      const isHl = hl === name;
+      ctx.fillStyle = isHl ? "rgba(59,130,246,0.3)" : checked ? "rgba(59,130,246,0.18)" : "rgba(59,130,246,0.05)";
+      ctx.fillRect(x * s, y * s, w * s, h * s);
+      ctx.strokeStyle = isHl ? "#1d4ed8" : "#3b82f6";
+      ctx.lineWidth = isHl ? 2 * s : 1.2 * s;
+      ctx.strokeRect(x * s, y * s, w * s, h * s);
+      if (checked) {
+        ctx.fillStyle = "#1d4ed8";
+        ctx.font = `bold ${8 * s}px Arial`;
+        ctx.fillText("✓", (x + 0.5) * s, (y + h - 0.5) * s);
+      }
+    });
+  }, []);
+
+  // Composite: copy offscreen PDF + draw overlay — NO re-render of PDF
+  const composite = useCallback((f, hl) => {
+    const canvas = canvasRef.current;
+    const offscreen = offscreenRef.current;
+    if (!canvas || !offscreen) return;
+    const ctx = canvas.getContext("2d");
+    // Paste the frozen PDF render
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(offscreen, 0, 0);
+    // Draw overlay on top
+    drawOverlay(ctx, f, hl, scaleRef.current);
+  }, [drawOverlay]);
+
+  // Full render: render PDF to offscreen, then composite
   const renderPreview = useCallback(async (f, hl) => {
     if (!pdfDocRef.current || !canvasRef.current) return;
     setRendering(true);
@@ -224,6 +277,8 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       scaleRef.current = renderScale;
 
       const viewport = page.getViewport({ scale: renderScale });
+
+      // Size the visible canvas
       canvas.width  = viewport.width;
       canvas.height = viewport.height;
       canvas.style.width   = `${fitWidth}px`;
@@ -232,66 +287,28 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       canvas.style.margin  = "0 auto";
       canvas.style.cursor  = "pointer";
 
-      const ctx = canvas.getContext("2d");
-      await page.render({ canvasContext: ctx, viewport }).promise;
+      // Render PDF to offscreen canvas
+      const off = document.createElement("canvas");
+      off.width  = viewport.width;
+      off.height = viewport.height;
+      offscreenRef.current = off;
+      await page.render({ canvasContext: off.getContext("2d"), viewport }).promise;
 
-      const s = renderScale;
-
-      const getVal = (name) => buildFieldMap(f)[name];
-
-      TEXT_FIELDS.forEach(({ name, x, y, w, h }) => {
-        const value = getVal(name);
-        const isHl  = hl === name;
-        ctx.fillStyle = isHl ? "rgba(59,130,246,0.25)" : value ? "rgba(59,130,246,0.12)" : "rgba(59,130,246,0.06)";
-        ctx.fillRect(x * s, y * s, w * s, h * s);
-        ctx.strokeStyle = isHl ? "#1d4ed8" : value ? "#3b82f6" : "rgba(59,130,246,0.4)";
-        ctx.lineWidth = isHl ? 2 * s : value ? 1.5 * s : 0.8 * s;
-        ctx.strokeRect(x * s, y * s, w * s, h * s);
-        if (value) {
-          ctx.fillStyle = "#1d4ed8";
-          ctx.font = `${7 * s}px Arial`;
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(x * s, y * s, w * s, h * s);
-          ctx.clip();
-          ctx.fillText(String(value), (x + 1.5) * s, (y + h - 2.5) * s);
-          ctx.restore();
-        }
-        // Tooltip hint on highlighted
-        if (isHl) {
-          ctx.fillStyle = "#1d4ed8";
-          ctx.font = `bold ${6 * s}px Arial`;
-          ctx.fillText("▶ " + name, x * s, (y - 2) * s);
-        }
-      });
-
-      CHECK_FIELDS.forEach(({ name, x, y, w, h }) => {
-        const checked = name === "Gender Female" ? f.gender === "Female" : f.gender === "Male";
-        const isHl = hl === name;
-        ctx.fillStyle = isHl ? "rgba(59,130,246,0.3)" : checked ? "rgba(59,130,246,0.2)" : "rgba(59,130,246,0.06)";
-        ctx.fillRect(x * s, y * s, w * s, h * s);
-        ctx.strokeStyle = isHl ? "#1d4ed8" : "#3b82f6";
-        ctx.lineWidth = isHl ? 2 * s : 1.5 * s;
-        ctx.strokeRect(x * s, y * s, w * s, h * s);
-        if (checked) {
-          ctx.fillStyle = "#1d4ed8";
-          ctx.font = `bold ${8 * s}px Arial`;
-          ctx.fillText("✓", (x + 0.5) * s, (y + h - 0.5) * s);
-        }
-      });
-
+      // Composite onto visible canvas
+      composite(f, hl);
     } catch (e) { console.error("Render error:", e); }
     setRendering(false);
-  }, [TEXT_FIELDS, CHECK_FIELDS]);
+  }, [composite]);
 
+  // Re-render PDF only when form data or size changes
   useEffect(() => {
     if (!pdfReady) return;
     clearTimeout(renderTimeout.current);
     renderTimeout.current = setTimeout(() => renderPreview(form, highlighted), 300);
     return () => clearTimeout(renderTimeout.current);
-  }, [form, pdfReady, renderPreview]); // highlighted excluded — handled by separate overlay
+  }, [form, pdfReady, renderPreview]);
 
-  // Re-render on resize only
+  // Resize — full re-render needed
   useEffect(() => {
     if (!pdfReady) return;
     const onResize = () => {
@@ -302,25 +319,11 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     return () => window.removeEventListener("resize", onResize);
   }, [pdfReady, form, renderPreview]);
 
-  // Highlight changes — just redraw overlay on top of existing canvas without full re-render
+  // Highlight change — composite only, no PDF re-render = no flash
   useEffect(() => {
-    if (!pdfReady || !canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const s = scaleRef.current;
-    const ctx = canvas.getContext("2d");
-    // Redraw all field overlays with updated highlight — no page re-render
-    ALL_FIELDS.forEach(({ name, x, y, w, h }) => {
-      const isCheck = CHECK_FIELDS.some(f => f.name === name);
-      const isHl = highlighted === name;
-      const value = isCheck ? null : buildFieldMap(form)[name];
-      const checked = isCheck && (name === "Gender Female" ? form.gender === "Female" : form.gender === "Male");
-      ctx.fillStyle = isHl ? "rgba(59,130,246,0.25)" : (value || checked) ? "rgba(59,130,246,0.12)" : "rgba(59,130,246,0.06)";
-      ctx.fillRect(x * s, y * s, w * s, h * s);
-      ctx.strokeStyle = isHl ? "#1d4ed8" : "#3b82f6";
-      ctx.lineWidth = isHl ? 2 * s : 1 * s;
-      ctx.strokeRect(x * s, y * s, w * s, h * s);
-    });
-  }, [highlighted]);
+    if (!pdfReady) return;
+    composite(form, highlighted);
+  }, [highlighted, pdfReady, composite, form]);
 
   // ── Download ─────────────────────────────────────────────────────────────
   const handleDownload = async () => {
