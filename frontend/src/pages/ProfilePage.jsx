@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { getAuthHeader } from "../App";
+import { useModal } from "../components/Modal";
 import { useTheme } from "../ThemeContext";
 
 const COLLEGES = [
@@ -19,6 +20,7 @@ const COLLEGES = [
 
 export default function ProfilePage({ userData, onBack, onSaved }) {
   const { t } = useTheme();
+  const { show } = useModal();
 
   const [form, setForm] = useState({
     firstName:     userData?.firstName     || "",
@@ -32,8 +34,6 @@ export default function ProfilePage({ userData, onBack, onSaved }) {
   });
 
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState("");
-  const [error,   setError]   = useState("");
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -52,8 +52,8 @@ export default function ProfilePage({ userData, onBack, onSaved }) {
   };
 
   const handleSave = async () => {
-    if (!form.firstName || !form.lastName) { setError("First and last name are required."); return; }
-    setLoading(true); setError(""); setSuccess("");
+    if (!form.firstName || !form.lastName) { show({ type: "error", message: "First and last name are required." }); return; }
+    setLoading(true);
     try {
       const resp = await fetch("/api/students/me", {
         method: "PUT",
@@ -61,10 +61,10 @@ export default function ProfilePage({ userData, onBack, onSaved }) {
         body: JSON.stringify(form),
       });
       const data = await resp.json();
-      if (!resp.ok) { setError(data.error || "Failed to save"); setLoading(false); return; }
-      setSuccess("Profile saved!");
+      if (!resp.ok) { show({ type: "error", message: data.error || "Failed to save profile." }); setLoading(false); return; }
+      show({ type: "success", title: "Profile saved!", message: "Your profile has been updated successfully." });
       onSaved(data);
-    } catch { setError("Could not connect to server."); }
+    } catch { show({ type: "error", message: "Could not connect to server. Please try again." }); }
     setLoading(false);
   };
 
@@ -141,8 +141,6 @@ export default function ProfilePage({ userData, onBack, onSaved }) {
           </div>
         </div>
 
-        {error   && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#dc2626", marginBottom: 12 }}>{error}</div>}
-        {success && <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#16a34a", marginBottom: 12 }}>✓ {success}</div>}
 
         <button onClick={handleSave} disabled={loading} style={{ width: "100%", padding: "13px", background: loading ? "#93c5fd" : "#1d4ed8", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: loading ? "default" : "pointer", fontFamily: "inherit" }}>
           {loading ? "Saving…" : "Save changes"}

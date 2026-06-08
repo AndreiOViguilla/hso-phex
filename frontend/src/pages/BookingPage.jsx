@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useModal } from "../components/Modal";
 import { useIsMobile } from "../utils/useIsMobile";
 import { NavBar } from "../components/UI";
 
@@ -326,6 +327,7 @@ function StepPicker({ activity, onSelect }) {
 function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName, prefillLastName, prefillEmail }) {
   const act = ACTIVITIES[activity];
   const [form, setForm] = useState({ firstName: prefillFirstName || "", lastName: prefillLastName || "", email: prefillEmail || "", code: "" });
+  const { show } = useModal();
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const inp = { width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
@@ -335,8 +337,8 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
   const dateStr = `${slot.time} – ${MONTHS[date.getMonth()].slice(0,3)} ${date.getDate()}, ${date.getFullYear()}`;
 
   const handleSubmit = async () => {
-    if (!form.firstName || !form.lastName || !form.email) { alert("Please fill in all required fields."); return; }
-    if (!form.email.endsWith("@dlsu.edu.ph")) { alert("Please use your DLSU email (@dlsu.edu.ph)."); return; }
+    if (!form.firstName || !form.lastName || !form.email) { show({ type: "error", message: "Please fill in all required fields." }); return; }
+    if (!form.email.endsWith("@dlsu.edu.ph")) { show({ type: "warning", title: "DLSU email required", message: "Please use your DLSU email address (@dlsu.edu.ph). You won't receive confirmation without it." }); return; }
 
     const token = localStorage.getItem("token");
     const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
@@ -370,7 +372,7 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
           }),
         });
         const data = await resp.json();
-        if (!resp.ok) { alert(data.error || "Booking failed"); return; }
+        if (!resp.ok) { show({ type: "error", message: data.error || "Booking failed. Please try again." }); return; }
       } catch {
         // No backend — proceed as demo
       }

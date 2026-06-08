@@ -12,6 +12,7 @@ import SuccessPage      from "./pages/SuccessPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import ProfilePage      from "./pages/ProfilePage";
 import { ThemeProvider } from "./ThemeContext";
+import { ModalProvider } from "./components/Modal";
 
 export function getAuthHeader() {
   const token = localStorage.getItem("token");
@@ -139,7 +140,9 @@ function AppInner() {
 export default function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter><AppInner /></BrowserRouter>
+      <ModalProvider>
+        <BrowserRouter><AppInner /></BrowserRouter>
+      </ModalProvider>
     </ThemeProvider>
   );
 }

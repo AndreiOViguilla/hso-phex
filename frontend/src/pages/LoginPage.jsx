@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useModal } from "../components/Modal";
 import { getAuthHeader } from "../App";
 
 const Logo = () => (
@@ -22,6 +23,7 @@ const EyeIcon = ({ open }) => open ? (
 );
 
 export default function LoginPage({ onLogin, onBack }) {
+  const { show } = useModal();
   const [tab,           setTab]           = useState("signin");
   const [idNumber,      setIdNumber]      = useState("");
   const [firstName,     setFirstName]     = useState("");
@@ -33,19 +35,17 @@ export default function LoginPage({ onLogin, onBack }) {
   const [confirm,       setConfirm]       = useState("");
   const [showPass,      setShowPass]      = useState(false);
   const [showConf,      setShowConf]      = useState(false);
-  const [error,         setError]         = useState("");
-  const [success,       setSuccess]       = useState("");
   const [loading,       setLoading]       = useState(false);
 
   const inp = (extra) => ({ width: "100%", padding: "11px 14px", border: "1.5px solid #d1d5db", borderRadius: 8, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", background: "#fff", ...extra });
-  const reset = () => { setError(""); setSuccess(""); };
+  const reset = () => {};
 
   const handleRegister = async () => {
     reset();
-    if (idNumber.trim().length < 7) { setError("Enter a valid student ID (7+ digits)."); return; }
-    if (!email.includes("@"))        { setError("Enter a valid email address."); return; }
-    if (password.length < 6)         { setError("Password must be at least 6 characters."); return; }
-    if (password !== confirm)        { setError("Passwords do not match."); return; }
+    if (idNumber.trim().length < 7) { show({ type: "error", message: "Enter a valid student ID (7+ digits)." }); return; }
+    if (!email.includes("@"))        { show({ type: "error", message: "Enter a valid email address." }); return; }
+    if (password.length < 6)         { show({ type: "error", message: "Password must be at least 6 characters." }); return; }
+    if (password !== confirm)        { show({ type: "error", message: "Passwords do not match." }); return; }
     setLoading(true);
     try {
       const resp = await fetch("/api/auth/register", {
@@ -53,17 +53,17 @@ export default function LoginPage({ onLogin, onBack }) {
         body: JSON.stringify({ studentId: idNumber.trim(), email, password, firstName: firstName.trim() || email.split("@")[0], lastName: lastName.trim() || "-", middleInitial: middleInitial.trim(), gender }),
       });
       const data = await resp.json();
-      if (!resp.ok) { setError(data.error || data.errors?.[0]?.msg || "Registration failed"); setLoading(false); return; }
-      setSuccess("Account created! You can now sign in.");
+      if (!resp.ok) { show({ type: "error", message: data.error || data.errors?.[0]?.msg || "Registration failed" }); setLoading(false); return; }
+      show({ type: "success", title: "Account created!", message: "Your account has been created. You can now sign in." });
       setTab("signin"); setPassword(""); setConfirm("");
-    } catch { setError("Could not connect to server."); }
+    } catch { show({ type: "error", message: "Could not connect to server. Please try again." }); }
     setLoading(false);
   };
 
   const handleSignIn = async () => {
     reset();
-    if (!email.includes("@")) { setError("Enter your email address."); return; }
-    if (!password)             { setError("Enter your password."); return; }
+    if (!email.includes("@")) { show({ type: "error", message: "Enter your email address." }); return; }
+    if (!password)             { show({ type: "error", message: "Enter your password." }); return; }
     setLoading(true);
     try {
       const resp = await fetch("/api/auth/login", {
@@ -71,11 +71,11 @@ export default function LoginPage({ onLogin, onBack }) {
         body: JSON.stringify({ email, password }),
       });
       const data = await resp.json();
-      if (!resp.ok) { setError(data.error || "Login failed"); setLoading(false); return; }
+      if (!resp.ok) { show({ type: "error", message: data.error || "Login failed" }); setLoading(false); return; }
       localStorage.setItem("token", data.token);
       setLoading(false);
       onLogin(data.user.studentId, data.user, data.token);
-    } catch { setError("Could not connect to server."); setLoading(false); }
+    } catch { show({ type: "error", message: "Could not connect to server. Please try again." }); setLoading(false); }
   };
 
   const submitBtn = (label) => (
@@ -103,7 +103,7 @@ export default function LoginPage({ onLogin, onBack }) {
               <button key={key} onClick={() => { setTab(key); reset(); }} style={{ padding: "9px", borderRadius: 8, border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s", background: tab === key ? "#fff" : "transparent", color: tab === key ? "#111827" : "#6b7280", boxShadow: tab === key ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>{label}</button>
             ))}
           </div>
-          {success && (<div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#16a34a", marginBottom: 14, display: "flex", gap: 6, alignItems: "center" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>{success}</div>)}
+
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {tab === "register" && (<>
               <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 5 }}>Student ID number</label><input style={inp()} placeholder="e.g. 12512345" value={idNumber} maxLength={10} onChange={e => setIdNumber(e.target.value)} /></div>
@@ -128,7 +128,7 @@ export default function LoginPage({ onLogin, onBack }) {
               </div>
             </div>
             {tab === "register" && (<div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 5 }}>Confirm password</label><div style={{ position: "relative" }}><input style={inp({ paddingRight: 44 })} type={showConf ? "text" : "password"} placeholder="Re-enter your password" value={confirm} onChange={e => setConfirm(e.target.value)} /><button onClick={() => setShowConf(v => !v)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4 }}><EyeIcon open={showConf} /></button></div></div>)}
-            {error && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#dc2626" }}>{error}</div>}
+
             {tab === "signin" && (<>
               <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "2px 0" }}><div style={{ flex: 1, height: 1, background: "#e5e7eb" }} /><span style={{ fontSize: 11, color: "#9ca3af", whiteSpace: "nowrap" }}>or continue with</span><div style={{ flex: 1, height: 1, background: "#e5e7eb" }} /></div>
               <button disabled title="Coming soon" style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #e5e7eb", borderRadius: 10, background: "#fafafa", cursor: "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, fontSize: 14, fontWeight: 600, color: "#9ca3af", fontFamily: "inherit" }}>

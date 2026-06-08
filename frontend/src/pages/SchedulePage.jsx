@@ -4,6 +4,7 @@ import { useIsMobile } from "../utils/useIsMobile";
 import { NavBar, Badge, Card, SectionLabel, Btn } from "../components/UI";
 import { useTheme } from "../ThemeContext";
 import { getAuthHeader } from "../App";
+import { useModal } from "../components/Modal";
 
 const IconLocation = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
@@ -90,30 +91,7 @@ function formatBookingDate(dateStr) {
   return d.toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 }
 
-function RescheduleModal({ type, bookingCode, onClose, onConfirm }) {
-  const [code, setCode] = useState("");
-  const [error, setError] = useState("");
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
-      <div style={{ background: "#fff", borderRadius: 14, padding: "24px", maxWidth: 360, width: "100%" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#111827", marginBottom: 6 }}>Change {type} Appointment</div>
-        <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 16, lineHeight: 1.6 }}>Enter your personal booking code to verify and reschedule.</div>
-        <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 5 }}>Booking code</label>
-        <input placeholder="e.g. pikachu" value={code} onChange={e => setCode(e.target.value)}
-          style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #d1d5db", borderRadius: 8, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", marginBottom: 8 }} />
-        {error && <div style={{ fontSize: 12, color: "#dc2626", marginBottom: 8 }}>{error}</div>}
-        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: "10px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>Cancel</button>
-          <button onClick={() => {
-            if (!code.trim()) { setError("Please enter your booking code."); return; }
-            if (code.trim() !== bookingCode) { setError("Incorrect booking code."); return; }
-            onConfirm();
-          }} style={{ flex: 1, padding: "10px", border: "none", borderRadius: 8, background: "#1d4ed8", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: "inherit" }}>Confirm</button>
-        </div>
-      </div>
-    </div>
-  );
-}
+
 
 function StepRow({ n, active, done, lineColor, isLast, children }) {
   return (
@@ -147,6 +125,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
   const isMobile = useIsMobile();
   const now = new Date();
   const { dark, toggle, t } = useTheme();
+  const { show } = useModal();
 
   const [bookedPHEx,    setBookedPHEx]    = useState(initPhex || null);
   const [bookedDT,      setBookedDT]      = useState(initDT   || null);
@@ -154,6 +133,9 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
   const [filledDEF,     setFilledDEF]     = useState(false);
   const [checked,       setChecked]       = useState([]);
   const [rescheduleFor, setRescheduleFor] = useState(null);
+  const [rescheduleCode, setRescheduleCode] = useState("");
+
+
 
   const allItems = [...CHECKLIST_PHEX, ...CHECKLIST_DT];
   const checklistDone = allItems.every(item => checked.includes(item.id));
@@ -276,17 +258,51 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
         </div>
       </div>
 
+      {/* Reschedule modal — uses universal modal style but needs code input */}
       {rescheduleFor && (
-        <RescheduleModal
-          type={rescheduleFor === "phex" ? "PHEx" : "Drug Test"}
-          bookingCode={rescheduleFor === "phex" ? bookedPHEx?.code : bookedDT?.code}
-          onClose={() => setRescheduleFor(null)}
-          onConfirm={() => {
-            if (rescheduleFor === "phex") { setBookedPHEx(null); onBookPHEx(); }
-            else { setBookedDT(null); onBookDT(); }
-            setRescheduleFor(null);
-          }}
-        />
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16 }}>
+          <div style={{ background: "#fff", borderRadius: 18, padding: "32px 28px", maxWidth: 380, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.22)", textAlign: "center" }}>
+            <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#fff7ed", border: "2px solid #fed7aa", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: "#111827", marginBottom: 8 }}>
+              Change {rescheduleFor === "phex" ? "PHEx" : "Drug Test"} Appointment
+            </div>
+            <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.65, marginBottom: 20 }}>
+              Enter your personal booking code to verify your identity before rescheduling.
+            </div>
+            <input
+              placeholder="e.g. pikachu"
+              value={rescheduleCode}
+              onChange={e => setRescheduleCode(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  const bookingCode = rescheduleFor === "phex" ? bookedPHEx?.code : bookedDT?.code;
+                  if (!rescheduleCode.trim()) { show({ type: "error", message: "Please enter your booking code." }); return; }
+                  if (rescheduleCode.trim() !== bookingCode) { show({ type: "error", message: "Incorrect booking code. Please try again." }); return; }
+                  if (rescheduleFor === "phex") { setBookedPHEx(null); onBookPHEx(); }
+                  else { setBookedDT(null); onBookDT(); }
+                  setRescheduleFor(null);
+                }
+              }}
+              style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #d1d5db", borderRadius: 10, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", marginBottom: 20, textAlign: "center" }}
+              autoFocus
+            />
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setRescheduleFor(null)} style={{ flex: 1, padding: "11px", border: "1.5px solid #d1d5db", borderRadius: 10, background: "#fff", color: "#374151", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+              <button onClick={() => {
+                const bookingCode = rescheduleFor === "phex" ? bookedPHEx?.code : bookedDT?.code;
+                if (!rescheduleCode.trim()) { show({ type: "error", message: "Please enter your booking code." }); return; }
+                if (rescheduleCode.trim() !== bookingCode) { show({ type: "error", message: "Incorrect booking code. Please try again." }); return; }
+                if (rescheduleFor === "phex") { setBookedPHEx(null); onBookPHEx(); }
+                else { setBookedDT(null); onBookDT(); }
+                setRescheduleFor(null);
+              }} style={{ flex: 1, padding: "11px", border: "none", borderRadius: 10, background: "#f97316", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Confirm</button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div style={{ maxWidth: 800, margin: "0 auto", padding: isMobile ? "16px" : "32px 40px", width: "100%", boxSizing: "border-box" }}>
@@ -319,7 +335,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
             <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 12, paddingTop: 6 }}>Step 1 — Book your appointments</div>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
               {bookedPHEx ? (
-                <BookedCard label="PHEx" color="#1d4ed8" booking={bookedPHEx} countdown={phexCountdown} onReschedule={() => setRescheduleFor("phex")} />
+                <BookedCard label="PHEx" color="#1d4ed8" booking={bookedPHEx} countdown={phexCountdown} onReschedule={() => { setRescheduleCode(""); setRescheduleFor("phex"); }} />
               ) : (
                 <div style={{ background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 14, padding: "14px 16px" }}>
                   <div style={{ marginBottom: 8 }}><span style={{ background: "#eff6ff", color: "#1d4ed8", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>PHEx</span></div>
@@ -331,7 +347,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
                 </div>
               )}
               {bookedDT ? (
-                <BookedCard label="Drug Test" color="#0f766e" booking={bookedDT} countdown={dtCountdown} onReschedule={() => setRescheduleFor("dt")} />
+                <BookedCard label="Drug Test" color="#0f766e" booking={bookedDT} countdown={dtCountdown} onReschedule={() => { setRescheduleCode(""); setRescheduleFor("dt"); }} />
               ) : (
                 <div style={{ background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 14, padding: "14px 16px" }}>
                   <div style={{ marginBottom: 8 }}><span style={{ background: "#f0fdfa", color: "#0f766e", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>Drug Test</span></div>
@@ -482,12 +498,18 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
               <div style={{ background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 14, padding: "14px 16px" }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "#1d4ed8", background: "#eff6ff", padding: "3px 10px", borderRadius: 20, display: "inline-block", marginBottom: 10 }}>PHEx / X-Ray Results</div>
                 <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.6, marginBottom: 8 }}>Available at <strong>Waldo Perfecto Seminar Room</strong> — 10 days after procedure.</div>
-                <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "6px 10px" }}>⏳ Unclaimed by Aug 31 will be forwarded to provider.</div>
+                <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "6px 10px", display: "flex", alignItems: "center", gap: 6 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  Unclaimed by Aug 31 will be forwarded to provider.
+                </div>
               </div>
               <div style={{ background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 14, padding: "14px 16px" }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "#0f766e", background: "#f0fdfa", padding: "3px 10px", borderRadius: 20, display: "inline-block", marginBottom: 10 }}>Drug Test Results</div>
                 <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.6, marginBottom: 8 }}>Available at <strong>ERSC 2nd floor</strong> starting June 30.</div>
-                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "6px 10px" }}>📋 Bring your ID when claiming results.</div>
+                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "6px 10px", display: "flex", alignItems: "center", gap: 6 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                  Bring your ID when claiming results.
+                </div>
               </div>
             </div>
           </div>
