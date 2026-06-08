@@ -68,15 +68,15 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     studentNameAuth: buildAuth(prefillFirstName, prefillMI, prefillLastName),
   });
 
-  // Always sync prefill props into form when they change (DB data arrives async)
+  // Sync prefill props whenever they change — always overwrite with latest from DB
   useEffect(() => {
     setForm(f => ({
       ...f,
-      idNumber:        prefillId        || f.idNumber,
-      firstName:       prefillFirstName || f.firstName,
-      lastName:        prefillLastName  || f.lastName,
-      mi:              prefillMI        || f.mi,
-      gender:          prefillGender    || f.gender,
+      idNumber:        prefillId        !== undefined ? prefillId        : f.idNumber,
+      firstName:       prefillFirstName !== undefined ? prefillFirstName : f.firstName,
+      lastName:        prefillLastName  !== undefined ? prefillLastName  : f.lastName,
+      mi:              prefillMI        !== undefined ? prefillMI        : f.mi,
+      gender:          prefillGender    !== undefined ? prefillGender    : f.gender,
       studentNameAuth: prefillFirstName && prefillLastName
         ? buildAuth(prefillFirstName, prefillMI, prefillLastName)
         : f.studentNameAuth,

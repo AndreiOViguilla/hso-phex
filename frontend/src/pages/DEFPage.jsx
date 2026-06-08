@@ -33,12 +33,12 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // Always sync when prefill props change (DB arrives async)
+  // Sync when prefill props change — always use latest from DB
   useEffect(() => {
     setForm(f => ({
       ...f,
-      idNo: prefillId   || f.idNo,
-      name: prefillName || f.name,  // "Andrei O. Viguilla"
+      idNo: prefillId   !== undefined ? prefillId   : f.idNo,
+      name: prefillName !== undefined ? prefillName : f.name,
     }));
   }, [prefillId, prefillName]);
 
