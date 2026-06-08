@@ -127,7 +127,8 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
   const [filledMEF,     setFilledMEF]     = useState(false);
   const [filledDEF,     setFilledDEF]     = useState(false);
   const [checked,       setChecked]       = useState([]);
-  const [rescheduleFor, setRescheduleFor] = useState(null);
+  const [rescheduleFor,    setRescheduleFor]    = useState(null);
+  const [expandedSections, setExpandedSections] = useState({ phex: false, dt: false });
   const [rescheduleCode,setRescheduleCode]= useState("");
 
   const allItems = [...CHECKLIST_PHEX, ...CHECKLIST_DT];
@@ -363,35 +364,67 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
             </div>
           </StepRow>
 
-          {/* Step 3 — Checklist */}
+          {/* Step 3 — Collapsible Checklist */}
           <StepRow n={3} t={t} active={currentStep === 3} done={checklistDone} lineColor={checklistDone ? t.stepLineDone : t.stepLine} isLast={false}>
             <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 3 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 3 — Preparation Checklist</div>
-            <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 12 }}>Check each item once you've prepared. Complete all before attending your appointments.</div>
-            {[
-              { title: "For PHEx", color: t.blue, items: CHECKLIST_PHEX },
-              { title: "For Drug Test", color: t.teal, items: CHECKLIST_DT },
-            ].map(({ title, color, items }) => (
-              <div key={title} style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>{title}</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {items.map(item => {
-                    const isChecked = checked.includes(item.id);
-                    return (
-                      <button key={item.id} onClick={() => toggleCheck(item.id)}
-                        style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", border: `1.5px solid ${isChecked ? t.green : t.cardBorder}`, borderRadius: 10, background: isChecked ? t.greenBg : t.card, cursor: "pointer", textAlign: "left", fontFamily: "inherit", transition: "all 0.15s" }}>
-                        <div style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${isChecked ? t.green : t.cardBorder}`, background: isChecked ? t.green : t.card, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>
-                          {isChecked && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
-                        </div>
-                        <span style={{ fontSize: 13, color: isChecked ? t.green : t.text, fontWeight: isChecked ? 600 : 400, textDecoration: isChecked ? "line-through" : "none" }}>{item.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+            <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 10 }}>Complete all items before attending your appointments.</div>
+
+            {/* Overall progress */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <div style={{ flex: 1, height: 6, background: t.cardBorder, borderRadius: 99, overflow: "hidden" }}>
+                <div style={{ height: "100%", borderRadius: 99, background: checklistDone ? t.green : t.accent, width: `${Math.round((checked.length / allItems.length) * 100)}%`, transition: "width 0.4s ease" }} />
               </div>
-            ))}
+              <span style={{ fontSize: 12, fontWeight: 700, color: checklistDone ? t.green : t.accent, whiteSpace: "nowrap" }}>
+                {checked.length}/{allItems.length}
+              </span>
+            </div>
+
+            {/* Collapsible sections */}
+            {[
+              { key: "phex", title: "For PHEx", color: t.blue, items: CHECKLIST_PHEX },
+              { key: "dt",   title: "For Drug Test", color: t.teal, items: CHECKLIST_DT },
+            ].map(({ key, title, color, items }) => {
+              const sectionDone = items.filter(i => checked.includes(i.id)).length;
+              const allSectionDone = sectionDone === items.length;
+              const isOpen = expandedSections[key];
+              return (
+                <div key={key} style={{ marginBottom: 8 }}>
+                  {/* Section header — clickable */}
+                  <button onClick={() => setExpandedSections(s => ({ ...s, [key]: !s[key] }))}
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: `1.5px solid ${allSectionDone ? t.green : t.cardBorder}`, borderRadius: isOpen ? "10px 10px 0 0" : 10, background: allSectionDone ? t.greenBg : t.card, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}>
+                      <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: allSectionDone ? t.green : t.text, textAlign: "left" }}>{title}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: allSectionDone ? t.green : color, background: allSectionDone ? t.greenBg : `${color}22`, padding: "2px 8px", borderRadius: 20 }}>
+                      {sectionDone}/{items.length}
+                    </span>
+                  </button>
+
+                  {/* Items — shown when expanded */}
+                  {isOpen && (
+                    <div style={{ border: `1.5px solid ${allSectionDone ? t.green : t.cardBorder}`, borderTop: "none", borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
+                      {items.map((item, idx) => {
+                        const isChecked = checked.includes(item.id);
+                        return (
+                          <button key={item.id} onClick={() => toggleCheck(item.id)}
+                            style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", border: "none", borderTop: idx > 0 ? `1px solid ${t.divider}` : "none", background: isChecked ? t.greenBg : t.card, cursor: "pointer", textAlign: "left", fontFamily: "inherit", transition: "background 0.15s" }}>
+                            <div style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${isChecked ? t.green : t.cardBorder}`, background: isChecked ? t.green : t.card, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>
+                              {isChecked && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                            </div>
+                            <span style={{ fontSize: 13, color: isChecked ? t.green : t.text, fontWeight: isChecked ? 600 : 400, textDecoration: isChecked ? "line-through" : "none" }}>{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
             {checklistDone && (
-              <div style={{ background: t.greenBg, border: `1px solid ${t.green}44`, borderRadius: 10, padding: "10px 14px", marginTop: 12, fontSize: 12, color: t.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={t.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <div style={{ background: t.greenBg, border: `1px solid ${t.green}44`, borderRadius: 10, padding: "10px 14px", marginTop: 8, fontSize: 12, color: t.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                 All items checked — you're ready to attend!
               </div>
             )}
