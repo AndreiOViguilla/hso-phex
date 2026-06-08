@@ -11,7 +11,7 @@ import DEFPage          from "./pages/DEFPage";
 import SuccessPage      from "./pages/SuccessPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import ProfilePage      from "./pages/ProfilePage";
-import { ThemeProvider } from "./ThemeContext";
+import { ThemeProvider, useTheme } from "./ThemeContext";
 import { ModalProvider } from "./components/Modal";
 
 export function getAuthHeader() {
@@ -20,12 +20,13 @@ export function getAuthHeader() {
 }
 
 function RequireAuth({ userData, authLoading, children }) {
+  const { t } = useTheme();
   if (authLoading) return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, background: "#f0f2f5" }}>
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" strokeWidth="2" strokeLinecap="round" style={{ animation: "spin 0.8s linear infinite" }}>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, background: t.bg }}>
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={t.accent} strokeWidth="2" strokeLinecap="round" style={{ animation: "spin 0.8s linear infinite" }}>
         <path d="M21 12a9 9 0 1 1-6.22-8.56"/>
       </svg>
-      <div style={{ fontSize: 13, color: "#6b7280", fontFamily: "'DM Sans',sans-serif" }}>Verifying session…</div>
+      <div style={{ fontSize: 13, color: t.textSub, fontFamily: "'DM Sans',sans-serif" }}>Verifying session…</div>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
@@ -35,6 +36,7 @@ function RequireAuth({ userData, authLoading, children }) {
 
 function AppInner() {
   const navigate = useNavigate();
+  const { t } = useTheme();
   const [studentId,    setStudentId]    = useState("");
   const [sched,        setSched]        = useState(null);
   const [bookActivity, setBookActivity] = useState("phex");
@@ -54,7 +56,6 @@ function AppInner() {
     const token = localStorage.getItem("token");
     if (!token) { setAuthLoading(false); return; }
 
-    // Wait for both auth and bookings before rendering
     const init = async () => {
       try {
         const [userResp, bookingsResp] = await Promise.all([
@@ -115,7 +116,8 @@ function AppInner() {
   const openBooking = (activity) => { setBookActivity(activity); navigate("/booking"); };
 
   return (
-    <div style={{ fontFamily: "'DM Sans','Inter',sans-serif", background: "#f0f2f5", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    // ── Root div now uses t.bg so dark mode applies globally ──
+    <div style={{ fontFamily: "'DM Sans','Inter',sans-serif", background: t.bg, minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <Routes>
         <Route path="/" element={<HomePage onLogin={() => navigate("/login")} onGuide={() => navigate("/guide")} />} />
         <Route path="/login" element={<LoginPage onBack={() => navigate("/")} onLogin={handleLogin} />} />
@@ -137,11 +139,15 @@ function AppInner() {
   );
 }
 
+// ── Provider order: ThemeProvider → ModalProvider → BrowserRouter → AppInner ──
+// This ensures useTheme() works in ModalProvider, RequireAuth, and AppInner
 export default function App() {
   return (
     <ThemeProvider>
       <ModalProvider>
-        <BrowserRouter><AppInner /></BrowserRouter>
+        <BrowserRouter>
+          <AppInner />
+        </BrowserRouter>
       </ModalProvider>
     </ThemeProvider>
   );
