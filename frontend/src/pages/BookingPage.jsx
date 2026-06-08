@@ -191,7 +191,7 @@ function StepPicker({ activity, onSelect }) {
       </div>
 
       {/* Calendar */}
-      <div style={{ flex: 1, padding: "24px 20px", borderRight: selected ? "1px solid #e5e7eb" : "none", minWidth: 0, overflowY: "auto" }}>
+      <div style={{ flex: 1, padding: "24px 20px", borderRight: selected ? `1px solid ${t.cardBorder}` : "none", minWidth: 0, overflowY: "auto", background: t.card }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: t.text, marginBottom: 20 }}>Select a Date & Time</div>
 
         {/* Month nav */}
@@ -234,7 +234,7 @@ function StepPicker({ activity, onSelect }) {
                   style={{
                     width: 36, height: 36, borderRadius: "50%",
                     cursor: clickable ? "pointer" : "default",
-                    background: sel ? act.color : (wasInDB && isPassedOrUsedUp) ? "#fff7ed" : (avail && !isPassedOrUsedUp) ? "#dbeafe" : "transparent",
+                    background: sel ? act.color : (wasInDB && isPassedOrUsedUp) ? t.orangeBg : (avail && !isPassedOrUsedUp) ? t.blueBg : "transparent",
                     color: sel ? "#fff" : (wasInDB && isPassedOrUsedUp) ? "#f97316" : (avail && !isPassedOrUsedUp) ? act.color : t.textMuted,
                     fontWeight: clickable ? 700 : 400, fontSize: 14,
                     transition: "all 0.15s", flexShrink: 0,
@@ -258,7 +258,7 @@ function StepPicker({ activity, onSelect }) {
 
       {/* Time slots */}
       {selected && (
-        <div style={{ width: isMobile ? "100%" : 210, padding: "16px", overflowY: "auto", height: isMobile ? 260 : "100%", flexShrink: 0, borderLeft: isMobile ? "none" : "1px solid #e5e7eb", borderTop: isMobile ? "1px solid #e5e7eb" : "none" }}>
+        <div style={{ width: isMobile ? "100%" : 210, padding: "16px", overflowY: "auto", height: isMobile ? 260 : "100%", flexShrink: 0, borderLeft: isMobile ? "none" : `1px solid ${t.cardBorder}`, borderTop: isMobile ? `1px solid ${t.cardBorder}` : "none", background: t.card }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: t.text, marginBottom: 12 }}>
             {DAYS[selected.getDay()]}, {MONTHS[selected.getMonth()].slice(0,3)} {selected.getDate()}
           </div>
@@ -438,12 +438,13 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
 // ── Step 3: Confirmation ──────────────────────────────────────────────────────
 function StepConfirmed({ activity, booking, onDone }) {
   const act = ACTIVITIES[activity];
+  const { t } = useTheme();
   // booking = { date: "YYYY-MM-DD", time: "9:00am", code: "..." }
   const d = new Date(booking.date + "T00:00:00");
   const dateStr = `${booking.time} – ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", textAlign: "center" }}>
-      <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", textAlign: "center", background: t.bg }}>
+      <div style={{ width: 56, height: 56, borderRadius: "50%", background: t.greenBg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
       </div>
       <div style={{ fontSize: 22, fontWeight: 800, color: t.text, marginBottom: 8 }}>You are scheduled!</div>
@@ -524,8 +525,8 @@ export default function BookingPage({ activity = "phex", studentId, prefillFirst
   if (!authValid) {
     return (
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16, padding: 32 }}>
-        <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <div style={{ width: 56, height: 56, borderRadius: "50%", background: t.redBg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={t.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
         </div>
@@ -533,7 +534,7 @@ export default function BookingPage({ activity = "phex", studentId, prefillFirst
         <div style={{ fontSize: 13, color: t.textSub, textAlign: "center", maxWidth: 300, lineHeight: 1.6 }}>
           You must be signed in with a valid session to book an appointment. Please sign in and try again.
         </div>
-        <button onClick={onBack} style={{ background: "#1d4ed8", color: "#fff", border: "none", borderRadius: 10, padding: "11px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+        <button onClick={onBack} style={{ background: t.accentBtn, color: "#fff", border: "none", borderRadius: 10, padding: "11px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
           Go back
         </button>
       </div>
@@ -542,7 +543,7 @@ export default function BookingPage({ activity = "phex", studentId, prefillFirst
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, background: t.bg }}>
-      <div style={{ background: "#1e3a8a", color: "#fff", padding: "12px 20px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+      <div style={{ background: dark ? "#1e293b" : "#1e3a8a", color: "#fff", padding: "12px 20px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0, borderBottom: dark ? `1px solid ${t.cardBorder}` : "none" }}>
         <button onClick={step === "details" ? () => setStep("pick") : onBack} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 34, height: 34, borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>←</button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>Book {act.label} Appointment</div>
