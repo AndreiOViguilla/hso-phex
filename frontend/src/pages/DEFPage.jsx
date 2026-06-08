@@ -150,7 +150,8 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
   }, [drawOverlay]);
 
   // Full render: PDF to offscreen, then composite
-  const renderPreview = useCallback(async (f, hl, zoomLevel = 1.0) => {
+  const renderPreview = useCallback(async (f, hl) => {
+    const zoomLevel = zoom;
     if (!pdfDocRef.current || !canvasRef.current) return;
     setRendering(true);
     try {
@@ -185,12 +186,12 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       composite(f, hl);
     } catch (e) { console.error("Render error:", e); }
     setRendering(false);
-  }, [composite]);
+  }, [composite, zoom]);
 
   useEffect(() => {
     if (!pdfReady) return;
     clearTimeout(renderTimeout.current);
-    renderTimeout.current = setTimeout(() => renderPreview(form, highlighted, zoom), 300);
+    renderTimeout.current = setTimeout(() => renderPreview(form, highlighted), 300);
     return () => clearTimeout(renderTimeout.current);
   }, [form, pdfReady, renderPreview, zoom]);
 
@@ -198,7 +199,7 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
     if (!pdfReady) return;
     const onResize = () => {
       clearTimeout(renderTimeout.current);
-      renderTimeout.current = setTimeout(() => renderPreview(form, highlighted, zoom), 200);
+      renderTimeout.current = setTimeout(() => renderPreview(form, highlighted), 200);
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
@@ -341,7 +342,7 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
           </button>
         </div>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: "12px" }}>
+      <div style={{ flex: 1, overflow: "auto", padding: "12px" }}>
         {pdfError ? (
           <div style={{ color: "#d1d5db", fontSize: 13, padding: 20, lineHeight: 1.8 }}>
             Place <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>dental-form.pdf</code> in your <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>public/</code> folder.

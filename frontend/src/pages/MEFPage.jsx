@@ -266,7 +266,8 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
   }, [drawOverlay]);
 
   // Full render: render PDF to offscreen, then composite
-  const renderPreview = useCallback(async (f, hl, zoomLevel = 1.0) => {
+  const renderPreview = useCallback(async (f, hl) => {
+    const zoomLevel = zoom;
     if (!pdfDocRef.current || !canvasRef.current) return;
     setRendering(true);
     try {
@@ -304,22 +305,22 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       composite(f, hl);
     } catch (e) { console.error("Render error:", e); }
     setRendering(false);
-  }, [composite]);
+  }, [composite, zoom]);
 
   // Re-render PDF only when form data or size changes
   useEffect(() => {
     if (!pdfReady) return;
     clearTimeout(renderTimeout.current);
-    renderTimeout.current = setTimeout(() => renderPreview(form, highlighted, zoom), 300);
+    renderTimeout.current = setTimeout(() => renderPreview(form, highlighted), 300);
     return () => clearTimeout(renderTimeout.current);
-  }, [form, pdfReady, renderPreview]);
+  }, [form, pdfReady, renderPreview, zoom]);
 
   // Resize — full re-render needed
   useEffect(() => {
     if (!pdfReady) return;
     const onResize = () => {
       clearTimeout(renderTimeout.current);
-      renderTimeout.current = setTimeout(() => renderPreview(form, highlighted, zoom), 200);
+      renderTimeout.current = setTimeout(() => renderPreview(form, highlighted), 200);
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
@@ -513,7 +514,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
           </button>
         </div>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "12px" }}>
+      <div style={{ flex: 1, overflow: "auto", padding: "12px" }}>
         {pdfError ? (
           <div style={{ color: "#d1d5db", fontSize: 13, padding: 20, lineHeight: 1.8 }}>
             <strong>To enable preview:</strong><br /><br />
