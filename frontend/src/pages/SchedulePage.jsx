@@ -130,6 +130,26 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
   const [rescheduleFor,    setRescheduleFor]    = useState(null);
   const [expandedSections, setExpandedSections] = useState({ phex: false, dt: false });
   const [rescheduleCode,setRescheduleCode]= useState("");
+  const [forgotCodeLoading, setForgotCodeLoading] = useState(false);
+
+  const [showForgotCode, setShowForgotCode] = useState(false);
+  const [forgotCodeEmail, setForgotCodeEmail] = useState("");
+
+  const handleForgotCode = async () => {
+    if (!forgotCodeEmail.includes("@")) { show({ type: "error", message: "Enter your email address." }); return; }
+    setForgotCodeLoading(true);
+    try {
+      const resp = await fetch("/api/auth/forgot-booking-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotCodeEmail }),
+      });
+      const data = await resp.json();
+      if (data.error) { show({ type: "error", message: data.error }); }
+      else { show({ type: "success", title: "Email sent!", message: data.message }); setShowForgotCode(false); setForgotCodeEmail(""); }
+    } catch { show({ type: "error", message: "Could not connect to server." }); }
+    setForgotCodeLoading(false);
+  };
 
   const allItems = [...CHECKLIST_PHEX, ...CHECKLIST_DT];
   const checklistDone = allItems.every(item => checked.includes(item.id));
@@ -264,8 +284,34 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
               style={{ width: "100%", padding: "11px 14px", border: `1.5px solid ${t.inputBorder}`, borderRadius: 10, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", marginBottom: 20, textAlign: "center", background: t.input, color: t.text }}
               autoFocus
             />
+            {/* Forgot booking code */}
+            {!showForgotCode ? (
+              <div style={{ textAlign: "center", marginBottom: 16 }}>
+                <button onClick={() => setShowForgotCode(true)} style={{ background: "none", border: "none", color: t.accent, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                  Forgot your booking code?
+                </button>
+              </div>
+            ) : (
+              <div style={{ background: t.bg, border: `1px solid ${t.cardBorder}`, borderRadius: 10, padding: "12px 14px", marginBottom: 16 }}>
+                <div style={{ fontSize: 12, color: t.textSub, marginBottom: 8 }}>We'll email your booking code to your DLSU email.</div>
+                <input
+                  placeholder="you@dlsu.edu.ph"
+                  value={forgotCodeEmail}
+                  onChange={e => setForgotCodeEmail(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleForgotCode()}
+                  style={{ width: "100%", padding: "9px 12px", border: `1.5px solid ${t.inputBorder}`, borderRadius: 8, fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box", background: t.input, color: t.text, marginBottom: 8 }}
+                  autoFocus
+                />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => { setShowForgotCode(false); setForgotCodeEmail(""); }} style={{ flex: 1, padding: "8px", border: `1px solid ${t.cardBorder}`, borderRadius: 8, background: t.card, color: t.textSub, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                  <button onClick={handleForgotCode} disabled={forgotCodeLoading} style={{ flex: 1, padding: "8px", border: "none", borderRadius: 8, background: t.accentBtn, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: forgotCodeLoading ? 0.7 : 1 }}>
+                    {forgotCodeLoading ? "Sending…" : "Send code"}
+                  </button>
+                </div>
+              </div>
+            )}
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setRescheduleFor(null)} style={{ flex: 1, padding: "11px", border: `1.5px solid ${t.cardBorder}`, borderRadius: 10, background: t.card, color: t.text, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+              <button onClick={() => { setRescheduleFor(null); setShowForgotCode(false); setForgotCodeEmail(""); }} style={{ flex: 1, padding: "11px", border: `1.5px solid ${t.cardBorder}`, borderRadius: 10, background: t.card, color: t.text, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
               <button onClick={() => {
                 const bookingCode = rescheduleFor === "phex" ? bookedPHEx?.code : bookedDT?.code;
                 if (!rescheduleCode.trim()) { show({ type: "error", message: "Please enter your booking code." }); return; }
