@@ -410,9 +410,10 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
 
   // ── Styles ────────────────────────────────────────────────────────────────
   const inp = (extra) => ({
-    padding: "9px 12px", border: "1px solid #d1d5db", borderRadius: 8,
+    padding: "9px 12px", border: `1px solid ${t.inputBorder}`, borderRadius: 8,
     fontSize: 13, fontFamily: "inherit", outline: "none",
     width: "100%", boxSizing: "border-box",
+    background: t.input, color: t.text,
     ...extra,
   });
   const lbl = { fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 4 };

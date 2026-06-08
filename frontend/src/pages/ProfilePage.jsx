@@ -19,7 +19,7 @@ const COLLEGES = [
 ];
 
 export default function ProfilePage({ userData, onBack, onSaved }) {
-  const { t } = useTheme();
+  const { dark, toggle, t } = useTheme();
   const { show } = useModal();
 
   const [form, setForm] = useState({
@@ -95,19 +95,22 @@ export default function ProfilePage({ userData, onBack, onSaved }) {
   return (
     <div style={{ flex: 1, overflowY: "auto", background: t.bg }}>
       {/* NavBar */}
-      <div style={{ background: "#1e3a8a", padding: "14px 24px", display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ background: dark ? "#1e293b" : "#1e3a8a", padding: "14px 24px", display: "flex", alignItems: "center", gap: 12, borderBottom: dark ? `1px solid ${t.cardBorder}` : "none" }}>
         <button onClick={onBack} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 34, height: 34, borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>←</button>
-        <div>
+        <div style={{ flex: 1 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>Edit Profile</div>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>ID: {userData?.studentId} · {userData?.email}</div>
         </div>
+        <button onClick={toggle} title={dark ? "Light mode" : "Dark mode"} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 34, height: 34, borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {dark ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>}
+        </button>
       </div>
 
       <div style={{ maxWidth: 600, margin: "0 auto", padding: "24px 20px" }}>
 
         {/* Student ID — read only */}
         <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: "14px 16px", marginBottom: 20, display: "flex", gap: 12, alignItems: "center" }}>
-          <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <div style={{ width: 40, height: 40, borderRadius: "50%", background: t.accentBg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
           </div>
           <div>
@@ -128,7 +131,7 @@ export default function ProfilePage({ userData, onBack, onSaved }) {
             <label style={lbl}>Gender</label>
             <div style={{ display: "flex", gap: 10 }}>
               {["Female", "Male"].map(g => (
-                <label key={g} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: t.text, flex: 1, padding: "10px 14px", border: `1.5px solid ${form.gender === g ? "#1d4ed8" : t.inputBorder}`, borderRadius: 8, background: form.gender === g ? "#eff6ff" : t.input, transition: "all 0.15s" }}>
+                <label key={g} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: t.text, flex: 1, padding: "10px 14px", border: `1.5px solid ${form.gender === g ? t.accent : t.inputBorder}`, borderRadius: 8, background: form.gender === g ? t.accentBg : t.input, transition: "all 0.15s" }}>
                   <input type="radio" name="gender" value={g} checked={form.gender === g} onChange={() => set("gender", g)} style={{ accentColor: "#1d4ed8" }} />{g}
                 </label>
               ))}
@@ -166,7 +169,7 @@ export default function ProfilePage({ userData, onBack, onSaved }) {
         </div>
 
 
-        <button onClick={handleSave} disabled={loading} style={{ width: "100%", padding: "13px", background: loading ? "#93c5fd" : "#1d4ed8", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: loading ? "default" : "pointer", fontFamily: "inherit" }}>
+        <button onClick={handleSave} disabled={loading} style={{ width: "100%", padding: "13px", background: loading ? (dark ? "#1e3a5f" : "#93c5fd") : t.accentBtn, color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: loading ? "default" : "pointer", fontFamily: "inherit" }}>
           {loading ? "Saving…" : "Save changes"}
         </button>
       </div>
