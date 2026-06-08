@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getAuthHeader } from "../App";
 import { useModal } from "../components/Modal";
 import { useTheme } from "../ThemeContext";
@@ -32,6 +32,30 @@ export default function ProfilePage({ userData, onBack, onSaved }) {
     birthday:      userData?.birthday      || "",
     contact:       userData?.contact       || "",
   });
+
+  // Fetch fresh data from backend on mount — override any stale props
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    fetch("/api/students/me", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(user => {
+        if (!user) return;
+        setForm({
+          firstName:     user.firstName     || "",
+          middleInitial: user.middleInitial || "",
+          lastName:      user.lastName      || "",
+          gender:        user.gender        || "",
+          college:       user.college       || "",
+          course:        user.course        || "",
+          birthday:      user.birthday      || "",
+          contact:       user.contact       || "",
+        });
+      })
+      .catch(() => {});
+  }, []);
+
+
 
   const [loading, setLoading] = useState(false);
 
