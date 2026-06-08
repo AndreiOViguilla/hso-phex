@@ -174,12 +174,19 @@ function StepPicker({ activity, onSelect }) {
 
   const isMobile = useIsMobile();
 
+  // Determine slot accent colors based on activity
+  const slotColor      = activity === "dt" ? t.teal      : act.color;
+  const slotBg         = activity === "dt" ? t.tealBg    : t.blueBg;
+  const slotText       = activity === "dt" ? t.tealText  : t.blueText;
+  const slotBorder     = activity === "dt" ? t.teal      : act.color;
+  const slotPickedBg   = activity === "dt" ? t.teal      : act.color;
+
   return (
     <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 0, height: isMobile ? "auto" : 580 }}>
       {/* Left info panel */}
       <div style={{ width: isMobile ? "100%" : 220, padding: "24px 20px", borderRight: isMobile ? "none" : `1px solid ${t.cardBorder}`, borderBottom: isMobile ? `1px solid ${t.cardBorder}` : "none", flexShrink: 0, background: t.card }}>
         <div style={{ fontSize: 12, color: t.textSub, marginBottom: 4 }}>{act.org}</div>
-        <div style={{ fontSize: 20, fontWeight: 800, color: act.color, marginBottom: 16 }}>{act.title}</div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: activity === "dt" ? t.teal : act.color, marginBottom: 16 }}>{act.title}</div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, fontSize: 13, color: t.text }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           {act.duration}
@@ -214,17 +221,13 @@ function StepPicker({ activity, onSelect }) {
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const d = i + 1;
             const date = new Date(calYear, calMonth, d);
-            // isAvailable already accounts for today's passed slots
-            // so if isAvailable is false AND date is today or past → orange
             const avail = isAvailable(d);
             const isPast = date < new Date(new Date().setHours(0,0,0,0));
             const isToday = date.toDateString() === new Date().toDateString();
-            // A day is "used up" if it's past OR if it's today with no available slots left
             const isPassedOrUsedUp = isPast || (isToday && !avail);
             const sel = selected && isSameDay(selected, date);
             const clickable = avail && !isPassedOrUsedUp;
 
-            // Determine if this date existed in DB (was ever bookable)
             const dateStr2 = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
             const wasInDB = daysData.some(day => day.date === dateStr2);
 
@@ -234,8 +237,8 @@ function StepPicker({ activity, onSelect }) {
                   style={{
                     width: 36, height: 36, borderRadius: "50%",
                     cursor: clickable ? "pointer" : "default",
-                    background: sel ? act.color : (wasInDB && isPassedOrUsedUp) ? t.orangeBg : (avail && !isPassedOrUsedUp) ? t.blueBg : "transparent",
-                    color: sel ? "#fff" : (wasInDB && isPassedOrUsedUp) ? "#f97316" : (avail && !isPassedOrUsedUp) ? act.color : t.textMuted,
+                    background: sel ? slotColor : (wasInDB && isPassedOrUsedUp) ? t.orangeBg : (avail && !isPassedOrUsedUp) ? slotBg : "transparent",
+                    color: sel ? "#fff" : (wasInDB && isPassedOrUsedUp) ? "#f97316" : (avail && !isPassedOrUsedUp) ? slotColor : t.textMuted,
                     fontWeight: clickable ? 700 : 400, fontSize: 14,
                     transition: "all 0.15s", flexShrink: 0,
                     display: "flex", alignItems: "center", justifyContent: "center",
@@ -271,14 +274,11 @@ function StepPicker({ activity, onSelect }) {
                 const isFull   = slot.full || slot.available <= 0;
                 const isLow    = !isFull && slot.available <= 3;
 
-                // Check if this time slot has already passed today
                 const isPastSlot = (() => {
                   if (!selected) return false;
                   const now = new Date();
                   const selectedDate = new Date(selected);
-                  // If selected date is before today, all slots are past
                   if (selectedDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) return true;
-                  // If selected date is today, check the time
                   if (selectedDate.toDateString() === now.toDateString()) {
                     const [timePart, ampm] = [slot.time.slice(0, -2), slot.time.slice(-2)];
                     let [h, m] = timePart.split(":").map(Number);
@@ -298,17 +298,31 @@ function StepPicker({ activity, onSelect }) {
                     disabled={isDisabled}
                     onClick={() => { if (!isDisabled) { setPickedSlot(slot); onSelect(selected, slot); } }}
                     style={{
-                      border: `1.5px solid ${isDisabled ? t.cardBorder : act.color}`,
-                      borderRadius: 8, padding: "10px 8px",
-                      background: isPicked ? act.color : isDisabled ? t.card : t.card,
-                      color: isPicked ? "#fff" : isDisabled ? "#c4c4c4" : act.color,
+                      border: `1.5px solid ${isDisabled ? t.cardBorder : slotBorder}`,
+                      borderRadius: 8,
+                      padding: "10px 8px",
+                      // ── CONTRAST FIX: use tealBg + tealText for unselected DT slots ──
+                      background: isPicked ? slotPickedBg : isDisabled ? t.card : slotBg,
+                      color:      isPicked ? "#fff"        : isDisabled ? t.textMuted : slotText,
                       cursor: isDisabled ? "not-allowed" : "pointer",
                       fontSize: 13, fontWeight: 600, textAlign: "center", transition: "all 0.15s",
                       opacity: isDisabled ? 0.5 : 1,
                       position: "relative",
                     }}>
                     <div>{slot.time}</div>
-                    <div style={{ fontSize: 10, fontWeight: 400, marginTop: 2, color: isDisabled ? "#c4c4c4" : isLow ? "#ef4444" : isPicked ? "rgba(255,255,255,0.8)" : "#9ca3af" }}>
+                    <div style={{
+                      fontSize: 10,
+                      fontWeight: 400,
+                      marginTop: 2,
+                      // ── CONTRAST FIX: sub-label inherits slotText when normal ──
+                      color: isDisabled
+                        ? t.textMuted
+                        : isLow
+                          ? "#ef4444"
+                          : isPicked
+                            ? "rgba(255,255,255,0.8)"
+                            : slotText,
+                    }}>
                       {isPastSlot ? "Passed" : isFull ? "Full" : isLow ? `Only ${slot.available} left!` : `${slot.available} spots left`}
                     </div>
                     {isDisabled && (
@@ -338,6 +352,8 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
   const isMobile = useIsMobile();
 
   const dateStr = `${slot.time} – ${MONTHS[date.getMonth()].slice(0,3)} ${date.getDate()}, ${date.getFullYear()}`;
+
+  const accentColor = activity === "dt" ? t.teal : act.color;
 
   const handleSubmit = async () => {
     if (!form.firstName || !form.lastName || !form.email) { show({ type: "error", message: "Please fill in all required fields." }); return; }
@@ -388,9 +404,9 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
     <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", height: "100%" }}>
       {/* Left summary */}
       <div style={{ width: isMobile ? "100%" : 220, padding: "24px 20px", borderRight: isMobile ? "none" : `1px solid ${t.cardBorder}`, borderBottom: isMobile ? `1px solid ${t.cardBorder}` : "none", flexShrink: 0, background: t.card }}>
-        <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: act.color, fontSize: 20, padding: 0, marginBottom: 12 }}>←</button>
+        <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: accentColor, fontSize: 20, padding: 0, marginBottom: 12 }}>←</button>
         <div style={{ fontSize: 12, color: t.textSub, marginBottom: 4 }}>{act.org}</div>
-        <div style={{ fontSize: 18, fontWeight: 800, color: act.color, marginBottom: 14 }}>{act.title}</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: accentColor, marginBottom: 14 }}>{act.title}</div>
         {[
           { icon: "clock", text: act.duration },
           { icon: "pin",   text: act.venue },
@@ -427,7 +443,7 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
         <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 16 }}>
           By proceeding, you confirm that you have read and agree to the booking terms.
         </div>
-        <button onClick={handleSubmit} style={{ background: act.color, color: "#fff", border: "none", borderRadius: 24, padding: "12px 28px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+        <button onClick={handleSubmit} style={{ background: accentColor, color: "#fff", border: "none", borderRadius: 24, padding: "12px 28px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
           Schedule Event
         </button>
       </div>
@@ -439,6 +455,7 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
 function StepConfirmed({ activity, booking, onDone }) {
   const act = ACTIVITIES[activity];
   const { t } = useTheme();
+  const accentColor = activity === "dt" ? t.teal : act.color;
   // booking = { date: "YYYY-MM-DD", time: "9:00am", code: "..." }
   const d = new Date(booking.date + "T00:00:00");
   const dateStr = `${booking.time} – ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
@@ -451,7 +468,7 @@ function StepConfirmed({ activity, booking, onDone }) {
       <div style={{ fontSize: 14, color: t.textSub, marginBottom: 24 }}>A calendar invitation has been sent to your email address.</div>
 
       <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, padding: "20px 24px", maxWidth: 340, width: "100%", textAlign: "left", marginBottom: 24 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: act.color, marginBottom: 12 }}>{act.title}</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: accentColor, marginBottom: 12 }}>{act.title}</div>
         {[
           act.org,
           dateStr,
@@ -465,11 +482,11 @@ function StepConfirmed({ activity, booking, onDone }) {
         ))}
       </div>
 
-      <div style={{ background: t.blueBg, border: `1px solid ${t.blue}44`, borderRadius: 10, padding: "12px 16px", maxWidth: 340, width: "100%", fontSize: 12, color: t.blueText, marginBottom: 24, textAlign: "left" }}>
+      <div style={{ background: t.tealBg, border: `1px solid ${t.teal}44`, borderRadius: 10, padding: "12px 16px", maxWidth: 340, width: "100%", fontSize: 12, color: t.tealText, marginBottom: 24, textAlign: "left" }}>
         Show this confirmation email to the guard at the {act.label} station on your appointment day.
       </div>
 
-      <button onClick={onDone} style={{ background: act.color, color: "#fff", border: "none", borderRadius: 10, padding: "13px 32px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+      <button onClick={onDone} style={{ background: accentColor, color: "#fff", border: "none", borderRadius: 10, padding: "13px 32px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
         Back to Schedule
       </button>
     </div>
@@ -486,6 +503,8 @@ export default function BookingPage({ activity = "phex", studentId, prefillFirst
   const [authChecked, setAuthChecked] = useState(false);
   const [authValid,   setAuthValid]   = useState(false);
   const act = ACTIVITIES[activity];
+
+  const accentColor = activity === "dt" ? t.teal : act.color;
 
   // Verify JWT with backend on mount — prevents URL-bypass attempts
   useEffect(() => {
