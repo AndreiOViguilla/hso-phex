@@ -42,6 +42,7 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
   const [rendering,   setRendering]   = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [highlighted, setHighlighted] = useState(null);
+  const [zoom, setZoom] = useState(1.0);
 
   const [form, setForm] = useState({ ...EMPTY_FORM, idNo: prefillId || "", name: prefillName || "" });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -149,7 +150,7 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
   }, [drawOverlay]);
 
   // Full render: PDF to offscreen, then composite
-  const renderPreview = useCallback(async (f, hl) => {
+  const renderPreview = useCallback(async (f, hl, zoomLevel = 1.0) => {
     if (!pdfDocRef.current || !canvasRef.current) return;
     setRendering(true);
     try {
@@ -160,7 +161,8 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       const previewPanel = container?.parentElement;
       const panelW = (previewPanel ? previewPanel.clientWidth : 700) - 24;
       const pdfNatural = page.getViewport({ scale: 1 });
-      const fitWidth = Math.max(panelW, 280);
+      const baseWidth = Math.max(panelW, 280);
+      const fitWidth = baseWidth * zoomLevel;
       const fitScale = fitWidth / pdfNatural.width;
       const renderScale = fitScale * Math.max(dpr, 2);
       scaleRef.current = renderScale;
@@ -188,19 +190,19 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
   useEffect(() => {
     if (!pdfReady) return;
     clearTimeout(renderTimeout.current);
-    renderTimeout.current = setTimeout(() => renderPreview(form, highlighted), 300);
+    renderTimeout.current = setTimeout(() => renderPreview(form, highlighted, zoom), 300);
     return () => clearTimeout(renderTimeout.current);
-  }, [form, pdfReady, renderPreview]);
+  }, [form, pdfReady, renderPreview, zoom]);
 
   useEffect(() => {
     if (!pdfReady) return;
     const onResize = () => {
       clearTimeout(renderTimeout.current);
-      renderTimeout.current = setTimeout(() => renderPreview(form, highlighted), 200);
+      renderTimeout.current = setTimeout(() => renderPreview(form, highlighted, zoom), 200);
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [pdfReady, form, renderPreview]);
+  }, [pdfReady, form, renderPreview, zoom]);
 
   // Highlight change — composite only, no flash
   useEffect(() => {
@@ -310,14 +312,33 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
 
   const previewPanel = (
     <div style={{ background: "#374151", display: "flex", flexDirection: "column", flex: 1, minHeight: 320, overflow: "hidden" }}>
-      <div style={{ background: "#1f2937", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: "#d1d5db" }}>Live PDF preview</span>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          {highlighted && <span style={{ fontSize: 11, color: "#93c5fd" }}>↑ {highlighted} selected</span>}
+      <div style={{ background: "#1f2937", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {highlighted && <span style={{ fontSize: 11, color: "#93c5fd" }}>↑ {highlighted}</span>}
           {rendering   && <span style={{ fontSize: 11, color: "#9ca3af" }}>Updating…</span>}
           {!pdfReady && !pdfError && <span style={{ fontSize: 11, color: "#9ca3af" }}>Loading…</span>}
-          {pdfError    && <span style={{ fontSize: 11, color: "#fca5a5" }}>dental-form.pdf not found in /public</span>}
-          {pdfReady && !rendering && !highlighted && <span style={{ fontSize: 11, color: "#6ee7b7" }}>Click a field to jump to it →</span>}
+          {pdfError    && <span style={{ fontSize: 11, color: "#fca5a5" }}>PDF not found</span>}
+          {pdfReady && !rendering && !highlighted && <span style={{ fontSize: 11, color: "#6ee7b7" }}>Click a field to jump →</span>}
+        </div>
+        {/* Zoom controls — centered */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, position: "absolute", left: "50%", transform: "translateX(-50%)" }}>
+          <button onClick={() => setZoom(z => Math.max(0.5, parseFloat((z - 0.25).toFixed(2))))}
+            title="Zoom out" disabled={zoom <= 0.5}
+            style={{ background: "none", border: "none", cursor: zoom <= 0.5 ? "not-allowed" : "pointer", color: zoom <= 0.5 ? "#4b5563" : "#d1d5db", padding: 4, display: "flex", alignItems: "center" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/>
+            </svg>
+          </button>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#d1d5db", minWidth: 40, textAlign: "center" }}>
+            {Math.round(zoom * 100)}%
+          </span>
+          <button onClick={() => setZoom(z => Math.min(3.0, parseFloat((z + 0.25).toFixed(2))))}
+            title="Zoom in" disabled={zoom >= 3.0}
+            style={{ background: "none", border: "none", cursor: zoom >= 3.0 ? "not-allowed" : "pointer", color: zoom >= 3.0 ? "#4b5563" : "#d1d5db", padding: 4, display: "flex", alignItems: "center" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
+            </svg>
+          </button>
         </div>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "12px" }}>
