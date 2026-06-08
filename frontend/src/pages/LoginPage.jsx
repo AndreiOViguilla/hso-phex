@@ -87,6 +87,37 @@ export default function LoginPage({ onLogin, onBack }) {
     </button>
   );
 
+  const ForgotModal = forgotOpen && (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16 }}
+      onClick={e => { if (e.target === e.currentTarget) setForgotOpen(false); }}>
+      <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 18, padding: "32px 28px", maxWidth: 380, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.22)", fontFamily: "'DM Sans',sans-serif" }}>
+        <div style={{ fontSize: 17, fontWeight: 800, color: t.text, marginBottom: 6 }}>
+          {forgotOpen === "password" ? "Forgot password?" : "Forgot booking code?"}
+        </div>
+        <div style={{ fontSize: 13, color: t.textSub, lineHeight: 1.6, marginBottom: 20 }}>
+          {forgotOpen === "password"
+            ? "Enter your email and we'll send you a link to reset your password."
+            : "Enter your email and we'll send you your booking codes."}
+        </div>
+        <label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 6 }}>Email address</label>
+        <input
+          placeholder="you@dlsu.edu.ph"
+          value={forgotEmail}
+          onChange={e => setForgotEmail(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handleForgot(forgotOpen)}
+          style={{ width: "100%", padding: "11px 14px", border: `1.5px solid ${t.inputBorder}`, borderRadius: 10, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", marginBottom: 20, background: t.input, color: t.text }}
+          autoFocus
+        />
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={() => { setForgotOpen(false); setForgotEmail(""); }} style={{ flex: 1, padding: "11px", border: `1.5px solid ${t.cardBorder}`, borderRadius: 10, background: t.card, color: t.text, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+          <button onClick={() => handleForgot(forgotOpen)} disabled={forgotLoading} style={{ flex: 1, padding: "11px", border: "none", borderRadius: 10, background: t.accentBtn, color: "#fff", fontSize: 14, fontWeight: 700, cursor: forgotLoading ? "default" : "pointer", fontFamily: "inherit", opacity: forgotLoading ? 0.7 : 1 }}>
+            {forgotLoading ? "Sending…" : "Send email"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div style={{ minHeight: "100vh", background: t.bg, display: "flex", flexDirection: "column", fontFamily: "'DM Sans','Inter',sans-serif" }}>
       <div style={{ background: "#1e3a8a", padding: "12px 24px", display: "flex", alignItems: "center", gap: 10 }}>

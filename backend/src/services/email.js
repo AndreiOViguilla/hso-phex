@@ -1,61 +1,68 @@
 const { Resend } = require("resend");
 
-// Lazy init — only fails if you actually try to send an email without a key
-let resend = null;
-function getResend() {
-  if (!resend) {
-    if (!process.env.RESEND_API_KEY) {
-      console.warn("⚠ RESEND_API_KEY not set — emails will be skipped");
-      return null;
-    }
-    resend = new Resend(process.env.RESEND_API_KEY);
-  }
-  return resend;
-}
+const resend = new Resend(process.env.RESEND_API_KEY);
+const FROM   = process.env.FROM_EMAIL || "onboarding@resend.dev";
+const APP_URL = process.env.FRONTEND_URL || "https://hso-phex.vercel.app";
 
-async function sendBookingConfirmation(email, booking) {
-  const typeLabel = booking.appointment_type === "phex" ? "Periodic Health Examination (PHEx)" : "Drug Test";
-  const venue     = booking.appointment_type === "phex"
-    ? "Waldo Perfecto Seminar Room, Ground floor, Br. Connon Hall"
-    : "2nd floor, Enrique Razon Sports Center (ERSC)";
-
-  const client = getResend();
-  if (!client) {
-    console.log("Email skipped (no API key):", email);
-    return;
-  }
-  await client.emails.send({
-    from: process.env.EMAIL_FROM || "noreply@yourdomain.com",
-    to:   email,
-    subject: `Booking Confirmed — ${typeLabel}`,
+async function sendPasswordReset(toEmail, resetToken) {
+  const resetUrl = `${APP_URL}/reset-password?token=${resetToken}`;
+  await resend.emails.send({
+    from: FROM,
+    to:   toEmail,
+    subject: "Reset your PHEx Portal password",
     html: `
-      <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto;">
-        <div style="background: #1e3a8a; color: #fff; padding: 24px; border-radius: 8px 8px 0 0;">
-          <div style="font-size: 12px; opacity: 0.7; margin-bottom: 6px;">DLSU · Health Services Office</div>
-          <h2 style="margin: 0; font-size: 20px;">Booking Confirmed</h2>
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+        <div style="background:#1e3a8a;border-radius:12px;padding:20px 24px;margin-bottom:24px">
+          <h2 style="color:#fff;margin:0;font-size:20px">DLSU · Health Services Office</h2>
+          <p style="color:rgba(255,255,255,0.7);margin:4px 0 0;font-size:13px">PHEx Portal</p>
         </div>
-        <div style="background: #fff; border: 1px solid #e5e7eb; padding: 24px; border-radius: 0 0 8px 8px;">
-          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
-            <div style="color: #16a34a; font-weight: 700; margin-bottom: 4px;">✓ You are scheduled!</div>
-            <div style="color: #374151; font-size: 14px;">A calendar invitation has been sent to your email.</div>
-          </div>
-          <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
-            <tr><td style="padding: 8px 0; color: #6b7280;">Activity</td><td style="padding: 8px 0; font-weight: 600;">${typeLabel}</td></tr>
-            <tr><td style="padding: 8px 0; color: #6b7280;">Date</td><td style="padding: 8px 0; font-weight: 600;">${booking.appointment_date}</td></tr>
-            <tr><td style="padding: 8px 0; color: #6b7280;">Time</td><td style="padding: 8px 0; font-weight: 600;">${booking.time_slot}</td></tr>
-            <tr><td style="padding: 8px 0; color: #6b7280;">Venue</td><td style="padding: 8px 0; font-weight: 600;">${venue}</td></tr>
-            <tr><td style="padding: 8px 0; color: #6b7280;">Booking code</td><td style="padding: 8px 0; font-weight: 600;">${booking.booking_code || "—"}</td></tr>
-          </table>
-          <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px; margin-top: 20px; font-size: 13px; color: #92400e;">
-            Please show this confirmation email to the guard at the ${typeLabel} station on your appointment day.
-          </div>
-        </div>
-        <div style="text-align: center; padding: 16px; font-size: 12px; color: #9ca3af;">
-          Questions? Email <a href="mailto:phex@dlsu.edu.ph" style="color: #1d4ed8;">phex@dlsu.edu.ph</a>
-        </div>
+        <h3 style="color:#111827;margin-bottom:8px">Reset your password</h3>
+        <p style="color:#6b7280;font-size:14px;line-height:1.6;margin-bottom:24px">
+          We received a request to reset your password. Click the button below to set a new one.
+          This link expires in <strong>1 hour</strong>.
+        </p>
+        <a href="${resetUrl}" style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:700;font-size:14px">
+          Reset password
+        </a>
+        <p style="color:#9ca3af;font-size:12px;margin-top:24px;line-height:1.6">
+          If you didn't request this, ignore this email — your password won't change.<br/>
+          Link: <a href="${resetUrl}" style="color:#1d4ed8">${resetUrl}</a>
+        </p>
       </div>
     `,
   });
 }
 
-module.exports = { sendBookingConfirmation };
+async function sendBookingCode(toEmail, studentName, bookingCode, appointmentType, appointmentDate, timeSlot) {
+  await resend.emails.send({
+    from: FROM,
+    to:   toEmail,
+    subject: `Your ${appointmentType.toUpperCase()} booking code — PHEx Portal`,
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+        <div style="background:#1e3a8a;border-radius:12px;padding:20px 24px;margin-bottom:24px">
+          <h2 style="color:#fff;margin:0;font-size:20px">DLSU · Health Services Office</h2>
+          <p style="color:rgba(255,255,255,0.7);margin:4px 0 0;font-size:13px">PHEx Portal</p>
+        </div>
+        <h3 style="color:#111827;margin-bottom:8px">Your booking code</h3>
+        <p style="color:#6b7280;font-size:14px;line-height:1.6;margin-bottom:20px">
+          Hi ${studentName}, here is your booking code for your ${appointmentType.toUpperCase()} appointment.
+        </p>
+        <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:16px 20px;margin-bottom:20px">
+          <div style="font-size:12px;color:#0369a1;font-weight:600;margin-bottom:4px">BOOKING CODE</div>
+          <div style="font-size:28px;font-weight:800;color:#1d4ed8;letter-spacing:0.1em">${bookingCode}</div>
+        </div>
+        <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-bottom:20px">
+          <div style="font-size:12px;color:#374151;margin-bottom:4px"><strong>Appointment:</strong> ${appointmentType.toUpperCase()}</div>
+          <div style="font-size:12px;color:#374151;margin-bottom:4px"><strong>Date:</strong> ${appointmentDate}</div>
+          <div style="font-size:12px;color:#374151"><strong>Time:</strong> ${timeSlot}</div>
+        </div>
+        <p style="color:#9ca3af;font-size:12px;line-height:1.6">
+          Use this code if you need to reschedule your appointment on the PHEx Portal.
+        </p>
+      </div>
+    `,
+  });
+}
+
+module.exports = { sendPasswordReset, sendBookingCode };

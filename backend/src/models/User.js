@@ -14,6 +14,8 @@ const userSchema = new mongoose.Schema({
   contact:      { type: String, default: "" },
   course:       { type: String, default: "" },
   role:         { type: String, enum: ["student", "hso"], default: "student" },
+  resetToken:   { type: String },
+  resetExpires: { type: Number },
   // Results from HSO
   phexResult:   { type: String, default: "" }, // "pending" | "released" | "claimed"
   dtResult:     { type: String, default: "" },
