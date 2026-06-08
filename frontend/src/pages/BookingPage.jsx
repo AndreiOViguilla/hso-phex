@@ -180,11 +180,11 @@ function StepPicker({ activity, onSelect }) {
       <div style={{ width: isMobile ? "100%" : 220, padding: "24px 20px", borderRight: isMobile ? "none" : `1px solid ${t.cardBorder}`, borderBottom: isMobile ? `1px solid ${t.cardBorder}` : "none", flexShrink: 0, background: t.card }}>
         <div style={{ fontSize: 12, color: t.textSub, marginBottom: 4 }}>{act.org}</div>
         <div style={{ fontSize: 20, fontWeight: 800, color: act.color, marginBottom: 16 }}>{act.title}</div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, fontSize: 13, color: "#374151" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, fontSize: 13, color: t.text }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           {act.duration}
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, color: "#374151" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, color: t.text }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop: 1, flexShrink: 0 }}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           {act.venue}
         </div>
@@ -259,11 +259,11 @@ function StepPicker({ activity, onSelect }) {
       {/* Time slots */}
       {selected && (
         <div style={{ width: isMobile ? "100%" : 210, padding: "16px", overflowY: "auto", height: isMobile ? 260 : "100%", flexShrink: 0, borderLeft: isMobile ? "none" : "1px solid #e5e7eb", borderTop: isMobile ? "1px solid #e5e7eb" : "none" }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: t.text, marginBottom: 12 }}>
             {DAYS[selected.getDay()]}, {MONTHS[selected.getMonth()].slice(0,3)} {selected.getDate()}
           </div>
           {slotsLoading ? (
-            <div style={{ fontSize: 12, color: "#9ca3af", padding: "12px 0", textAlign: "center" }}>Loading slots…</div>
+            <div style={{ fontSize: 12, color: t.textMuted, padding: "12px 0", textAlign: "center" }}>Loading slots…</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {slots.map((slot, i) => {
@@ -397,7 +397,7 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
           { icon: "cal",   text: dateStr },
           { icon: "globe", text: "Philippine Time" },
         ].map(({ icon, text }) => (
-          <div key={text} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 8, fontSize: 12, color: "#374151" }}>
+          <div key={text} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 8, fontSize: 12, color: t.text }}>
             {icon === "clock" && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop: 1, flexShrink: 0 }}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
             {icon === "pin"   && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop: 1, flexShrink: 0 }}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>}
             {icon === "cal"   && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop: 1, flexShrink: 0 }}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>}
@@ -417,12 +417,12 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
         <div style={{ marginBottom: 14 }}>
           <label style={lbl}>DLSU Email <span style={{ color: "#ef4444" }}>*</span></label>
           <input style={inp} placeholder="yourname@dlsu.edu.ph" value={form.email} onChange={e => set("email", e.target.value)} />
-          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>Must be your DLSU email or you won't receive confirmation.</div>
+          <div style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>Must be your DLSU email or you won't receive confirmation.</div>
         </div>
         <div style={{ marginBottom: 20 }}>
           <label style={lbl}>Personal booking code <span style={{ color: "#ef4444" }}>*</span></label>
           <input style={inp} placeholder="e.g. pikachu" value={form.code} onChange={e => set("code", e.target.value)} />
-          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4, lineHeight: 1.5 }}>Choose any word you'll remember. HSO uses this to cancel duplicate bookings.</div>
+          <div style={{ fontSize: 11, color: t.textMuted, marginTop: 4, lineHeight: 1.5 }}>Choose any word you'll remember. HSO uses this to cancel duplicate bookings.</div>
         </div>
         <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 16 }}>
           By proceeding, you confirm that you have read and agree to the booking terms.
@@ -446,10 +446,10 @@ function StepConfirmed({ activity, booking, onDone }) {
       <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
       </div>
-      <div style={{ fontSize: 22, fontWeight: 800, color: "#111827", marginBottom: 8 }}>You are scheduled!</div>
-      <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 24 }}>A calendar invitation has been sent to your email address.</div>
+      <div style={{ fontSize: 22, fontWeight: 800, color: t.text, marginBottom: 8 }}>You are scheduled!</div>
+      <div style={{ fontSize: 14, color: t.textSub, marginBottom: 24 }}>A calendar invitation has been sent to your email address.</div>
 
-      <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, padding: "20px 24px", maxWidth: 340, width: "100%", textAlign: "left", marginBottom: 24 }}>
+      <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, padding: "20px 24px", maxWidth: 340, width: "100%", textAlign: "left", marginBottom: 24 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: act.color, marginBottom: 12 }}>{act.title}</div>
         {[
           act.org,
@@ -457,14 +457,14 @@ function StepConfirmed({ activity, booking, onDone }) {
           "Philippine Time",
           act.venue,
         ].map((label, i) => (
-          <div key={i} style={{ fontSize: 13, color: "#374151", marginBottom: 6, display: "flex", gap: 8, alignItems: "flex-start" }}>
-            <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#9ca3af", marginTop: 5, flexShrink: 0 }} />
+          <div key={i} style={{ fontSize: 13, color: t.text, marginBottom: 6, display: "flex", gap: 8, alignItems: "flex-start" }}>
+            <div style={{ width: 5, height: 5, borderRadius: "50%", background: t.textMuted, marginTop: 5, flexShrink: 0 }} />
             {label}
           </div>
         ))}
       </div>
 
-      <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 10, padding: "12px 16px", maxWidth: 340, width: "100%", fontSize: 12, color: "#0369a1", marginBottom: 24, textAlign: "left" }}>
+      <div style={{ background: t.blueBg, border: `1px solid ${t.blue}44`, borderRadius: 10, padding: "12px 16px", maxWidth: 340, width: "100%", fontSize: 12, color: t.blueText, marginBottom: 24, textAlign: "left" }}>
         Show this confirmation email to the guard at the {act.label} station on your appointment day.
       </div>
 
@@ -477,7 +477,7 @@ function StepConfirmed({ activity, booking, onDone }) {
 
 // ── Main BookingPage ──────────────────────────────────────────────────────────
 export default function BookingPage({ activity = "phex", studentId, prefillFirstName, prefillLastName, prefillEmail, onBack, onBooked }) {
-  const { t } = useTheme();
+  const { dark, toggle, t } = useTheme();
   const [step, setStep]       = useState("pick");   // pick | details | confirmed
   const [date, setDate]       = useState(null);
   const [slot, setSlot]       = useState(null);
@@ -512,10 +512,10 @@ export default function BookingPage({ activity = "phex", studentId, prefillFirst
   if (!authChecked) {
     return (
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12 }}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "spin 0.8s linear infinite" }}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={t?.textMuted || "#9ca3af"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "spin 0.8s linear infinite" }}>
           <path d="M21 12a9 9 0 1 1-6.22-8.56"/>
         </svg>
-        <div style={{ fontSize: 13, color: "#9ca3af" }}>Verifying session…</div>
+        <div style={{ fontSize: 13, color: t.textMuted }}>Verifying session…</div>
         <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       </div>
     );
@@ -529,8 +529,8 @@ export default function BookingPage({ activity = "phex", studentId, prefillFirst
             <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
         </div>
-        <div style={{ fontSize: 18, fontWeight: 700, color: "#111827" }}>Access denied</div>
-        <div style={{ fontSize: 13, color: "#6b7280", textAlign: "center", maxWidth: 300, lineHeight: 1.6 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: t.text }}>Access denied</div>
+        <div style={{ fontSize: 13, color: t.textSub, textAlign: "center", maxWidth: 300, lineHeight: 1.6 }}>
           You must be signed in with a valid session to book an appointment. Please sign in and try again.
         </div>
         <button onClick={onBack} style={{ background: "#1d4ed8", color: "#fff", border: "none", borderRadius: 10, padding: "11px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
@@ -542,11 +542,19 @@ export default function BookingPage({ activity = "phex", studentId, prefillFirst
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, background: t.bg }}>
-      <NavBar
-        title={`Book ${act.label} Appointment`}
-        sub={studentId ? `ID: ${studentId}` : ""}
-        onBack={step === "details" ? () => setStep("pick") : onBack}
-      />
+      <div style={{ background: "#1e3a8a", color: "#fff", padding: "12px 20px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+        <button onClick={step === "details" ? () => setStep("pick") : onBack} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 34, height: 34, borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>←</button>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>Book {act.label} Appointment</div>
+          {studentId && <div style={{ fontSize: 12, opacity: 0.7 }}>ID: {studentId}</div>}
+        </div>
+        <button onClick={toggle} title={dark ? "Light mode" : "Dark mode"} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 34, height: 34, borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {dark
+            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          }
+        </button>
+      </div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", background: t.card, overflow: "hidden" }}>
         <div style={{ flex: 1, overflow: "auto" }}>
           {step === "pick" && (
