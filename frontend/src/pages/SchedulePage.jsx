@@ -392,12 +392,12 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
                   {/* Section header — clickable */}
                   <button onClick={() => setExpandedSections(s => ({ ...s, [key]: !s[key] }))}
                     style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: `1.5px solid ${allSectionDone ? t.green : t.cardBorder}`, borderRadius: isOpen ? "10px 10px 0 0" : 10, background: t.card, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={allSectionDone ? t.green : color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}>
                       <polyline points="9 18 15 12 9 6"/>
                     </svg>
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: allSectionDone ? t.green : t.text, textAlign: "left" }}>{title}</span>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: t.text, textAlign: "left" }}>{title}</span>
                     <span style={{ fontSize: 11, fontWeight: 700, color: allSectionDone ? t.green : color, background: allSectionDone ? t.greenBg : `${color}22`, padding: "2px 8px", borderRadius: 20 }}>
-                      {sectionDone}/{items.length}
+                      {allSectionDone ? "Completed" : `${sectionDone}/${items.length}`}
                     </span>
                   </button>
 
