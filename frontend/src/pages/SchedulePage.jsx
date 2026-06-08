@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { daysUntil } from "../utils/schedule";
 import { useIsMobile } from "../utils/useIsMobile";
 import { NavBar, Badge, Card, SectionLabel, Btn } from "../components/UI";
+import { useTheme } from "../ThemeContext";
 
 const IconLocation = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
@@ -144,9 +145,10 @@ function StepRow({ n, active, done, lineColor, isLast, children }) {
   );
 }
 
-export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF, onBookPHEx, onBookDT, onDEF, phexBooking: initPhex, dtBooking: initDT, onLogout }) {
+export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF, onBookPHEx, onBookDT, onDEF, phexBooking: initPhex, dtBooking: initDT, onLogout, onProfile }) {
   const isMobile = useIsMobile();
   const now = new Date();
+  const { dark, toggle, t } = useTheme();
 
   const [bookedPHEx,    setBookedPHEx]    = useState(initPhex || null);
   const [bookedDT,      setBookedDT]      = useState(initDT   || null);
@@ -254,7 +256,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
   };
 
   return (
-    <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+    <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", background: t.bg }}>
       {/* NavBar */}
       <div style={{ background: "#1e3a8a", color: "#fff", padding: "14px 24px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
         <button onClick={onBack} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 34, height: 34, borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>←</button>
@@ -262,12 +264,25 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
           <div style={{ fontSize: 16, fontWeight: 700 }}>Your Schedule</div>
           <div style={{ fontSize: 12, opacity: 0.7, marginTop: 1 }}>ID: {studentId}</div>
         </div>
-        <button onClick={onLogout} style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-          </svg>
-          Sign out
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {/* Night mode toggle */}
+          <button onClick={toggle} title={dark ? "Light mode" : "Dark mode"} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 34, height: 34, borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {dark ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            )}
+          </button>
+          {/* Profile */}
+          <button onClick={onProfile} title="Edit profile" style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 34, height: 34, borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </button>
+          {/* Sign out */}
+          <button onClick={onLogout} style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Sign out
+          </button>
+        </div>
       </div>
 
       {rescheduleFor && (

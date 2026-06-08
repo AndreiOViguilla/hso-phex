@@ -10,6 +10,8 @@ import BookingPage      from "./pages/BookingPage";
 import DEFPage          from "./pages/DEFPage";
 import SuccessPage      from "./pages/SuccessPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
+import ProfilePage      from "./pages/ProfilePage";
+import { ThemeProvider } from "./ThemeContext";
 
 export function getAuthHeader() {
   const token = localStorage.getItem("token");
@@ -118,11 +120,16 @@ function AppInner() {
         <Route path="/login" element={<LoginPage onBack={() => navigate("/")} onLogin={handleLogin} />} />
         <Route path="/guide" element={<BookingGuidePage onBack={() => navigate(-1)} />} />
         <Route path="/unauthorized" element={<UnauthorizedPage onBack={() => navigate("/")} />} />
-        <Route path="/schedule" element={<RequireAuth userData={userData} authLoading={authLoading}><SchedulePage studentId={studentId} sched={sched} onBack={() => navigate("/")} onGuide={() => navigate("/guide")} onMEF={() => navigate("/mef")} onBookPHEx={() => openBooking("phex")} onBookDT={() => openBooking("dt")} onDEF={() => navigate("/def")} phexBooking={phexBooking} dtBooking={dtBooking} onLogout={handleLogout} /></RequireAuth>} />
+        <Route path="/schedule" element={<RequireAuth userData={userData} authLoading={authLoading}><SchedulePage studentId={studentId} sched={sched} onBack={() => navigate("/")} onGuide={() => navigate("/guide")} onMEF={() => navigate("/mef")} onBookPHEx={() => openBooking("phex")} onBookDT={() => openBooking("dt")} onDEF={() => navigate("/def")} phexBooking={phexBooking} dtBooking={dtBooking} onLogout={handleLogout} onProfile={() => navigate("/profile")} /></RequireAuth>} />
         <Route path="/booking" element={<RequireAuth userData={userData} authLoading={authLoading}><BookingPage activity={bookActivity} studentId={studentId} prefillFirstName={userData?.firstName || ""} prefillLastName={userData?.lastName || ""} prefillEmail={userData?.email || ""} onBack={() => navigate("/schedule")} onBooked={(booking) => { if (bookActivity === "phex") setPhexBooking(booking); else setDtBooking(booking); navigate("/schedule"); }} /></RequireAuth>} />
         <Route path="/mef" element={<RequireAuth userData={userData} authLoading={authLoading}><MEFPage prefillId={studentId} prefillFirstName={userData?.firstName || ""} prefillLastName={userData?.lastName || ""} prefillMI={userData?.middleInitial || ""} prefillGender={userData?.gender || ""} onBack={() => navigate("/schedule")} onSuccess={() => navigate("/schedule")} /></RequireAuth>} />
         <Route path="/def" element={<RequireAuth userData={userData} authLoading={authLoading}><DEFPage prefillId={studentId} prefillName={userData ? [userData.firstName, userData.middleInitial, userData.lastName].filter(Boolean).join(" ") : ""} onBack={() => navigate("/schedule")} onSuccess={() => navigate("/schedule")} /></RequireAuth>} />
         <Route path="/success" element={<RequireAuth userData={userData} authLoading={authLoading}><SuccessPage onHome={() => navigate("/schedule")} /></RequireAuth>} />
+        <Route path="/profile" element={
+          <RequireAuth userData={userData} authLoading={authLoading}>
+            <ProfilePage userData={userData} onBack={() => navigate("/schedule")} onSaved={(updated) => { setUserData(updated); setStudentId(updated.studentId); setSched(getSchedule(updated.studentId)); }} />
+          </RequireAuth>
+        } />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
@@ -130,5 +137,9 @@ function AppInner() {
 }
 
 export default function App() {
-  return <BrowserRouter><AppInner /></BrowserRouter>;
+  return (
+    <ThemeProvider>
+      <BrowserRouter><AppInner /></BrowserRouter>
+    </ThemeProvider>
+  );
 }

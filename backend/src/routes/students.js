@@ -4,6 +4,7 @@ const { authMiddleware } = require("../middleware/auth");
 
 const router = express.Router();
 
+// GET /api/students/me
 router.get("/me", authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("-passwordHash");
@@ -15,18 +16,34 @@ router.get("/me", authMiddleware, async (req, res) => {
   }
 });
 
+// PUT /api/students/me — update editable fields only (studentId is NOT editable)
 router.put("/me", authMiddleware, async (req, res) => {
-  const { firstName, lastName, college, contact } = req.body;
+  const { firstName, middleInitial, lastName, gender, college, birthday, contact, course } = req.body;
   try {
     const user = await User.findByIdAndUpdate(
       req.user.id,
-      { firstName, lastName, college, contact },
+      { firstName, middleInitial, lastName, gender, college, birthday, contact, course },
       { new: true }
     ).select("-passwordHash");
     res.json(user);
   } catch (err) {
     console.error("PUT /me error:", err.message);
     res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
+// PUT /api/students/me/checklist — save checklist state
+router.put("/me/checklist", authMiddleware, async (req, res) => {
+  const { checklist } = req.body;
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { checklist },
+      { new: true }
+    ).select("-passwordHash");
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to update checklist" });
   }
 });
 

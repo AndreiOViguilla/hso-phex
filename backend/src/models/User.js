@@ -7,11 +7,18 @@ const userSchema = new mongoose.Schema({
   passwordHash: { type: String, required: true },
   firstName:    { type: String, required: true },
   middleInitial:{ type: String, default: "" },
-  gender:       { type: String, enum: ["Female", "Male", ""], default: "" },
   lastName:     { type: String, required: true },
-  college:      { type: String },
-  contact:      { type: String },
+  gender:       { type: String, enum: ["Female", "Male", ""], default: "" },
+  college:      { type: String, default: "" },
+  birthday:     { type: String, default: "" }, // stored as "YYYY-MM-DD"
+  contact:      { type: String, default: "" },
+  course:       { type: String, default: "" },
   role:         { type: String, enum: ["student", "hso"], default: "student" },
+  // Results from HSO
+  phexResult:   { type: String, default: "" }, // "pending" | "released" | "claimed"
+  dtResult:     { type: String, default: "" },
+  // Checklist — which items student has checked off
+  checklist:    { type: [String], default: [] },
 }, { timestamps: true });
 
 userSchema.methods.comparePassword = function(password) {
