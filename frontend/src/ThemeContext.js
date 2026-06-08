@@ -30,11 +30,11 @@ export function ThemeProvider({ children }) {
     // Dividers
     divider:      "#334155",
     // Accent — claude purple/blue
-    accent:       "#a78bfa",   // primary accent (purple)
-    accentBg:     "#2e1065",   // accent background
-    accentText:   "#a78bfa",
-    accentBtn:    "#7c3aed",   // button bg
-    accentBtnHover:"#6d28d9",
+    accent:       "#60a5fa",   // primary accent (blue)
+    accentBg:     "#1e3a5f",   // accent background
+    accentText:   "#60a5fa",
+    accentBtn:    "#1d4ed8",   // button bg
+    accentBtnHover:"#1e40af",
     // Blue (for bookings)
     blue:         "#60a5fa",
     blueBg:       "#1e3a5f",
@@ -55,13 +55,13 @@ export function ThemeProvider({ children }) {
     tealBg:       "#0d3330",
     tealText:     "#5eead4",
     // Step colors
-    stepActive:   "#7c3aed",
+    stepActive:   "#3b82f6",
     stepDone:     "#059669",
     stepLine:     "#334155",
     stepLineDone: "#059669",
     // Badge
-    badgeBg:      "#2e1065",
-    badgeText:    "#a78bfa",
+    badgeBg:      "#1e3a5f",
+    badgeText:    "#60a5fa",
   } : {
     bg:           "#f0f2f5",
     card:         "#ffffff",
