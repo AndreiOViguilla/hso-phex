@@ -175,18 +175,18 @@ function StepPicker({ activity, onSelect }) {
   const isMobile = useIsMobile();
 
   // Determine slot accent colors based on activity
-  const slotColor      = activity === "dt" ? t.teal      : act.color;
+  const slotColor      = activity === "dt" ? t.teal      : t.blue;
   const slotBg         = activity === "dt" ? t.tealBg    : t.blueBg;
   const slotText       = activity === "dt" ? t.tealText  : t.blueText;
-  const slotBorder     = activity === "dt" ? t.teal      : act.color;
-  const slotPickedBg   = activity === "dt" ? t.teal      : act.color;
+  const slotBorder     = activity === "dt" ? t.teal      : t.blue;
+  const slotPickedBg   = activity === "dt" ? t.teal      : t.blue;
 
   return (
     <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 0, height: isMobile ? "auto" : 580 }}>
       {/* Left info panel */}
       <div style={{ width: isMobile ? "100%" : 220, padding: "24px 20px", borderRight: isMobile ? "none" : `1px solid ${t.cardBorder}`, borderBottom: isMobile ? `1px solid ${t.cardBorder}` : "none", flexShrink: 0, background: t.card }}>
         <div style={{ fontSize: 12, color: t.textSub, marginBottom: 4 }}>{act.org}</div>
-        <div style={{ fontSize: 20, fontWeight: 800, color: activity === "dt" ? t.teal : act.color, marginBottom: 16 }}>{act.title}</div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: activity === "dt" ? t.teal : t.blue, marginBottom: 16 }}>{act.title}</div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, fontSize: 13, color: t.text }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           {act.duration}
@@ -353,7 +353,7 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
 
   const dateStr = `${slot.time} – ${MONTHS[date.getMonth()].slice(0,3)} ${date.getDate()}, ${date.getFullYear()}`;
 
-  const accentColor = activity === "dt" ? t.teal : act.color;
+  const accentColor = activity === "dt" ? t.teal : t.blue;
 
   const handleSubmit = async () => {
     if (!form.firstName || !form.lastName || !form.email) { show({ type: "error", message: "Please fill in all required fields." }); return; }
@@ -455,7 +455,7 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
 function StepConfirmed({ activity, booking, onDone }) {
   const act = ACTIVITIES[activity];
   const { t } = useTheme();
-  const accentColor = activity === "dt" ? t.teal : act.color;
+  const accentColor = activity === "dt" ? t.teal : t.blue;
   // booking = { date: "YYYY-MM-DD", time: "9:00am", code: "..." }
   const d = new Date(booking.date + "T00:00:00");
   const dateStr = `${booking.time} – ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
@@ -482,7 +482,7 @@ function StepConfirmed({ activity, booking, onDone }) {
         ))}
       </div>
 
-      <div style={{ background: t.tealBg, border: `1px solid ${t.teal}44`, borderRadius: 10, padding: "12px 16px", maxWidth: 340, width: "100%", fontSize: 12, color: t.tealText, marginBottom: 24, textAlign: "left" }}>
+      <div style={{ background: activity === "dt" ? t.tealBg : t.blueBg, border: `1px solid ${activity === "dt" ? t.teal : t.blue}44`, borderRadius: 10, padding: "12px 16px", maxWidth: 340, width: "100%", fontSize: 12, color: activity === "dt" ? t.tealText : t.blueText, marginBottom: 24, textAlign: "left" }}>
         Show this confirmation email to the guard at the {act.label} station on your appointment day.
       </div>
 
@@ -504,7 +504,7 @@ export default function BookingPage({ activity = "phex", studentId, prefillFirst
   const [authValid,   setAuthValid]   = useState(false);
   const act = ACTIVITIES[activity];
 
-  const accentColor = activity === "dt" ? t.teal : act.color;
+  const accentColor = activity === "dt" ? t.teal : t.blue;
 
   // Verify JWT with backend on mount — prevents URL-bypass attempts
   useEffect(() => {
