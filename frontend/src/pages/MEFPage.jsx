@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useIsMobile } from "../utils/useIsMobile";
 import { NavBar, Btn } from "../components/UI";
 
-// Only student-fillable fields
 const EMPTY_FORM = {
   idNumber:        "",
   date:            new Date().toISOString().split("T")[0],
@@ -21,7 +20,6 @@ const EMPTY_FORM = {
   studentAge:      "",
 };
 
-// Maps form state → exact AcroForm field names in the PDF
 function buildFieldMap(f) {
   return {
     "ID Number":          f.idNumber,
@@ -38,23 +36,44 @@ function buildFieldMap(f) {
     "Emergency Contact":  f.emergencyContact,
     "Student Name Auth":  f.studentNameAuth,
     "Student Age":        f.studentAge,
-    // Checkboxes
     "Gender Female":      f.gender === "Female" ? "Yes" : "Off",
     "Gender Male":        f.gender === "Male"   ? "Yes" : "Off",
   };
 }
 
+// Maps AcroForm field name → form input element ID
+const FIELD_TO_INPUT_ID = {
+  "ID Number":         "mef-idNumber",
+  "Date":              "mef-date",
+  "Last Name":         "mef-lastName",
+  "First Name":        "mef-firstName",
+  "MI":                "mef-mi",
+  "Birthday":          "mef-birthday",
+  "Contact Number":    "mef-contact",
+  "College Section":   "mef-college",
+  "Academic Year":     "mef-academicYear",
+  "Emergency Name":    "mef-emergencyName",
+  "Relationship":      "mef-emergencyRel",
+  "Emergency Contact": "mef-emergencyContact",
+  "Student Name Auth": "mef-studentNameAuth",
+  "Student Age":       "mef-studentAge",
+  "Gender Female":     "mef-gender-Female",
+  "Gender Male":       "mef-gender-Male",
+};
+
 export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, prefillMI, prefillGender, onBack, onSuccess }) {
   const isMobile    = useIsMobile();
   const canvasRef   = useRef(null);
-  const pdfDocRef   = useRef(null);   // pdf.js doc for preview
-  const pdfBytesRef = useRef(null);   // raw bytes for pdf-lib download
+  const pdfDocRef   = useRef(null);
+  const pdfBytesRef = useRef(null);
   const renderTimeout = useRef(null);
+  const scaleRef    = useRef(1); // current render scale for click mapping
 
-  const [pdfReady,   setPdfReady]   = useState(false);
-  const [pdfError,   setPdfError]   = useState(false);
-  const [rendering,  setRendering]  = useState(false);
-  const [downloading,setDownloading]= useState(false);
+  const [pdfReady,    setPdfReady]    = useState(false);
+  const [pdfError,    setPdfError]    = useState(false);
+  const [rendering,   setRendering]   = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [highlighted, setHighlighted] = useState(null); // field name currently highlighted
 
   const buildAuth = (fn, mi, ln) =>
     fn && ln ? `${fn}${mi ? " " + mi : ""} ${ln}` : "";
@@ -68,7 +87,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     studentNameAuth: buildAuth(prefillFirstName, prefillMI, prefillLastName),
   });
 
-  // Fetch fresh user data from backend on mount — always get latest profile
+  // Fetch fresh user data from backend on mount
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -76,7 +95,6 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       .then(r => r.ok ? r.json() : null)
       .then(user => {
         if (!user) return;
-        // Calculate age from birthday
         let age = "";
         if (user.birthday) {
           const birth = new Date(user.birthday);
@@ -84,7 +102,6 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
           age = String(today.getFullYear() - birth.getFullYear() -
             (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate()) ? 1 : 0));
         }
-
         setForm(f => ({
           ...f,
           idNumber:        user.studentId     || f.idNumber,
@@ -103,7 +120,66 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       })
       .catch(() => {});
   }, []);
+
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  // ── AcroForm field positions (at 1x PDF scale) ───────────────────────────
+  const TEXT_FIELDS = [
+    { name: "ID Number",          x: 88,  y: 103, w: 125, h: 11 },
+    { name: "Date",               x: 458, y: 104, w: 90,  h: 11 },
+    { name: "Last Name",          x: 88,  y: 117, w: 125, h: 11 },
+    { name: "First Name",         x: 271, y: 116, w: 160, h: 11 },
+    { name: "MI",                 x: 449, y: 117, w: 99,  h: 11 },
+    { name: "Birthday",           x: 237, y: 131, w: 70,  h: 11 },
+    { name: "Contact Number",     x: 400, y: 131, w: 150, h: 11 },
+    { name: "College Section",    x: 161, y: 144, w: 210, h: 11 },
+    { name: "Academic Year",      x: 444, y: 145, w: 106, h: 10 },
+    { name: "Emergency Name",     x: 221, y: 158, w: 145, h: 11 },
+    { name: "Relationship",       x: 435, y: 158, w: 115, h: 11 },
+    { name: "Emergency Contact",  x: 182, y: 171, w: 367, h: 11 },
+    { name: "Student Name Auth",  x: 44,  y: 220, w: 109, h: 11 },
+    { name: "Student Age",        x: 161, y: 220, w: 20,  h: 11 },
+  ];
+  const CHECK_FIELDS = [
+    { name: "Gender Female", x: 89,  y: 134, w: 8, h: 8 },
+    { name: "Gender Male",   x: 141, y: 134, w: 8, h: 7 },
+  ];
+  const ALL_FIELDS = [...TEXT_FIELDS, ...CHECK_FIELDS];
+
+  // ── Canvas click → focus matching input ──────────────────────────────────
+  const handleCanvasClick = useCallback((e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    // Click position relative to canvas in CSS pixels
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    // Convert to PDF units (1x scale)
+    const cssW = parseFloat(canvas.style.width) || rect.width;
+    const cssH = parseFloat(canvas.style.height) || rect.height;
+    const pdfW = canvas.width / scaleRef.current;
+    const pdfH = canvas.height / scaleRef.current;
+    const px = (cx / cssW) * pdfW;
+    const py = (cy / cssH) * pdfH;
+
+    // Find which field was clicked
+    const hit = ALL_FIELDS.find(f =>
+      px >= f.x && px <= f.x + f.w &&
+      py >= f.y && py <= f.y + f.h
+    );
+
+    if (hit) {
+      setHighlighted(hit.name);
+      const inputId = FIELD_TO_INPUT_ID[hit.name];
+      if (inputId) {
+        const el = document.getElementById(inputId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          setTimeout(() => { el.focus(); el.select?.(); }, 300);
+        }
+      }
+    }
+  }, [ALL_FIELDS]);
 
   // ── Load pdf.js + PDF bytes ──────────────────────────────────────────────
   useEffect(() => {
@@ -122,18 +198,16 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         const resp = await fetch("/medical-examination-form.pdf");
         if (!resp.ok) throw new Error("not found");
         const buf = await resp.arrayBuffer();
-        pdfBytesRef.current = buf.slice(0);  // keep copy for download
+        pdfBytesRef.current = buf.slice(0);
         pdfDocRef.current = await window.pdfjsLib.getDocument({ data: buf }).promise;
         setPdfReady(true);
-      } catch (e) {
-        setPdfError(true);
-      }
+      } catch (e) { setPdfError(true); }
     };
     load();
   }, []);
 
-  // ── Live preview: render PDF + overlay text ──────────────────────────────
-  const renderPreview = useCallback(async (f) => {
+  // ── Live preview render ──────────────────────────────────────────────────
+  const renderPreview = useCallback(async (f, hl) => {
     if (!pdfDocRef.current || !canvasRef.current) return;
     setRendering(true);
     try {
@@ -141,62 +215,38 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       const canvas = canvasRef.current;
       const container = canvas.parentElement;
       const dpr = window.devicePixelRatio || 1;
-      const previewPanel = container ? container.parentElement : null;
-      const panelW = (previewPanel ? previewPanel.clientWidth : container ? container.clientWidth : 700) - 24;
+      const previewPanel = container?.parentElement;
+      const panelW = (previewPanel ? previewPanel.clientWidth : 700) - 24;
       const pdfNatural = page.getViewport({ scale: 1 });
-
-      // Always fit to width — PDF scales with panel width, height is natural
-      // Minimum width of 280px so PDF never disappears on tiny screens
       const fitWidth = Math.max(panelW, 280);
       const fitScale = fitWidth / pdfNatural.width;
-
       const renderScale = fitScale * Math.max(dpr, 2);
-      const viewport = page.getViewport({ scale: renderScale });
+      scaleRef.current = renderScale;
 
+      const viewport = page.getViewport({ scale: renderScale });
       canvas.width  = viewport.width;
       canvas.height = viewport.height;
       canvas.style.width   = `${fitWidth}px`;
       canvas.style.height  = `${pdfNatural.height * fitScale}px`;
       canvas.style.display = "block";
       canvas.style.margin  = "0 auto";
+      canvas.style.cursor  = "pointer";
 
       const ctx = canvas.getContext("2d");
       await page.render({ canvasContext: ctx, viewport }).promise;
 
-      const s = renderScale; // includes DPR — use for all canvas drawing coords
+      const s = renderScale;
 
-      // ── AcroForm field definitions (x, y, w, h at 1x PDF scale, top-left origin) ──
-      const TEXT_FIELDS = [
-        { name: "ID Number",          x: 88,  y: 103, w: 125, h: 11, value: f.idNumber        },
-        { name: "Date",               x: 458, y: 104, w: 90,  h: 11, value: f.date            },
-        { name: "Last Name",          x: 88,  y: 117, w: 125, h: 11, value: f.lastName        },
-        { name: "First Name",         x: 271, y: 116, w: 160, h: 11, value: f.firstName       },
-        { name: "MI",                 x: 449, y: 117, w: 99,  h: 11, value: f.mi              },
-        { name: "Birthday",           x: 237, y: 131, w: 70,  h: 11, value: f.birthday        },
-        { name: "Contact Number",     x: 400, y: 131, w: 150, h: 11, value: f.contact         },
-        { name: "College Section",    x: 161, y: 144, w: 210, h: 11, value: f.college         },
-        { name: "Academic Year",      x: 444, y: 145, w: 106, h: 10, value: f.academicYear    },
-        { name: "Emergency Name",     x: 221, y: 158, w: 145, h: 11, value: f.emergencyName   },
-        { name: "Relationship",       x: 435, y: 158, w: 115, h: 11, value: f.emergencyRel    },
-        { name: "Emergency Contact",  x: 182, y: 171, w: 367, h: 11, value: f.emergencyContact},
-        { name: "Student Name Auth",  x: 44,  y: 220, w: 109, h: 11, value: f.studentNameAuth },
-        { name: "Student Age",        x: 161, y: 220, w: 20,  h: 11, value: f.studentAge      },
-      ];
-      const CHECK_FIELDS = [
-        { name: "Gender Female", x: 89,  y: 134, w: 8, h: 8, checked: f.gender === "Female" },
-        { name: "Gender Male",   x: 141, y: 134, w: 8, h: 7, checked: f.gender === "Male"   },
-      ];
+      const getVal = (name) => buildFieldMap(f)[name];
 
-      // ── Draw highlight boxes ──────────────────────────────────────────────
-      TEXT_FIELDS.forEach(({ x, y, w, h, value }) => {
-        // Highlight background
-        ctx.fillStyle = value ? "rgba(59,130,246,0.12)" : "rgba(59,130,246,0.06)";
+      TEXT_FIELDS.forEach(({ name, x, y, w, h }) => {
+        const value = getVal(name);
+        const isHl  = hl === name;
+        ctx.fillStyle = isHl ? "rgba(59,130,246,0.25)" : value ? "rgba(59,130,246,0.12)" : "rgba(59,130,246,0.06)";
         ctx.fillRect(x * s, y * s, w * s, h * s);
-        // Border
-        ctx.strokeStyle = value ? "#3b82f6" : "rgba(59,130,246,0.4)";
-        ctx.lineWidth = value ? 1.5 * s : 0.8 * s;
+        ctx.strokeStyle = isHl ? "#1d4ed8" : value ? "#3b82f6" : "rgba(59,130,246,0.4)";
+        ctx.lineWidth = isHl ? 2 * s : value ? 1.5 * s : 0.8 * s;
         ctx.strokeRect(x * s, y * s, w * s, h * s);
-        // Value text
         if (value) {
           ctx.fillStyle = "#1d4ed8";
           ctx.font = `${7 * s}px Arial`;
@@ -207,17 +257,22 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
           ctx.fillText(String(value), (x + 1.5) * s, (y + h - 2.5) * s);
           ctx.restore();
         }
+        // Tooltip hint on highlighted
+        if (isHl) {
+          ctx.fillStyle = "#1d4ed8";
+          ctx.font = `bold ${6 * s}px Arial`;
+          ctx.fillText("▶ " + name, x * s, (y - 2) * s);
+        }
       });
 
-      CHECK_FIELDS.forEach(({ x, y, w, h, checked }) => {
-        // Highlight background
-        ctx.fillStyle = checked ? "rgba(59,130,246,0.2)" : "rgba(59,130,246,0.06)";
+      CHECK_FIELDS.forEach(({ name, x, y, w, h }) => {
+        const checked = name === "Gender Female" ? f.gender === "Female" : f.gender === "Male";
+        const isHl = hl === name;
+        ctx.fillStyle = isHl ? "rgba(59,130,246,0.3)" : checked ? "rgba(59,130,246,0.2)" : "rgba(59,130,246,0.06)";
         ctx.fillRect(x * s, y * s, w * s, h * s);
-        // Border
-        ctx.strokeStyle = "#3b82f6";
-        ctx.lineWidth = 1.5 * s;
+        ctx.strokeStyle = isHl ? "#1d4ed8" : "#3b82f6";
+        ctx.lineWidth = isHl ? 2 * s : 1.5 * s;
         ctx.strokeRect(x * s, y * s, w * s, h * s);
-        // Checkmark
         if (checked) {
           ctx.fillStyle = "#1d4ed8";
           ctx.font = `bold ${8 * s}px Arial`;
@@ -225,31 +280,28 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         }
       });
 
-    } catch (e) {
-      console.error("Render error:", e);
-    }
+    } catch (e) { console.error("Render error:", e); }
     setRendering(false);
-  }, []);
+  }, [TEXT_FIELDS, CHECK_FIELDS]);
 
   useEffect(() => {
     if (!pdfReady) return;
     clearTimeout(renderTimeout.current);
-    renderTimeout.current = setTimeout(() => renderPreview(form), 300);
+    renderTimeout.current = setTimeout(() => renderPreview(form, highlighted), 300);
     return () => clearTimeout(renderTimeout.current);
-  }, [form, pdfReady, renderPreview]);
+  }, [form, pdfReady, renderPreview, highlighted]);
 
-  // Re-render on window resize so fit-to-page recalculates
   useEffect(() => {
     if (!pdfReady) return;
     const onResize = () => {
       clearTimeout(renderTimeout.current);
-      renderTimeout.current = setTimeout(() => renderPreview(form), 200);
+      renderTimeout.current = setTimeout(() => renderPreview(form, highlighted), 200);
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [pdfReady, form, renderPreview]);
+  }, [pdfReady, form, renderPreview, highlighted]);
 
-  // ── Download: fill real AcroForm fields via pdf-lib ──────────────────────
+  // ── Download ─────────────────────────────────────────────────────────────
   const handleDownload = async () => {
     if (!pdfBytesRef.current) return;
     setDownloading(true);
@@ -263,12 +315,9 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         });
       }
       const { PDFDocument } = window.PDFLib;
-      const pdfDoc  = await PDFDocument.load(pdfBytesRef.current.slice(0), {
-        ignoreEncryption: true,
-      });
+      const pdfDoc  = await PDFDocument.load(pdfBytesRef.current.slice(0), { ignoreEncryption: true });
       const pdfForm = pdfDoc.getForm();
       const fieldMap = buildFieldMap(form);
-
       for (const [name, value] of Object.entries(fieldMap)) {
         try {
           if (value === "Yes" || value === "Off") {
@@ -277,50 +326,32 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
           } else {
             const tf = pdfForm.getTextField(name);
             tf.setText(value || "");
-            tf.enableReadOnly(); // lock after filling
+            tf.enableReadOnly();
           }
-        } catch (_) {
-          // field not found or unsupported type — skip
-        }
+        } catch (_) {}
       }
-
-      // Flatten only the fields we filled — skip signature/unknown fields
-      try {
-        const fields = pdfForm.getFields();
-        fields.forEach(field => {
-          try {
-            // Only flatten text and checkbox fields
-            const type = field.constructor.name;
-            if (type === "PDFTextField" || type === "PDFCheckBox") {
-              field.enableReadOnly();
-            }
-          } catch (_) {}
-        });
-        pdfForm.flatten();
-      } catch (_) {
-        // If flatten fails entirely, save without flattening
-      }
-
+      try { pdfForm.flatten(); } catch (_) {}
       const bytes = await pdfDoc.save({ updateFieldAppearances: false });
       const blob  = new Blob([bytes], { type: "application/pdf" });
       const url   = URL.createObjectURL(blob);
       const a     = document.createElement("a");
-      a.href      = url;
-      a.download  = `MEF_${form.idNumber || "student"}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      a.href = url; a.download = `MEF_${form.idNumber || "student"}.pdf`;
+      a.click(); URL.revokeObjectURL(url);
       onSuccess();
-    } catch (e) {
-      alert("Download failed: " + e.message);
-    }
+    } catch (e) { alert("Download failed: " + e.message); }
     setDownloading(false);
   };
 
   // ── Styles ────────────────────────────────────────────────────────────────
-  const inp = (extra) => ({
-    padding: "9px 12px", border: "1px solid #d1d5db", borderRadius: 8,
+  const inp = (id, extra) => ({
+    id, padding: "9px 12px", border: "1px solid #d1d5db", borderRadius: 8,
     fontSize: 13, fontFamily: "inherit", outline: "none",
-    width: "100%", boxSizing: "border-box", ...extra,
+    width: "100%", boxSizing: "border-box",
+    transition: "border-color 0.2s, box-shadow 0.2s",
+    ...(highlighted && FIELD_TO_INPUT_ID[highlighted] === id
+      ? { borderColor: "#1d4ed8", boxShadow: "0 0 0 3px rgba(29,78,216,0.15)" }
+      : {}),
+    ...extra,
   });
   const lbl = { fontSize: 12, fontWeight: 600, color: "#6b7280", display: "block", marginBottom: 4 };
   const sec = { fontSize: 11, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1.5px solid #e5e7eb", paddingBottom: 8, marginBottom: 14 };
@@ -328,30 +359,27 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
   const c2  = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, marginBottom: 12 };
   const c3  = { display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr) 54px", gap: 10, marginBottom: 12 };
 
-  // ── Form panel ────────────────────────────────────────────────────────────
   const formPanel = (
     <div style={{ overflowY: "auto", padding: isMobile ? "16px" : "24px 32px", flex: 1, minWidth: 0 }}>
-
-      {/* Student information */}
       <div style={{ marginBottom: 22 }}>
         <div style={sec}>Student information</div>
         <div style={c2}>
           <div style={fld}><label style={lbl}>ID number</label>
-            <input style={inp()} value={form.idNumber} onChange={e => set("idNumber", e.target.value)} placeholder="e.g. 12512345" />
+            <input {...inp("mef-idNumber")} value={form.idNumber} onChange={e => set("idNumber", e.target.value)} placeholder="e.g. 12512345" />
           </div>
           <div style={fld}><label style={lbl}>Date</label>
-            <input type="date" style={inp()} value={form.date} onChange={e => set("date", e.target.value)} />
+            <input type="date" {...inp("mef-date")} value={form.date} onChange={e => set("date", e.target.value)} />
           </div>
         </div>
         <div style={c3}>
           <div style={fld}><label style={lbl}>Last name</label>
-            <input style={inp()} placeholder="Dela Cruz" value={form.lastName} onChange={e => set("lastName", e.target.value)} />
+            <input {...inp("mef-lastName")} placeholder="Dela Cruz" value={form.lastName} onChange={e => set("lastName", e.target.value)} />
           </div>
           <div style={fld}><label style={lbl}>First name</label>
-            <input style={inp()} placeholder="Juan" value={form.firstName} onChange={e => set("firstName", e.target.value)} />
+            <input {...inp("mef-firstName")} placeholder="Juan" value={form.firstName} onChange={e => set("firstName", e.target.value)} />
           </div>
           <div style={fld}><label style={lbl}>M.I.</label>
-            <input style={inp()} placeholder="A." value={form.mi} onChange={e => set("mi", e.target.value)} />
+            <input {...inp("mef-mi")} placeholder="A." value={form.mi} onChange={e => set("mi", e.target.value)} />
           </div>
         </div>
         <div style={c2}>
@@ -359,7 +387,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
             <label style={lbl}>Gender</label>
             <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
               {["Female", "Male"].map(g => (
-                <label key={g} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, fontWeight: 600, flex: 1, padding: "8px 12px", border: `1.5px solid ${form.gender === g ? "#1d4ed8" : "#d1d5db"}`, borderRadius: 8, background: form.gender === g ? "#eff6ff" : "#fff", color: form.gender === g ? "#1d4ed8" : "#374151", transition: "all 0.15s" }}>
+                <label key={g} id={`mef-gender-${g}`} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, fontWeight: 600, flex: 1, padding: "8px 12px", border: `1.5px solid ${form.gender === g ? "#1d4ed8" : "#d1d5db"}`, borderRadius: 8, background: form.gender === g ? "#eff6ff" : "#fff", color: form.gender === g ? "#1d4ed8" : "#374151", transition: "all 0.15s" }}>
                   <input type="radio" name="mef-gender" checked={form.gender === g} onChange={() => set("gender", g)} style={{ accentColor: "#1d4ed8" }} />
                   {g}
                 </label>
@@ -367,49 +395,47 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
             </div>
           </div>
           <div style={fld}><label style={lbl}>Birthday</label>
-            <input type="date" style={inp()} value={form.birthday} onChange={e => set("birthday", e.target.value)} />
+            <input type="date" {...inp("mef-birthday")} value={form.birthday} onChange={e => set("birthday", e.target.value)} />
           </div>
         </div>
         <div style={{ marginBottom: 12 }}>
           <div style={fld}><label style={lbl}>Contact number</label>
-            <input style={inp()} placeholder="09XX-XXX-XXXX" value={form.contact} onChange={e => set("contact", e.target.value)} />
+            <input {...inp("mef-contact")} placeholder="09XX-XXX-XXXX" value={form.contact} onChange={e => set("contact", e.target.value)} />
           </div>
         </div>
         <div style={c2}>
           <div style={fld}><label style={lbl}>College / Section</label>
-            <input style={inp()} placeholder="CCS / BSCS" value={form.college} onChange={e => set("college", e.target.value)} />
+            <input {...inp("mef-college")} placeholder="CCS / BSCS" value={form.college} onChange={e => set("college", e.target.value)} />
           </div>
           <div style={fld}><label style={lbl}>Academic year</label>
-            <input style={inp()} value={form.academicYear} onChange={e => set("academicYear", e.target.value)} />
+            <input {...inp("mef-academicYear")} value={form.academicYear} onChange={e => set("academicYear", e.target.value)} />
           </div>
         </div>
       </div>
 
-      {/* Emergency contact */}
       <div style={{ marginBottom: 22 }}>
         <div style={sec}>Emergency contact</div>
         <div style={c2}>
           <div style={fld}><label style={lbl}>Person to notify</label>
-            <input style={inp()} placeholder="Full name" value={form.emergencyName} onChange={e => set("emergencyName", e.target.value)} />
+            <input {...inp("mef-emergencyName")} placeholder="Full name" value={form.emergencyName} onChange={e => set("emergencyName", e.target.value)} />
           </div>
           <div style={fld}><label style={lbl}>Relationship</label>
-            <input style={inp()} placeholder="Parent" value={form.emergencyRel} onChange={e => set("emergencyRel", e.target.value)} />
+            <input {...inp("mef-emergencyRel")} placeholder="Parent" value={form.emergencyRel} onChange={e => set("emergencyRel", e.target.value)} />
           </div>
         </div>
         <div style={fld}><label style={lbl}>Emergency contact number</label>
-          <input style={inp()} placeholder="09XX-XXX-XXXX" value={form.emergencyContact} onChange={e => set("emergencyContact", e.target.value)} />
+          <input {...inp("mef-emergencyContact")} placeholder="09XX-XXX-XXXX" value={form.emergencyContact} onChange={e => set("emergencyContact", e.target.value)} />
         </div>
       </div>
 
-      {/* Authority to conduct */}
       <div style={{ marginBottom: 22 }}>
         <div style={sec}>Authority to conduct examination</div>
         <div style={c2}>
           <div style={fld}><label style={lbl}>Full name</label>
-            <input style={inp()} placeholder="Juan A. Dela Cruz" value={form.studentNameAuth} onChange={e => set("studentNameAuth", e.target.value)} />
+            <input {...inp("mef-studentNameAuth")} placeholder="Juan A. Dela Cruz" value={form.studentNameAuth} onChange={e => set("studentNameAuth", e.target.value)} />
           </div>
           <div style={fld}><label style={lbl}>Age</label>
-            <input style={inp()} placeholder="18" type="number" value={form.studentAge} onChange={e => set("studentAge", e.target.value)} />
+            <input {...inp("mef-studentAge")} placeholder="18" type="number" value={form.studentAge} onChange={e => set("studentAge", e.target.value)} />
           </div>
         </div>
         <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#6b7280", lineHeight: 1.7 }}>
@@ -417,7 +443,6 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         </div>
       </div>
 
-      {/* Consent */}
       <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 10, padding: "12px 14px", marginBottom: 18, fontSize: 12, color: "#0369a1", lineHeight: 1.7 }}>
         By generating this form, you confirm you understand the examination requirements. Results are confidential and will be used for your care. Records are retained for 5 years.
       </div>
@@ -429,16 +454,16 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     </div>
   );
 
-  // ── Preview panel ─────────────────────────────────────────────────────────
   const previewPanel = (
-    <div style={{ background: "#374151", display: "flex", flexDirection: "column", flex: 1, minHeight: 320, overflow: "hidden", position: isMobile ? "relative" : "sticky", top: isMobile ? "auto" : 0, height: isMobile ? "auto" : "calc(100vh - 56px)" }}>
+    <div style={{ background: "#374151", display: "flex", flexDirection: "column", flex: 1, minHeight: 320, overflow: "hidden" }}>
       <div style={{ background: "#1f2937", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: "#d1d5db" }}>Live PDF preview</span>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          {rendering  && <span style={{ fontSize: 11, color: "#9ca3af" }}>Updating…</span>}
+          {highlighted && <span style={{ fontSize: 11, color: "#93c5fd" }}>↑ {highlighted} selected</span>}
+          {rendering   && <span style={{ fontSize: 11, color: "#9ca3af" }}>Updating…</span>}
           {!pdfReady && !pdfError && <span style={{ fontSize: 11, color: "#9ca3af" }}>Loading…</span>}
-          {pdfError   && <span style={{ fontSize: 11, color: "#fca5a5" }}>PDF not found in /public</span>}
-          {pdfReady   && !rendering && <span style={{ fontSize: 11, color: "#6ee7b7" }}>AcroForm ready</span>}
+          {pdfError    && <span style={{ fontSize: 11, color: "#fca5a5" }}>PDF not found in /public</span>}
+          {pdfReady && !rendering && !highlighted && <span style={{ fontSize: 11, color: "#6ee7b7" }}>Click a field to jump to it →</span>}
         </div>
       </div>
       <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "12px" }}>
@@ -449,7 +474,11 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
             in your <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>public/</code> folder.
           </div>
         ) : (
-          <canvas ref={canvasRef} style={{ borderRadius: 4, display: "block" }} />
+          <canvas
+            ref={canvasRef}
+            onClick={handleCanvasClick}
+            style={{ borderRadius: 4, display: "block", cursor: "pointer" }}
+          />
         )}
       </div>
     </div>
@@ -457,14 +486,12 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-      <NavBar title="Medical Examination Form" sub="Fill left · See changes live on the right" onBack={onBack} />
+      <NavBar title="Medical Examination Form" sub="Click a field in the preview to jump to it" onBack={onBack} />
       <div style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", minHeight: 0, overflow: "hidden" }}>
-        {/* Form panel — scrollable */}
         <div style={{ flex: isMobile ? "none" : "0 0 42%", minWidth: isMobile ? "none" : 380, maxWidth: isMobile ? "none" : 520, borderRight: isMobile ? "none" : "1px solid #e5e7eb", display: "flex", flexDirection: "column", overflowY: isMobile ? "visible" : "auto" }}>
           {formPanel}
         </div>
-        {/* Preview panel — sticky on desktop, shown below form on mobile */}
-        <div style={{ flex: 1, position: isMobile ? "relative" : "sticky", top: 0, height: isMobile ? "60vw" : "100%", minHeight: isMobile ? 280 : 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ flex: 1, height: isMobile ? "60vw" : "100%", minHeight: isMobile ? 280 : 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           {previewPanel}
         </div>
       </div>
