@@ -292,7 +292,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       canvas.style.width   = `${fitWidth}px`;
       canvas.style.height  = `${pdfNatural.height * fitScale}px`;
       canvas.style.display = "block";
-      canvas.style.margin  = "0 auto";
+      canvas.style.margin  = currentZoom <= 1 ? "0 auto" : "0";  // center when small, align left when zoomed
       canvas.style.cursor  = "pointer";
 
       // Render PDF to offscreen canvas
@@ -326,7 +326,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       const panelW = (previewPanel ? previewPanel.clientWidth : 700) - 24;
       const pdfNatural = page.getViewport({ scale: 1 });
       const baseWidth = Math.max(panelW, 280);
-      const fitWidth = baseWidth * currentZoom;
+      const fitWidth = baseWidth * currentZoom;  // canvas grows with zoom
       const fitScale = fitWidth / pdfNatural.width;
       const renderScale = fitScale * Math.max(dpr, 2);
       scaleRef.current = renderScale;
@@ -336,7 +336,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       canvas.style.width   = `${fitWidth}px`;
       canvas.style.height  = `${pdfNatural.height * fitScale}px`;
       canvas.style.display = "block";
-      canvas.style.margin  = "0 auto";
+      canvas.style.margin  = currentZoom <= 1 ? "0 auto" : "0";  // center when small, align left when zoomed
       canvas.style.cursor  = "pointer";
       const off = document.createElement("canvas");
       off.width  = viewport.width;

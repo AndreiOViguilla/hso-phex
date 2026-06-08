@@ -174,7 +174,7 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       canvas.style.width   = `${fitWidth}px`;
       canvas.style.height  = `${pdfNatural.height * fitScale}px`;
       canvas.style.display = "block";
-      canvas.style.margin  = "0 auto";
+      canvas.style.margin  = currentZoom <= 1 ? "0 auto" : "0";  // center when small, align left when zoomed
       canvas.style.cursor  = "pointer";
 
       const off = document.createElement("canvas");
@@ -191,9 +191,40 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
   useEffect(() => {
     if (!pdfReady) return;
     clearTimeout(renderTimeout.current);
-    renderTimeout.current = setTimeout(() => renderPreview(form, highlighted), 300);
+    const currentForm = form;
+    const currentHighlighted = highlighted;
+    const currentZoom = zoom;
+    renderTimeout.current = setTimeout(async () => {
+      const page = await pdfDocRef.current?.getPage(1);
+      const canvas = canvasRef.current;
+      if (!page || !canvas) return;
+      const container = canvas.parentElement;
+      const dpr = window.devicePixelRatio || 1;
+      const previewPanel = container?.parentElement;
+      const panelW = (previewPanel ? previewPanel.clientWidth : 700) - 24;
+      const pdfNatural = page.getViewport({ scale: 1 });
+      const baseWidth = Math.max(panelW, 280);
+      const fitWidth = baseWidth * currentZoom;
+      const fitScale = fitWidth / pdfNatural.width;
+      const renderScale = fitScale * Math.max(dpr, 2);
+      scaleRef.current = renderScale;
+      const viewport = page.getViewport({ scale: renderScale });
+      canvas.width  = viewport.width;
+      canvas.height = viewport.height;
+      canvas.style.width   = `${fitWidth}px`;
+      canvas.style.height  = `${pdfNatural.height * fitScale}px`;
+      canvas.style.display = "block";
+      canvas.style.margin  = currentZoom <= 1 ? "0 auto" : "0";
+      canvas.style.cursor  = "pointer";
+      const off = document.createElement("canvas");
+      off.width  = viewport.width;
+      off.height = viewport.height;
+      offscreenRef.current = off;
+      await page.render({ canvasContext: off.getContext("2d"), viewport }).promise;
+      composite(currentForm, currentHighlighted);
+    }, 150);
     return () => clearTimeout(renderTimeout.current);
-  }, [form, pdfReady, renderPreview, zoom]);
+  }, [form, pdfReady, zoom, composite, highlighted]);
 
   useEffect(() => {
     if (!pdfReady) return;
