@@ -176,7 +176,7 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       canvas.style.width   = `${fitWidth}px`;
       canvas.style.height  = `${pdfNatural.height * fitScale}px`;
       canvas.style.display = "block";
-      canvas.style.margin  = currentZoom <= 1 ? "0 auto" : "0";  // center when small, align left when zoomed
+      canvas.style.margin  = zoomLevel <= 1 ? "0 auto" : "0";
       canvas.style.cursor  = "pointer";
 
       const off = document.createElement("canvas");
@@ -389,7 +389,7 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, background: t.bg }}>
-      <div style={{ background: "#1e3a8a", color: "#fff", padding: "12px 20px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+      <div style={{ background: dark ? "#1e293b" : "#1e3a8a", color: "#fff", padding: "12px 20px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0, borderBottom: dark ? `1px solid ${t.cardBorder}` : "none" }}>
         <button onClick={onBack} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 34, height: 34, borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>←</button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>Dental Examination Form</div>
