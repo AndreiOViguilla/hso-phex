@@ -31,6 +31,7 @@ const DEF_FIELDS = [
 
 export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
   const isMobile      = useIsMobile();
+  const { dark, t }   = useTheme();
   const canvasRef     = useRef(null);
   const pdfDocRef     = useRef(null);
   const pdfBytesRef   = useRef(null);
