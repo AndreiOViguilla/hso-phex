@@ -3,9 +3,9 @@ import { useTheme } from "../ThemeContext";
 import { useModal } from "../components/Modal";
 import { getAuthHeader } from "../App";
 
-const Logo = () => (
-  <div style={{ width: 60, height: 60, borderRadius: "50%", background: "#eff6ff", border: "2px solid #bfdbfe", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+const Logo = ({ t }) => (
+  <div style={{ width: 60, height: 60, borderRadius: "50%", background: t.accentBg, border: `2px solid ${t.cardBorder}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={t.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
     </svg>
   </div>
@@ -23,9 +23,26 @@ const EyeIcon = ({ open }) => open ? (
   </svg>
 );
 
+const SunIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="5"/>
+    <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+    <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+  </svg>
+);
+
+const MoonIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </svg>
+);
+
 export default function LoginPage({ onLogin, onBack }) {
   const { show } = useModal();
-  const { dark, t } = useTheme();
+  const { dark, toggle, t } = useTheme();
+
   const [tab,           setTab]           = useState("signin");
   const [idNumber,      setIdNumber]      = useState("");
   const [firstName,     setFirstName]     = useState("");
@@ -39,12 +56,24 @@ export default function LoginPage({ onLogin, onBack }) {
   const [showConf,      setShowConf]      = useState(false);
   const [loading,       setLoading]       = useState(false);
 
-  // Forgot modal state
-  const [forgotOpen,    setForgotOpen]    = useState(false); // false | "password" | "code"
+  const [forgotOpen,    setForgotOpen]    = useState(false);
   const [forgotEmail,   setForgotEmail]   = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
 
-  const inp = (extra) => ({ width: "100%", padding: "11px 14px", border: `1.5px solid ${t.inputBorder}`, borderRadius: 8, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", background: t.input, color: t.text, ...extra });
+  const inp = (extra) => ({
+    width: "100%",
+    padding: "11px 14px",
+    border: `1.5px solid ${t.inputBorder}`,
+    borderRadius: 8,
+    fontSize: 14,
+    fontFamily: "inherit",
+    outline: "none",
+    boxSizing: "border-box",
+    background: t.input,
+    color: t.text,
+    ...extra,
+  });
+
   const reset = () => {};
 
   const handleForgot = async (type) => {
@@ -113,16 +142,26 @@ export default function LoginPage({ onLogin, onBack }) {
   };
 
   const submitBtn = (label) => (
-    <button onClick={tab === "signin" ? handleSignIn : handleRegister} disabled={loading}
-      style={{ background: loading ? "#93c5fd" : "#1d4ed8", color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 15, fontWeight: 700, cursor: loading ? "default" : "pointer", fontFamily: "inherit", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 4 }}>
-      {loading ? (<><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" style={{ animation: "spin 0.8s linear infinite" }}><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>{tab === "signin" ? "Signing in…" : "Creating account…"}</>) : label}
+    <button
+      onClick={tab === "signin" ? handleSignIn : handleRegister}
+      disabled={loading}
+      style={{ background: loading ? t.accentBtnHover : t.accentBtn, color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 15, fontWeight: 700, cursor: loading ? "default" : "pointer", fontFamily: "inherit", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 4, opacity: loading ? 0.8 : 1 }}
+    >
+      {loading ? (
+        <>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" style={{ animation: "spin 0.8s linear infinite" }}><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>
+          {tab === "signin" ? "Signing in…" : "Creating account…"}
+        </>
+      ) : label}
     </button>
   );
 
   const ForgotModal = forgotOpen && (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16 }}
-      onClick={e => { if (e.target === e.currentTarget) { setForgotOpen(false); setForgotEmail(""); } }}>
-      <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 18, padding: "32px 28px", maxWidth: 380, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.22)", fontFamily: "'DM Sans',sans-serif" }}>
+    <div
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16 }}
+      onClick={e => { if (e.target === e.currentTarget) { setForgotOpen(false); setForgotEmail(""); } }}
+    >
+      <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 18, padding: "32px 28px", maxWidth: 380, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.35)", fontFamily: "'DM Sans',sans-serif" }}>
         <div style={{ fontSize: 17, fontWeight: 800, color: t.text, marginBottom: 6 }}>
           {forgotOpen === "password" ? "Forgot password?" : "Forgot booking code?"}
         </div>
@@ -150,75 +189,152 @@ export default function LoginPage({ onLogin, onBack }) {
     </div>
   );
 
+  // Tab switcher colors — same pill style as schedule page
+  const tabBg        = dark ? "#1e293b" : "#f3f4f6";
+  const tabActive    = dark ? "#334155" : "#ffffff";
+  const tabActiveCol = dark ? "#f1f5f9" : "#111827";
+  const tabIdleCol   = dark ? "#64748b"  : "#6b7280";
+
   return (
     <div style={{ minHeight: "100vh", background: t.bg, display: "flex", flexDirection: "column", fontFamily: "'DM Sans','Inter',sans-serif" }}>
-      <div style={{ background: "#1e3a8a", padding: "12px 24px", display: "flex", alignItems: "center", gap: 10 }}>
-        {onBack && <button onClick={onBack} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginRight: 4 }}>←</button>}
-        <span style={{ color: "#fff", fontSize: 13, fontWeight: 600, letterSpacing: "0.04em" }}>DLSU · Health Services Office</span>
+
+      {/* ── Header — matches SchedulePage exactly ── */}
+      <div style={{ background: dark ? "#1e293b" : "#1e3a8a", color: "#fff", padding: "12px 24px", display: "flex", alignItems: "center", gap: 10, borderBottom: dark ? `1px solid ${t.cardBorder}` : "none", flexShrink: 0 }}>
+        {onBack && (
+          <button onClick={onBack} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginRight: 4 }}>←</button>
+        )}
+        <span style={{ color: "#fff", fontSize: 13, fontWeight: 600, letterSpacing: "0.04em", flex: 1 }}>DLSU · Health Services Office</span>
+
+        {/* Dark / Light toggle — identical style to SchedulePage */}
+        <button
+          onClick={toggle}
+          title={dark ? "Switch to light mode" : "Switch to dark mode"}
+          style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 34, height: 34, borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+          {dark ? <SunIcon /> : <MoonIcon />}
+        </button>
       </div>
+
+      {/* ── Card ── */}
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px" }}>
         <div style={{ background: t.card, borderRadius: 16, border: `1px solid ${t.cardBorder}`, padding: "36px 32px", width: "100%", maxWidth: 400 }}>
-          <Logo />
+          <Logo t={t} />
           <div style={{ textAlign: "center", marginBottom: 24 }}>
             <div style={{ fontSize: 20, fontWeight: 800, color: t.text, marginBottom: 4 }}>PHEx Portal</div>
             <div style={{ fontSize: 13, color: t.textSub }}>AY 2025–2026 · Manila Campus</div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", background: "#f3f4f6", borderRadius: 10, padding: 4, marginBottom: 22, gap: 4 }}>
+
+          {/* Tab switcher */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", background: tabBg, borderRadius: 10, padding: 4, marginBottom: 22, gap: 4 }}>
             {[["signin", "Sign in"], ["register", "Register"]].map(([key, label]) => (
-              <button key={key} onClick={() => { setTab(key); reset(); }} style={{ padding: "9px", borderRadius: 8, border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s", background: tab === key ? "#fff" : "transparent", color: tab === key ? "#111827" : "#6b7280", boxShadow: tab === key ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>{label}</button>
+              <button
+                key={key}
+                onClick={() => { setTab(key); reset(); }}
+                style={{ padding: "9px", borderRadius: 8, border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s", background: tab === key ? tabActive : "transparent", color: tab === key ? tabActiveCol : tabIdleCol, boxShadow: tab === key ? "0 1px 4px rgba(0,0,0,0.15)" : "none" }}
+              >
+                {label}
+              </button>
             ))}
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {tab === "register" && (<>
-              <div><label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>Student ID number</label><input style={inp()} placeholder="e.g. 12512345" value={idNumber} maxLength={10} onChange={e => setIdNumber(e.target.value)} /></div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 60px", gap: 10 }}>
-                <div><label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>First name</label><input style={inp()} placeholder="Juan" value={firstName} onChange={e => setFirstName(e.target.value)} /></div>
-                <div><label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>Last name</label><input style={inp()} placeholder="Dela Cruz" value={lastName} onChange={e => setLastName(e.target.value)} /></div>
-                <div><label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>M.I.</label><input style={inp()} placeholder="O." value={middleInitial} maxLength={3} onChange={e => setMiddleInitial(e.target.value)} /></div>
-              </div>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 8 }}>Gender</label>
-                <div style={{ display: "flex", gap: 12 }}>
-                  {["Female", "Male"].map(g => (<label key={g} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: "#374151", flex: 1, padding: "10px 14px", border: `1.5px solid ${gender === g ? "#1d4ed8" : "#d1d5db"}`, borderRadius: 8, background: gender === g ? "#eff6ff" : "#fff", transition: "all 0.15s" }}><input type="radio" name="reg-gender" value={g} checked={gender === g} onChange={() => setGender(g)} style={{ accentColor: "#1d4ed8" }} />{g}</label>))}
+            {tab === "register" && (
+              <>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>Student ID number</label>
+                  <input style={inp()} placeholder="e.g. 12512345" value={idNumber} maxLength={10} onChange={e => setIdNumber(e.target.value)} />
                 </div>
-              </div>
-            </>)}
-            <div><label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>Email address</label><input style={inp()} placeholder="you@dlsu.edu.ph" type="email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && tab === "signin" && handleSignIn()} /></div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 60px", gap: 10 }}>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>First name</label>
+                    <input style={inp()} placeholder="Juan" value={firstName} onChange={e => setFirstName(e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>Last name</label>
+                    <input style={inp()} placeholder="Dela Cruz" value={lastName} onChange={e => setLastName(e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>M.I.</label>
+                    <input style={inp()} placeholder="O." value={middleInitial} maxLength={3} onChange={e => setMiddleInitial(e.target.value)} />
+                  </div>
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 8 }}>Gender</label>
+                  <div style={{ display: "flex", gap: 12 }}>
+                    {["Female", "Male"].map(g => (
+                      <label key={g} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: t.text, flex: 1, padding: "10px 14px", border: `1.5px solid ${gender === g ? t.accent : t.inputBorder}`, borderRadius: 8, background: gender === g ? t.accentBg : t.input, transition: "all 0.15s" }}>
+                        <input type="radio" name="reg-gender" value={g} checked={gender === g} onChange={() => setGender(g)} style={{ accentColor: t.accent }} />{g}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>Email address</label>
+              <input style={inp()} placeholder="you@dlsu.edu.ph" type="email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && tab === "signin" && handleSignIn()} />
+            </div>
+
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>Password</label>
               <div style={{ position: "relative" }}>
                 <input style={inp({ paddingRight: 44 })} type={showPass ? "text" : "password"} placeholder="Enter your password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && tab === "signin" && handleSignIn()} />
-                <button onClick={() => setShowPass(v => !v)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4 }}><EyeIcon open={showPass} /></button>
+                <button onClick={() => setShowPass(v => !v)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: t.textMuted, padding: 4 }}><EyeIcon open={showPass} /></button>
               </div>
             </div>
-            {tab === "register" && (<div><label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>Confirm password</label><div style={{ position: "relative" }}><input style={inp({ paddingRight: 44 })} type={showConf ? "text" : "password"} placeholder="Re-enter your password" value={confirm} onChange={e => setConfirm(e.target.value)} /><button onClick={() => setShowConf(v => !v)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4 }}><EyeIcon open={showConf} /></button></div></div>)}
 
-            {tab === "signin" && (<>
-              {/* Forgot password link */}
-              <div style={{ textAlign: "right", marginTop: -6 }}>
-                <button onClick={() => setForgotOpen("password")} style={{ background: "none", border: "none", color: "#1d4ed8", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", padding: 0 }}>
-                  Forgot password?
-                </button>
+            {tab === "register" && (
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 5 }}>Confirm password</label>
+                <div style={{ position: "relative" }}>
+                  <input style={inp({ paddingRight: 44 })} type={showConf ? "text" : "password"} placeholder="Re-enter your password" value={confirm} onChange={e => setConfirm(e.target.value)} />
+                  <button onClick={() => setShowConf(v => !v)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: t.textMuted, padding: 4 }}><EyeIcon open={showConf} /></button>
+                </div>
               </div>
+            )}
 
-              <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "2px 0" }}><div style={{ flex: 1, height: 1, background: "#e5e7eb" }} /><span style={{ fontSize: 11, color: "#9ca3af", whiteSpace: "nowrap" }}>or continue with</span><div style={{ flex: 1, height: 1, background: "#e5e7eb" }} /></div>
-              <button disabled title="Coming soon" style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #e5e7eb", borderRadius: 10, background: "#fafafa", cursor: "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, fontSize: 14, fontWeight: 600, color: "#9ca3af", fontFamily: "inherit" }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" style={{ flexShrink: 0 }}><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-                Sign in with Google <span style={{ fontSize: 10, background: "#f3f4f6", color: "#6b7280", padding: "2px 6px", borderRadius: 4, fontWeight: 500 }}>Coming soon</span>
-              </button>
-            </>)}
+            {tab === "signin" && (
+              <>
+                <div style={{ textAlign: "right", marginTop: -6 }}>
+                  <button onClick={() => setForgotOpen("password")} style={{ background: "none", border: "none", color: t.accent, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", padding: 0 }}>
+                    Forgot password?
+                  </button>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "2px 0" }}>
+                  <div style={{ flex: 1, height: 1, background: t.divider }} />
+                  <span style={{ fontSize: 11, color: t.textMuted, whiteSpace: "nowrap" }}>or continue with</span>
+                  <div style={{ flex: 1, height: 1, background: t.divider }} />
+                </div>
+
+                <button disabled title="Coming soon" style={{ width: "100%", padding: "11px 14px", border: `1.5px solid ${t.cardBorder}`, borderRadius: 10, background: t.card, cursor: "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, fontSize: 14, fontWeight: 600, color: t.textMuted, fontFamily: "inherit" }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                  </svg>
+                  Sign in with Google
+                  <span style={{ fontSize: 10, background: t.accentBg, color: t.textSub, padding: "2px 6px", borderRadius: 4, fontWeight: 500 }}>Coming soon</span>
+                </button>
+              </>
+            )}
+
             {submitBtn(tab === "signin" ? "Sign in" : "Create account")}
-            <div style={{ textAlign: "center", fontSize: 12, color: "#9ca3af" }}>
-              {tab === "signin" ? (<>Don't have an account?{" "}<button onClick={() => { setTab("register"); reset(); }} style={{ background: "none", border: "none", color: "#1d4ed8", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>Register</button></>) : (<>Already have an account?{" "}<button onClick={() => { setTab("signin"); reset(); }} style={{ background: "none", border: "none", color: "#1d4ed8", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>Sign in</button></>)}
+
+            <div style={{ textAlign: "center", fontSize: 12, color: t.textMuted }}>
+              {tab === "signin" ? (
+                <>Don't have an account?{" "}<button onClick={() => { setTab("register"); reset(); }} style={{ background: "none", border: "none", color: t.accent, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>Register</button></>
+              ) : (
+                <>Already have an account?{" "}<button onClick={() => { setTab("signin"); reset(); }} style={{ background: "none", border: "none", color: t.accent, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>Sign in</button></>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Forgot password / booking code modal */}
       {ForgotModal}
-
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
