@@ -1,36 +1,36 @@
 import { useState, useEffect } from "react";
 import { daysUntil } from "../utils/schedule";
 import { useIsMobile } from "../utils/useIsMobile";
-import { NavBar, Badge, Card, SectionLabel, Btn } from "../components/UI";
+import { Badge, Card, SectionLabel, Btn } from "../components/UI";
 import { useTheme } from "../ThemeContext";
 import { getAuthHeader } from "../App";
 import { useModal } from "../components/Modal";
 
-const IconLocation = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
+const IconLocation = ({ color }) => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
   </svg>
 );
-const IconClock = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle", marginRight: 4 }}>
+const IconClock = ({ color }) => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle", marginRight: 4 }}>
     <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
   </svg>
 );
-const IconInfo = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+const IconInfo = ({ color }) => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
     <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
   </svg>
 );
-const IconFile = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+const IconFile = ({ color }) => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
     <polyline points="14 2 14 8 20 8"/>
     <line x1="16" y1="13" x2="8" y2="13"/>
     <line x1="16" y1="17" x2="8" y2="17"/>
   </svg>
 );
-const IconCheck = ({ white = false }) => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={white ? "#fff" : "#16a34a"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+const IconCheck = ({ color = "#16a34a" }) => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="20 6 9 17 4 12"/>
   </svg>
 );
@@ -40,7 +40,6 @@ const IconTimer = ({ color = "#1d4ed8" }) => (
   </svg>
 );
 
-// Preparation checklist items
 const CHECKLIST_PHEX = [
   { id: "mef",     label: "Bring printed Medical Examination Form (MEF)" },
   { id: "id",      label: "Bring your DLSU ID or any valid government ID" },
@@ -91,28 +90,24 @@ function formatBookingDate(dateStr) {
   return d.toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 }
 
-
-
-function StepRow({ n, active, done, lineColor, isLast, children }) {
+function StepRow({ n, active, done, lineColor, isLast, children, t }) {
   return (
     <div style={{ display: "flex", gap: 16, alignItems: "stretch", minHeight: 0 }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, width: 36 }}>
         <div style={{
           width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
-          background: active ? "#1d4ed8" : done ? "#16a34a" : "#f3f4f6",
-          border: `2px solid ${active ? "#1d4ed8" : done ? "#16a34a" : "#d1d5db"}`,
-          color: active || done ? "#fff" : "#9ca3af",
+          background: active ? t.stepActive : done ? t.stepDone : t.card,
+          border: `2px solid ${active ? t.stepActive : done ? t.stepDone : t.cardBorder}`,
+          color: active || done ? "#fff" : t.textMuted,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 13, fontWeight: 700, zIndex: 1, flexShrink: 0,
-          boxShadow: active ? "0 0 0 4px rgba(29,78,216,0.15), 0 0 14px rgba(29,78,216,0.35)" : "none",
+          fontSize: 13, fontWeight: 700,
+          boxShadow: active ? `0 0 0 4px ${t.stepActive}33, 0 0 14px ${t.stepActive}55` : "none",
           transform: active ? "scale(1.1)" : "scale(1)",
           transition: "all 0.3s ease",
         }}>
-          {done ? <IconCheck white /> : n}
+          {done ? <IconCheck color="#fff" /> : n}
         </div>
-        {!isLast && (
-          <div style={{ width: 2, flex: 1, minHeight: 24, background: lineColor, marginTop: 4, transition: "background 0.3s" }} />
-        )}
+        {!isLast && <div style={{ width: 2, flex: 1, minHeight: 24, background: lineColor, marginTop: 4, transition: "background 0.3s" }} />}
       </div>
       <div style={{ flex: 1, paddingBottom: isLast ? 0 : 28, minWidth: 0 }}>
         {children}
@@ -133,14 +128,11 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
   const [filledDEF,     setFilledDEF]     = useState(false);
   const [checked,       setChecked]       = useState([]);
   const [rescheduleFor, setRescheduleFor] = useState(null);
-  const [rescheduleCode, setRescheduleCode] = useState("");
-
-
+  const [rescheduleCode,setRescheduleCode]= useState("");
 
   const allItems = [...CHECKLIST_PHEX, ...CHECKLIST_DT];
   const checklistDone = allItems.every(item => checked.includes(item.id));
 
-  // Load progress from backend
   useEffect(() => {
     fetch("/api/students/me", { headers: getAuthHeader() })
       .then(r => r.ok ? r.json() : null)
@@ -169,14 +161,11 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
 
   const phexPast = bookedPHEx ? new Date(bookedPHEx.date + "T23:59:59") < new Date() : false;
   const dtPast   = bookedDT   ? new Date(bookedDT.date   + "T23:59:59") < new Date() : false;
-
   const phexCountdown = useCountdown(bookedPHEx?.date, bookedPHEx?.time);
   const dtCountdown   = useCountdown(bookedDT?.date,   bookedDT?.time);
-
   const phexNow = phexCountdown === "Now!";
   const dtNow   = dtCountdown   === "Now!";
 
-  // 4-step flow
   const currentStep = (() => {
     if (!bookedPHEx || !bookedDT || phexPast || dtPast || phexNow || dtNow) return 1;
     if (!filledMEF || !filledDEF) return 2;
@@ -199,32 +188,34 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
     ? { label: `In ${d2} day${d2 !== 1 ? "s" : ""}`, type: "blue" }
     : { label: "Active", type: "green" };
 
-  const BookedCard = ({ label, color, booking, countdown, onReschedule }) => {
-    const isPast    = new Date(booking.date + "T23:59:59") < new Date();
-    const isNow     = countdown === "Now!";
+  const BookedCard = ({ label, color, bgColor, booking, countdown, onReschedule }) => {
+    const isPast      = new Date(booking.date + "T23:59:59") < new Date();
+    const isNow       = countdown === "Now!";
     const isNowOrPast = isPast || isNow;
-    const borderColor    = isNowOrPast ? "#f97316" : "#16a34a";
-    const countdownBg    = isNowOrPast ? "#fff7ed" : "#eff6ff";
-    const countdownColor = isNowOrPast ? "#c2410c" : "#1d4ed8";
-    const timerColor     = isNowOrPast ? "#c2410c" : "#1d4ed8";
+    const borderCol   = isNowOrPast ? t.orange : t.green;
+    const countBg     = isNowOrPast ? t.orangeBg : t.blueBg;
+    const countCol    = isNowOrPast ? t.orangeText : t.blueText;
     return (
-      <div style={{ background: "#fff", border: `1.5px solid ${borderColor}`, borderRadius: 14, padding: "14px 16px" }}>
+      <div style={{ background: t.card, border: `1.5px solid ${borderCol}`, borderRadius: 14, padding: "14px 16px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <span style={{ background: color === "#1d4ed8" ? "#eff6ff" : "#f0fdfa", color, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>{label}</span>
-          {!isNowOrPast && <span style={{ fontSize: 11, color: "#16a34a", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}><IconCheck /> Booked</span>}
+          <span style={{ background: bgColor, color, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>{label}</span>
+          {!isNowOrPast && <span style={{ fontSize: 11, color: t.green, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}><IconCheck color={t.green} /> Booked</span>}
         </div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 6 }}>
           {formatBookingDate(booking.date)} at {booking.time}
         </div>
         {countdown && (
-          <div style={{ background: countdownBg, borderRadius: 8, padding: "6px 10px", fontSize: 12, color: countdownColor, fontWeight: 600, marginBottom: 10, display: "flex", alignItems: "center" }}>
-            <IconTimer color={timerColor} />
+          <div style={{ background: countBg, borderRadius: 8, padding: "6px 10px", fontSize: 12, color: countCol, fontWeight: 600, marginBottom: 10, display: "flex", alignItems: "center" }}>
+            <IconTimer color={countCol} />
             {isPast ? "Appointment passed" : isNow ? "Your appointment is already passed" : `${countdown} until appointment`}
           </div>
         )}
-        {isPast && <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8, padding: "8px 10px", fontSize: 11, color: "#c2410c", marginBottom: 10, lineHeight: 1.5 }}>Your appointment date has passed. Please find another appointment.</div>}
-        {isNow && !isPast && <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8, padding: "8px 10px", fontSize: 11, color: "#c2410c", marginBottom: 10, lineHeight: 1.5 }}>Your appointment time has already passed. Please find another appointment.</div>}
-        <button onClick={onReschedule} style={{ width: "100%", padding: "8px", borderRadius: 8, border: `1.5px solid ${isNowOrPast ? "#f97316" : "#d1d5db"}`, background: isNowOrPast ? "#fff7ed" : "#fff", color: isNowOrPast ? "#c2410c" : "#374151", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+        {(isPast || isNow) && (
+          <div style={{ background: t.orangeBg, border: `1px solid ${t.orange}44`, borderRadius: 8, padding: "8px 10px", fontSize: 11, color: t.orangeText, marginBottom: 10, lineHeight: 1.5 }}>
+            {isPast ? "Your appointment date has passed." : "Your appointment time has already passed."} Please find another appointment.
+          </div>
+        )}
+        <button onClick={onReschedule} style={{ width: "100%", padding: "8px", borderRadius: 8, border: `1.5px solid ${isNowOrPast ? t.orange : t.cardBorder}`, background: isNowOrPast ? t.orangeBg : t.card, color: isNowOrPast ? t.orangeText : t.textSub, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
           Change appointment
         </button>
       </div>
@@ -234,7 +225,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
   return (
     <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", background: t.bg }}>
       {/* NavBar */}
-      <div style={{ background: "#1e3a8a", color: "#fff", padding: "14px 24px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+      <div style={{ background: dark ? "#1e293b" : "#1e3a8a", color: "#fff", padding: "14px 24px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0, borderBottom: dark ? `1px solid ${t.cardBorder}` : "none" }}>
         <button onClick={onBack} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 34, height: 34, borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>←</button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 16, fontWeight: 700 }}>Your Schedule</div>
@@ -242,11 +233,10 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button onClick={toggle} title={dark ? "Light mode" : "Dark mode"} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 34, height: 34, borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {dark ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            )}
+            {dark
+              ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            }
           </button>
           <button onClick={onProfile} title="Edit profile" style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 34, height: 34, borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -258,40 +248,23 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
         </div>
       </div>
 
-      {/* Reschedule modal — uses universal modal style but needs code input */}
+      {/* Reschedule modal */}
       {rescheduleFor && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16 }}>
-          <div style={{ background: "#fff", borderRadius: 18, padding: "32px 28px", maxWidth: 380, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.22)", textAlign: "center" }}>
-            <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#fff7ed", border: "2px solid #fed7aa", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 18, padding: "32px 28px", maxWidth: 380, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.22)", textAlign: "center", fontFamily: "'DM Sans',sans-serif" }}>
+            <div style={{ width: 52, height: 52, borderRadius: "50%", background: t.orangeBg, border: `2px solid ${t.orange}44`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={t.orange} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
               </svg>
             </div>
-            <div style={{ fontSize: 17, fontWeight: 800, color: "#111827", marginBottom: 8 }}>
-              Change {rescheduleFor === "phex" ? "PHEx" : "Drug Test"} Appointment
-            </div>
-            <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.65, marginBottom: 20 }}>
-              Enter your personal booking code to verify your identity before rescheduling.
-            </div>
-            <input
-              placeholder="e.g. pikachu"
-              value={rescheduleCode}
-              onChange={e => setRescheduleCode(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === "Enter") {
-                  const bookingCode = rescheduleFor === "phex" ? bookedPHEx?.code : bookedDT?.code;
-                  if (!rescheduleCode.trim()) { show({ type: "error", message: "Please enter your booking code." }); return; }
-                  if (rescheduleCode.trim() !== bookingCode) { show({ type: "error", message: "Incorrect booking code. Please try again." }); return; }
-                  if (rescheduleFor === "phex") { setBookedPHEx(null); onBookPHEx(); }
-                  else { setBookedDT(null); onBookDT(); }
-                  setRescheduleFor(null);
-                }
-              }}
-              style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #d1d5db", borderRadius: 10, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", marginBottom: 20, textAlign: "center" }}
+            <div style={{ fontSize: 17, fontWeight: 800, color: t.text, marginBottom: 8 }}>Change {rescheduleFor === "phex" ? "PHEx" : "Drug Test"} Appointment</div>
+            <div style={{ fontSize: 14, color: t.textSub, lineHeight: 1.65, marginBottom: 20 }}>Enter your personal booking code to verify before rescheduling.</div>
+            <input placeholder="e.g. pikachu" value={rescheduleCode} onChange={e => setRescheduleCode(e.target.value)}
+              style={{ width: "100%", padding: "11px 14px", border: `1.5px solid ${t.inputBorder}`, borderRadius: 10, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", marginBottom: 20, textAlign: "center", background: t.input, color: t.text }}
               autoFocus
             />
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setRescheduleFor(null)} style={{ flex: 1, padding: "11px", border: "1.5px solid #d1d5db", borderRadius: 10, background: "#fff", color: "#374151", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+              <button onClick={() => setRescheduleFor(null)} style={{ flex: 1, padding: "11px", border: `1.5px solid ${t.cardBorder}`, borderRadius: 10, background: t.card, color: t.text, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
               <button onClick={() => {
                 const bookingCode = rescheduleFor === "phex" ? bookedPHEx?.code : bookedDT?.code;
                 if (!rescheduleCode.trim()) { show({ type: "error", message: "Please enter your booking code." }); return; }
@@ -299,7 +272,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
                 if (rescheduleFor === "phex") { setBookedPHEx(null); onBookPHEx(); }
                 else { setBookedDT(null); onBookDT(); }
                 setRescheduleFor(null);
-              }} style={{ flex: 1, padding: "11px", border: "none", borderRadius: 10, background: "#f97316", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Confirm</button>
+              }} style={{ flex: 1, padding: "11px", border: "none", borderRadius: 10, background: t.accentBtn, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Confirm</button>
             </div>
           </div>
         </div>
@@ -309,205 +282,175 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
 
         {/* Period cards */}
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14, marginBottom: 28 }}>
-          <Card>
+          <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, padding: "18px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <SectionLabel>Appointment booking</SectionLabel>
+              <span style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Appointment booking</span>
               <Badge {...bookBadge} />
             </div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#111827" }}>{sched.book}</div>
-            <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6, lineHeight: 1.6 }}>Book PHEx and DT <strong>separately</strong>. Space at least 1 hour apart if doing both on the same day.</div>
-          </Card>
-          <Card>
+            <div style={{ fontSize: 18, fontWeight: 700, color: t.text }}>{sched.book}</div>
+            <div style={{ fontSize: 12, color: t.textSub, marginTop: 6, lineHeight: 1.6 }}>Book PHEx and DT <strong>separately</strong>. Space at least 1 hour apart if doing both on the same day.</div>
+          </div>
+          <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, padding: "18px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <SectionLabel>Exam period</SectionLabel>
+              <span style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>Exam period</span>
               <Badge {...examBadge} />
             </div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#111827" }}>{sched.exam}</div>
-            <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>Each appointment is 15 minutes. Show your confirmation email to the guard at each station.</div>
-          </Card>
+            <div style={{ fontSize: 18, fontWeight: 700, color: t.text }}>{sched.exam}</div>
+            <div style={{ fontSize: 12, color: t.textSub, marginTop: 6 }}>Each appointment is 15 minutes. Show your confirmation email to the guard at each station.</div>
+          </div>
         </div>
 
         {/* Steps */}
         <div style={{ display: "flex", flexDirection: "column" }}>
 
-          {/* Step 1 — Book */}
-          <StepRow n={1} active={currentStep === 1} done={!!bookedPHEx && !!bookedDT && !phexPast && !dtPast && !phexNow && !dtNow} lineColor={bookedPHEx && bookedDT && !phexPast && !dtPast ? "#16a34a" : "#e5e7eb"} isLast={false}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 12, paddingTop: 6 }}>Step 1 — Book your appointments</div>
+          {/* Step 1 */}
+          <StepRow n={1} t={t} active={currentStep === 1} done={!!bookedPHEx && !!bookedDT && !phexPast && !dtPast && !phexNow && !dtNow} lineColor={bookedPHEx && bookedDT && !phexPast && !dtPast ? t.stepLineDone : t.stepLine} isLast={false}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginBottom: 12, paddingTop: 6 }}>Step 1 — Book your appointments</div>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
               {bookedPHEx ? (
-                <BookedCard label="PHEx" color="#1d4ed8" booking={bookedPHEx} countdown={phexCountdown} onReschedule={() => { setRescheduleCode(""); setRescheduleFor("phex"); }} />
+                <BookedCard label="PHEx" color={t.blue} bgColor={t.blueBg} booking={bookedPHEx} countdown={phexCountdown} onReschedule={() => { setRescheduleCode(""); setRescheduleFor("phex"); }} />
               ) : (
-                <div style={{ background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 14, padding: "14px 16px" }}>
-                  <div style={{ marginBottom: 8 }}><span style={{ background: "#eff6ff", color: "#1d4ed8", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>PHEx</span></div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 10 }}>Periodic Health Examination</div>
-                  <div style={{ display: "flex", gap: 8, marginBottom: 6 }}><IconLocation /><div><div style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>Waldo Perfecto Seminar Room</div><div style={{ fontSize: 11, color: "#6b7280" }}>Ground floor, Br. Connon Hall</div></div></div>
-                  <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "flex-start" }}><IconInfo /><div style={{ fontSize: 11, color: "#6b7280", lineHeight: 1.5 }}>Bring your MEF. Results claimed 10 days after procedure.</div></div>
-                  <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 10 }}><IconClock />Mon–Fri 8am–12nn, 1pm–6pm · Sat 8am–1pm</div>
-                  <button onClick={bookingOpen ? onBookPHEx : undefined} disabled={!bookingOpen} style={{ width: "100%", padding: "9px", borderRadius: 8, border: `1.5px solid ${bookingOpen ? "#1d4ed8" : "#d1d5db"}`, background: bookingOpen ? "#fff" : "#f9fafb", color: bookingOpen ? "#1d4ed8" : "#9ca3af", fontSize: 12, fontWeight: 700, cursor: bookingOpen ? "pointer" : "not-allowed", fontFamily: "inherit" }}>{bookingOpen ? "Book PHEx appointment →" : "Booking not yet open"}</button>
+                <div style={{ background: t.card, border: `1.5px solid ${t.cardBorder}`, borderRadius: 14, padding: "14px 16px" }}>
+                  <div style={{ marginBottom: 8 }}><span style={{ background: t.blueBg, color: t.blue, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>PHEx</span></div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 10 }}>Periodic Health Examination</div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 6 }}><IconLocation color={t.blue} /><div><div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>Waldo Perfecto Seminar Room</div><div style={{ fontSize: 11, color: t.textSub }}>Ground floor, Br. Connon Hall</div></div></div>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "flex-start" }}><IconInfo color={t.textSub} /><div style={{ fontSize: 11, color: t.textSub, lineHeight: 1.5 }}>Bring your MEF. Results claimed 10 days after procedure.</div></div>
+                  <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 10 }}><IconClock color={t.textMuted} />Mon–Fri 8am–12nn, 1pm–6pm · Sat 8am–1pm</div>
+                  <button onClick={bookingOpen ? onBookPHEx : undefined} disabled={!bookingOpen} style={{ width: "100%", padding: "9px", borderRadius: 8, border: `1.5px solid ${bookingOpen ? t.accent : t.cardBorder}`, background: bookingOpen ? t.accentBg : t.card, color: bookingOpen ? t.accent : t.textMuted, fontSize: 12, fontWeight: 700, cursor: bookingOpen ? "pointer" : "not-allowed", fontFamily: "inherit" }}>{bookingOpen ? "Book PHEx appointment →" : "Booking not yet open"}</button>
                 </div>
               )}
               {bookedDT ? (
-                <BookedCard label="Drug Test" color="#0f766e" booking={bookedDT} countdown={dtCountdown} onReschedule={() => { setRescheduleCode(""); setRescheduleFor("dt"); }} />
+                <BookedCard label="Drug Test" color={t.teal} bgColor={t.tealBg} booking={bookedDT} countdown={dtCountdown} onReschedule={() => { setRescheduleCode(""); setRescheduleFor("dt"); }} />
               ) : (
-                <div style={{ background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 14, padding: "14px 16px" }}>
-                  <div style={{ marginBottom: 8 }}><span style={{ background: "#f0fdfa", color: "#0f766e", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>Drug Test</span></div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 10 }}>Drug Testing (LFAD Program)</div>
-                  <div style={{ display: "flex", gap: 8, marginBottom: 6 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0f766e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><div><div style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>2nd floor, Enrique Razon Sports Center</div><div style={{ fontSize: 11, color: "#6b7280" }}>ERSC — across from the main gym</div></div></div>
-                  <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "flex-start" }}><IconInfo /><div style={{ fontSize: 11, color: "#6b7280", lineHeight: 1.5 }}>Mandatory under Section 1.20.3. Results available from June 30.</div></div>
-                  <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 10 }}><IconClock />Mon–Fri 8am–12nn, 1pm–6pm · Sat 8am–1pm</div>
-                  <button onClick={bookingOpen ? onBookDT : undefined} disabled={!bookingOpen} style={{ width: "100%", padding: "9px", borderRadius: 8, border: `1.5px solid ${bookingOpen ? "#0f766e" : "#d1d5db"}`, background: bookingOpen ? "#fff" : "#f9fafb", color: bookingOpen ? "#0f766e" : "#9ca3af", fontSize: 12, fontWeight: 700, cursor: bookingOpen ? "pointer" : "not-allowed", fontFamily: "inherit" }}>{bookingOpen ? "Book Drug Test appointment →" : "Booking not yet open"}</button>
+                <div style={{ background: t.card, border: `1.5px solid ${t.cardBorder}`, borderRadius: 14, padding: "14px 16px" }}>
+                  <div style={{ marginBottom: 8 }}><span style={{ background: t.tealBg, color: t.teal, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>Drug Test</span></div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 10 }}>Drug Testing (LFAD Program)</div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 6 }}><IconLocation color={t.teal} /><div><div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>2nd floor, Enrique Razon Sports Center</div><div style={{ fontSize: 11, color: t.textSub }}>ERSC — across from the main gym</div></div></div>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "flex-start" }}><IconInfo color={t.textSub} /><div style={{ fontSize: 11, color: t.textSub, lineHeight: 1.5 }}>Mandatory under Section 1.20.3. Results available from June 30.</div></div>
+                  <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 10 }}><IconClock color={t.textMuted} />Mon–Fri 8am–12nn, 1pm–6pm · Sat 8am–1pm</div>
+                  <button onClick={bookingOpen ? onBookDT : undefined} disabled={!bookingOpen} style={{ width: "100%", padding: "9px", borderRadius: 8, border: `1.5px solid ${bookingOpen ? t.teal : t.cardBorder}`, background: bookingOpen ? t.tealBg : t.card, color: bookingOpen ? t.teal : t.textMuted, fontSize: 12, fontWeight: 700, cursor: bookingOpen ? "pointer" : "not-allowed", fontFamily: "inherit" }}>{bookingOpen ? "Book Drug Test appointment →" : "Booking not yet open"}</button>
                 </div>
               )}
             </div>
           </StepRow>
 
-          {/* Step 2 — Forms */}
-          <StepRow n={2} active={currentStep === 2} done={filledMEF && filledDEF} lineColor={filledMEF && filledDEF ? "#16a34a" : "#e5e7eb"} isLast={false}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 8, paddingTop: 6 }}>Step 2 — Fill your forms</div>
+          {/* Step 2 */}
+          <StepRow n={2} t={t} active={currentStep === 2} done={filledMEF && filledDEF} lineColor={filledMEF && filledDEF ? t.stepLineDone : t.stepLine} isLast={false}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginBottom: 8, paddingTop: 6 }}>Step 2 — Fill your forms</div>
             {bookedPHEx && bookedDT && (
-              <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 12, color: "#0369a1", lineHeight: 1.7 }}>
+              <div style={{ background: t.blueBg, border: `1px solid ${t.blue}44`, borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 12, color: t.blueText, lineHeight: 1.7 }}>
                 <strong>PHEx:</strong> {formatBookingDate(bookedPHEx.date)} at {bookedPHEx.time}<br />
                 <strong>Drug Test:</strong> {formatBookingDate(bookedDT.date)} at {bookedDT.time}
               </div>
             )}
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
-              <div style={{ background: "#fff", border: `1.5px solid ${filledMEF ? "#16a34a" : "#e5e7eb"}`, borderRadius: 14, padding: "14px 16px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <div style={{ color: "#7c3aed" }}><IconFile /></div>
-                  {filledMEF && <span style={{ fontSize: 11, color: "#16a34a", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}><IconCheck /> Filled</span>}
+              {[
+                { key: "mef", label: "Medical Examination Form", desc: "Fill in your student details, print, and bring to your PHEx appointment.", filled: filledMEF, color: dark ? "#a78bfa" : "#7c3aed", onFill: () => { setFilledMEF(true); saveProgress({ filledMEF: true }); onMEF(); } },
+                { key: "def", label: "Dental Examination Form",   desc: "Fill in your name and ID. The dentist completes the rest during examination.", filled: filledDEF, color: dark ? "#fb923c" : "#b45309", onFill: () => { setFilledDEF(true); saveProgress({ filledDEF: true }); onDEF(); } },
+              ].map(({ key, label, desc, filled, color, onFill }) => (
+                <div key={key} style={{ background: t.card, border: `1.5px solid ${filled ? t.green : t.cardBorder}`, borderRadius: 14, padding: "14px 16px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <div style={{ color }}><IconFile color={color} /></div>
+                    {filled && <span style={{ fontSize: 11, color: t.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}><IconCheck color={t.green} /> Filled</span>}
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontSize: 11, color: t.textSub, lineHeight: 1.5, marginBottom: 12 }}>{desc}</div>
+                  <button onClick={onFill} style={{ width: "100%", padding: "9px", borderRadius: 8, border: `1.5px solid ${filled ? t.green : color}`, background: filled ? t.greenBg : t.card, color: filled ? t.green : color, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                    {filled ? `✓ ${key.toUpperCase()} Filled — Fill again` : `Fill ${key.toUpperCase()} form →`}
+                  </button>
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 4 }}>Medical Examination Form</div>
-                <div style={{ fontSize: 11, color: "#6b7280", lineHeight: 1.5, marginBottom: 12 }}>Fill in your student details, print, and bring to your PHEx appointment.</div>
-                <button onClick={() => { setFilledMEF(true); saveProgress({ filledMEF: true }); onMEF(); }} style={{ width: "100%", padding: "9px", borderRadius: 8, border: `1.5px solid ${filledMEF ? "#16a34a" : "#7c3aed"}`, background: filledMEF ? "#f0fdf4" : "#fff", color: filledMEF ? "#16a34a" : "#7c3aed", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                  {filledMEF ? "✓ MEF Filled — Fill again" : "Fill MEF form →"}
-                </button>
-              </div>
-              <div style={{ background: "#fff", border: `1.5px solid ${filledDEF ? "#16a34a" : "#e5e7eb"}`, borderRadius: 14, padding: "14px 16px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <div style={{ color: "#b45309" }}><IconFile /></div>
-                  {filledDEF && <span style={{ fontSize: 11, color: "#16a34a", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}><IconCheck /> Filled</span>}
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 4 }}>Dental Examination Form</div>
-                <div style={{ fontSize: 11, color: "#6b7280", lineHeight: 1.5, marginBottom: 12 }}>Fill in your name and ID. The dentist completes the rest during examination.</div>
-                <button onClick={() => { setFilledDEF(true); saveProgress({ filledDEF: true }); onDEF(); }} style={{ width: "100%", padding: "9px", borderRadius: 8, border: `1.5px solid ${filledDEF ? "#16a34a" : "#b45309"}`, background: filledDEF ? "#f0fdf4" : "#fff", color: filledDEF ? "#16a34a" : "#b45309", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                  {filledDEF ? "✓ DEF Filled — Fill again" : "Fill DEF form →"}
-                </button>
-              </div>
+              ))}
             </div>
           </StepRow>
 
-          {/* Step 3 — Preparation Checklist */}
-          <StepRow n={3} active={currentStep === 3} done={checklistDone} lineColor={checklistDone ? "#16a34a" : "#e5e7eb"} isLast={false}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 3 ? "#111827" : "#9ca3af", marginBottom: 4, paddingTop: 6 }}>Step 3 — Preparation Checklist</div>
-            <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.6, marginBottom: 12 }}>
-              Check each item once you've prepared. Complete all before attending your appointments.
-            </div>
-
-            {/* PHEx checklist */}
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#1d4ed8", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>For PHEx</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {CHECKLIST_PHEX.map(item => {
-                  const isChecked = checked.includes(item.id);
-                  return (
-                    <button key={item.id} onClick={() => toggleCheck(item.id)}
-                      style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", border: `1.5px solid ${isChecked ? "#16a34a" : "#e5e7eb"}`, borderRadius: 10, background: isChecked ? "#f0fdf4" : "#fff", cursor: "pointer", textAlign: "left", fontFamily: "inherit", transition: "all 0.15s" }}>
-                      <div style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${isChecked ? "#16a34a" : "#d1d5db"}`, background: isChecked ? "#16a34a" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>
-                        {isChecked && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
-                      </div>
-                      <span style={{ fontSize: 13, color: isChecked ? "#16a34a" : "#374151", fontWeight: isChecked ? 600 : 400, textDecoration: isChecked ? "line-through" : "none" }}>{item.label}</span>
-                    </button>
-                  );
-                })}
+          {/* Step 3 — Checklist */}
+          <StepRow n={3} t={t} active={currentStep === 3} done={checklistDone} lineColor={checklistDone ? t.stepLineDone : t.stepLine} isLast={false}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 3 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 3 — Preparation Checklist</div>
+            <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 12 }}>Check each item once you've prepared. Complete all before attending your appointments.</div>
+            {[
+              { title: "For PHEx", color: t.blue, items: CHECKLIST_PHEX },
+              { title: "For Drug Test", color: t.teal, items: CHECKLIST_DT },
+            ].map(({ title, color, items }) => (
+              <div key={title} style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>{title}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {items.map(item => {
+                    const isChecked = checked.includes(item.id);
+                    return (
+                      <button key={item.id} onClick={() => toggleCheck(item.id)}
+                        style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", border: `1.5px solid ${isChecked ? t.green : t.cardBorder}`, borderRadius: 10, background: isChecked ? t.greenBg : t.card, cursor: "pointer", textAlign: "left", fontFamily: "inherit", transition: "all 0.15s" }}>
+                        <div style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${isChecked ? t.green : t.cardBorder}`, background: isChecked ? t.green : t.card, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>
+                          {isChecked && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                        </div>
+                        <span style={{ fontSize: 13, color: isChecked ? t.green : t.text, fontWeight: isChecked ? 600 : 400, textDecoration: isChecked ? "line-through" : "none" }}>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-
-            {/* DT checklist */}
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#0f766e", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>For Drug Test</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {CHECKLIST_DT.map(item => {
-                  const isChecked = checked.includes(item.id);
-                  return (
-                    <button key={item.id} onClick={() => toggleCheck(item.id)}
-                      style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", border: `1.5px solid ${isChecked ? "#16a34a" : "#e5e7eb"}`, borderRadius: 10, background: isChecked ? "#f0fdf4" : "#fff", cursor: "pointer", textAlign: "left", fontFamily: "inherit", transition: "all 0.15s" }}>
-                      <div style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${isChecked ? "#16a34a" : "#d1d5db"}`, background: isChecked ? "#16a34a" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>
-                        {isChecked && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
-                      </div>
-                      <span style={{ fontSize: 13, color: isChecked ? "#16a34a" : "#374151", fontWeight: isChecked ? 600 : 400, textDecoration: isChecked ? "line-through" : "none" }}>{item.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
+            ))}
             {checklistDone && (
-              <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px", marginTop: 12, fontSize: 12, color: "#16a34a", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <div style={{ background: t.greenBg, border: `1px solid ${t.green}44`, borderRadius: 10, padding: "10px 14px", marginTop: 12, fontSize: 12, color: t.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={t.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                 All items checked — you're ready to attend!
               </div>
             )}
           </StepRow>
 
           {/* Step 4 — Attend */}
-          <StepRow n={4} active={currentStep === 4} done={false} lineColor="#e5e7eb" isLast={true}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 4 ? "#111827" : "#9ca3af", marginBottom: 4, paddingTop: 6 }}>Step 4 — Attend PHEx & Drug Test</div>
-            <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.6, marginBottom: 10 }}>
-              Attend both on your scheduled dates. Order is interchangeable — show your confirmation email to the guard at each station.
-            </div>
+          <StepRow n={4} t={t} active={currentStep === 4} done={false} lineColor={t.stepLine} isLast={true}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 4 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 4 — Attend PHEx & Drug Test</div>
+            <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 10 }}>Attend both on your scheduled dates. Order is interchangeable — show your confirmation email to the guard at each station.</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {bookedPHEx && (() => {
                 const isPast = new Date(bookedPHEx.date + "T23:59:59") < new Date();
-                const isNowOrLate = isPast || phexCountdown === "Now!";
-                const accentColor = isNowOrLate ? "#c2410c" : "#1d4ed8";
+                const accent = isPast || phexCountdown === "Now!" ? t.orangeText : t.blueText;
                 return (
-                  <div style={{ fontSize: 12, color: "#374151", fontWeight: 600, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
-                    <IconTimer color={accentColor} />
-                    <span style={{ color: "#6b7280", marginRight: 4 }}>PHEx:</span>
+                  <div style={{ fontSize: 12, color: t.text, fontWeight: 600, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
+                    <IconTimer color={accent} />
+                    <span style={{ color: t.textSub, marginRight: 4 }}>PHEx:</span>
                     {formatBookingDate(bookedPHEx.date)} at {bookedPHEx.time}
-                    {phexCountdown && <span style={{ color: accentColor }}>({phexCountdown} away)</span>}
+                    {phexCountdown && <span style={{ color: accent }}>({phexCountdown} away)</span>}
                   </div>
                 );
               })()}
               {bookedDT && (() => {
                 const isPast = new Date(bookedDT.date + "T23:59:59") < new Date();
-                const isNowOrLate = isPast || dtCountdown === "Now!";
-                const accentColor = isNowOrLate ? "#c2410c" : "#1d4ed8";
+                const accent = isPast || dtCountdown === "Now!" ? t.orangeText : t.blueText;
                 return (
-                  <div style={{ fontSize: 12, color: "#374151", fontWeight: 600, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
-                    <IconTimer color={accentColor} />
-                    <span style={{ color: "#6b7280", marginRight: 4 }}>Drug Test:</span>
+                  <div style={{ fontSize: 12, color: t.text, fontWeight: 600, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
+                    <IconTimer color={accent} />
+                    <span style={{ color: t.textSub, marginRight: 4 }}>Drug Test:</span>
                     {formatBookingDate(bookedDT.date)} at {bookedDT.time}
-                    {dtCountdown && <span style={{ color: accentColor }}>({dtCountdown} away)</span>}
+                    {dtCountdown && <span style={{ color: accent }}>({dtCountdown} away)</span>}
                   </div>
                 );
               })()}
             </div>
           </StepRow>
-
         </div>
 
-        {/* Results — not a step, just a waiting info section */}
+        {/* Results */}
         {(bookedPHEx || bookedDT) && (
           <div style={{ marginTop: 28 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Results</div>
-            <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 12, padding: "12px 16px", marginBottom: 12, fontSize: 12, color: "#92400e", lineHeight: 1.7 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: t.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Results</div>
+            <div style={{ background: t.orangeBg, border: `1px solid ${t.orange}44`, borderRadius: 12, padding: "12px 16px", marginBottom: 12, fontSize: 12, color: t.orangeText, lineHeight: 1.7 }}>
               Results are released by HSO staff after processing. Just wait and claim them on time.
             </div>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
-              <div style={{ background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 14, padding: "14px 16px" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#1d4ed8", background: "#eff6ff", padding: "3px 10px", borderRadius: 20, display: "inline-block", marginBottom: 10 }}>PHEx / X-Ray Results</div>
-                <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.6, marginBottom: 8 }}>Available at <strong>Waldo Perfecto Seminar Room</strong> — 10 days after procedure.</div>
-                <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "6px 10px", display: "flex", alignItems: "center", gap: 6 }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <div style={{ background: t.card, border: `1.5px solid ${t.cardBorder}`, borderRadius: 14, padding: "14px 16px" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: t.blue, background: t.blueBg, padding: "3px 10px", borderRadius: 20, display: "inline-block", marginBottom: 10 }}>PHEx / X-Ray Results</div>
+                <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 8 }}>Available at <strong style={{ color: t.text }}>Waldo Perfecto Seminar Room</strong> — 10 days after procedure.</div>
+                <div style={{ fontSize: 11, color: t.orangeText, fontWeight: 600, background: t.orangeBg, border: `1px solid ${t.orange}44`, borderRadius: 8, padding: "6px 10px", display: "flex", alignItems: "center", gap: 6 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={t.orangeText} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                   Unclaimed by Aug 31 will be forwarded to provider.
                 </div>
               </div>
-              <div style={{ background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 14, padding: "14px 16px" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#0f766e", background: "#f0fdfa", padding: "3px 10px", borderRadius: 20, display: "inline-block", marginBottom: 10 }}>Drug Test Results</div>
-                <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.6, marginBottom: 8 }}>Available at <strong>ERSC 2nd floor</strong> starting June 30.</div>
-                <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "6px 10px", display: "flex", alignItems: "center", gap: 6 }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+              <div style={{ background: t.card, border: `1.5px solid ${t.cardBorder}`, borderRadius: 14, padding: "14px 16px" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: t.teal, background: t.tealBg, padding: "3px 10px", borderRadius: 20, display: "inline-block", marginBottom: 10 }}>Drug Test Results</div>
+                <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 8 }}>Available at <strong style={{ color: t.text }}>ERSC 2nd floor</strong> starting June 30.</div>
+                <div style={{ fontSize: 11, color: t.textSub, fontWeight: 600, background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 8, padding: "6px 10px", display: "flex", alignItems: "center", gap: 6 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={t.textSub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
                   Bring your ID when claiming results.
                 </div>
               </div>
@@ -516,7 +459,9 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
         )}
 
         <div style={{ marginTop: 20 }}>
-          <Btn variant="dark" onClick={onGuide}>View booking guide →</Btn>
+          <button onClick={onGuide} style={{ padding: "11px 20px", border: `1.5px solid ${t.cardBorder}`, borderRadius: 10, background: t.card, color: t.text, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            View booking guide →
+          </button>
         </div>
       </div>
     </div>
