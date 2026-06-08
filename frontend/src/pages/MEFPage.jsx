@@ -68,20 +68,31 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     studentNameAuth: buildAuth(prefillFirstName, prefillMI, prefillLastName),
   });
 
-  // Sync prefill props whenever they change — always overwrite with latest from DB
+  // Fetch fresh user data from backend on mount — always get latest profile
   useEffect(() => {
-    setForm(f => ({
-      ...f,
-      idNumber:        prefillId        !== undefined ? prefillId        : f.idNumber,
-      firstName:       prefillFirstName !== undefined ? prefillFirstName : f.firstName,
-      lastName:        prefillLastName  !== undefined ? prefillLastName  : f.lastName,
-      mi:              prefillMI        !== undefined ? prefillMI        : f.mi,
-      gender:          prefillGender    !== undefined ? prefillGender    : f.gender,
-      studentNameAuth: prefillFirstName && prefillLastName
-        ? buildAuth(prefillFirstName, prefillMI, prefillLastName)
-        : f.studentNameAuth,
-    }));
-  }, [prefillId, prefillFirstName, prefillLastName, prefillMI, prefillGender]);
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    fetch("/api/students/me", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(user => {
+        if (!user) return;
+        setForm(f => ({
+          ...f,
+          idNumber:        user.studentId     || f.idNumber,
+          firstName:       user.firstName     || f.firstName,
+          lastName:        user.lastName      || f.lastName,
+          mi:              user.middleInitial || f.mi,
+          gender:          user.gender        || f.gender,
+          birthday:        user.birthday      || f.birthday,
+          contact:         user.contact       || f.contact,
+          college:         user.college       || f.college,
+          studentNameAuth: user.firstName && user.lastName
+            ? buildAuth(user.firstName, user.middleInitial, user.lastName)
+            : f.studentNameAuth,
+        }));
+      })
+      .catch(() => {});
+  }, []);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   // ── Load pdf.js + PDF bytes ──────────────────────────────────────────────
