@@ -126,31 +126,3 @@ export function ModalProvider({ children }) {
 export function useModal() {
   return useContext(ModalContext);
 }
-
-/*
-USAGE EXAMPLES:
-
-import { useModal } from "../components/Modal";
-
-const { show } = useModal();
-
-// Simple error
-show("Please fill in all required fields.");
-
-// Typed alert
-show({ type: "error",   message: "Booking failed. Please try again." });
-show({ type: "success", message: "Appointment booked successfully!" });
-show({ type: "warning", message: "This is not your booking period yet." });
-show({ type: "info",    message: "Results are released by HSO after processing." });
-
-// Confirmation dialog
-show({
-  type: "confirm",
-  title: "Change appointment?",
-  message: "This will cancel your current booking. Are you sure?",
-  confirmLabel: "Yes, change it",
-  cancelLabel: "Keep current",
-  showCancel: true,
-  onConfirm: () => { /* do the thing */ },
-});
-*/
