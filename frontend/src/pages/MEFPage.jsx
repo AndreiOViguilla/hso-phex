@@ -278,7 +278,8 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       const previewPanel = container?.parentElement;
       const panelW = (previewPanel ? previewPanel.clientWidth : 700) - 24;
       const pdfNatural = page.getViewport({ scale: 1 });
-      const fitWidth = Math.max(panelW, 280);
+      const baseWidth = Math.max(panelW, 280);
+      const fitWidth = baseWidth * zoomLevel;
       const fitScale = fitWidth / pdfNatural.width;
       const renderScale = fitScale * Math.max(dpr, 2);
       scaleRef.current = renderScale;
