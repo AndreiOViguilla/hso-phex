@@ -31,7 +31,7 @@ const DEF_FIELDS = [
 
 export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
   const isMobile      = useIsMobile();
-  const { dark, t }   = useTheme();
+  const { dark, toggle, t } = useTheme();
   const canvasRef     = useRef(null);
   const pdfDocRef     = useRef(null);
   const pdfBytesRef   = useRef(null);
@@ -349,8 +349,8 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       <div style={{ background: "#1f2937", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {highlighted && <span style={{ fontSize: 11, color: "#93c5fd" }}>↑ {highlighted}</span>}
-          {rendering   && <span style={{ fontSize: 11, color: "#9ca3af" }}>Updating…</span>}
-          {!pdfReady && !pdfError && <span style={{ fontSize: 11, color: "#9ca3af" }}>Loading…</span>}
+          {rendering   && <span style={{ fontSize: 11, color: t.textMuted }}>Updating…</span>}
+          {!pdfReady && !pdfError && <span style={{ fontSize: 11, color: t.textMuted }}>Loading…</span>}
           {pdfError    && <span style={{ fontSize: 11, color: "#fca5a5" }}>PDF not found</span>}
           {pdfReady && !rendering && !highlighted && <span style={{ fontSize: 11, color: "#6ee7b7" }}>Click a field to jump →</span>}
         </div>
@@ -389,7 +389,16 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, background: t.bg }}>
-      <NavBar title="Dental Examination Form" sub="Click a field in the preview to jump to it" onBack={onBack} />
+      <div style={{ background: "#1e3a8a", color: "#fff", padding: "12px 20px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+        <button onClick={onBack} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 34, height: 34, borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>←</button>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>Dental Examination Form</div>
+          <div style={{ fontSize: 12, opacity: 0.7 }}>Click a field in the preview to jump to it</div>
+        </div>
+        <button onClick={toggle} title={dark ? "Light mode" : "Dark mode"} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 34, height: 34, borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {dark ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>}
+        </button>
+      </div>
       <div style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", minHeight: 0, overflow: "hidden" }}>
         <div style={{ flex: isMobile ? "none" : "0 0 42%", minWidth: isMobile ? "none" : 380, maxWidth: isMobile ? "none" : 520, borderRight: isMobile ? "none" : `1px solid ${t.divider}`, display: "flex", flexDirection: "column", overflowY: isMobile ? "visible" : "auto" }}>
           {formPanel}
