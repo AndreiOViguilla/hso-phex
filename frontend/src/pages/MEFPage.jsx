@@ -61,6 +61,11 @@ const FIELD_TO_INPUT_ID = {
   "Gender Male":       "mef-gender-Male",
 };
 
+// Reverse: input id → AcroForm field name
+const INPUT_ID_TO_FIELD = Object.fromEntries(
+  Object.entries(FIELD_TO_INPUT_ID).map(([k, v]) => [v, k])
+);
+
 export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, prefillMI, prefillGender, onBack, onSuccess }) {
   const isMobile    = useIsMobile();
   const canvasRef   = useRef(null);
@@ -385,21 +390,21 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         <div style={sec}>Student information</div>
         <div style={c2}>
           <div style={fld}><label style={lbl}>ID number</label>
-            <input id="mef-idNumber" style={inp()} value={form.idNumber} onChange={e => set("idNumber", e.target.value)} placeholder="e.g. 12512345" />
+            <input id="mef-idNumber" style={inp()} onFocus={() => setHighlighted(INPUT_ID_TO_FIELD["mef-idNumber"])} onBlur={() => setHighlighted(null)} value={form.idNumber} onChange={e => set("idNumber", e.target.value)} placeholder="e.g. 12512345" />
           </div>
           <div style={fld}><label style={lbl}>Date</label>
-            <input type="date" id="mef-date" style={inp()} value={form.date} onChange={e => set("date", e.target.value)} />
+            <input type="date" id="mef-date" style={inp()} onFocus={() => setHighlighted(INPUT_ID_TO_FIELD["mef-date"])} onBlur={() => setHighlighted(null)} value={form.date} onChange={e => set("date", e.target.value)} />
           </div>
         </div>
         <div style={c3}>
           <div style={fld}><label style={lbl}>Last name</label>
-            <input id="mef-lastName" style={inp()} placeholder="Dela Cruz" value={form.lastName} onChange={e => set("lastName", e.target.value)} />
+            <input id="mef-lastName" style={inp()} onFocus={() => setHighlighted(INPUT_ID_TO_FIELD["mef-lastName"])} onBlur={() => setHighlighted(null)} placeholder="Dela Cruz" value={form.lastName} onChange={e => set("lastName", e.target.value)} />
           </div>
           <div style={fld}><label style={lbl}>First name</label>
-            <input id="mef-firstName" style={inp()} placeholder="Juan" value={form.firstName} onChange={e => set("firstName", e.target.value)} />
+            <input id="mef-firstName" style={inp()} onFocus={() => setHighlighted(INPUT_ID_TO_FIELD["mef-firstName"])} onBlur={() => setHighlighted(null)} placeholder="Juan" value={form.firstName} onChange={e => set("firstName", e.target.value)} />
           </div>
           <div style={fld}><label style={lbl}>M.I.</label>
-            <input id="mef-mi" style={inp()} placeholder="A." value={form.mi} onChange={e => set("mi", e.target.value)} />
+            <input id="mef-mi" style={inp()} onFocus={() => setHighlighted(INPUT_ID_TO_FIELD["mef-mi"])} onBlur={() => setHighlighted(null)} placeholder="A." value={form.mi} onChange={e => set("mi", e.target.value)} />
           </div>
         </div>
         <div style={c2}>
@@ -407,7 +412,9 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
             <label style={lbl}>Gender</label>
             <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
               {["Female", "Male"].map(g => (
-                <label key={g} id={`mef-gender-${g}`} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, fontWeight: 600, flex: 1, padding: "8px 12px", border: `1.5px solid ${form.gender === g ? "#1d4ed8" : "#d1d5db"}`, borderRadius: 8, background: form.gender === g ? "#eff6ff" : "#fff", color: form.gender === g ? "#1d4ed8" : "#374151", transition: "all 0.15s" }}>
+                <label key={g} id={`mef-gender-${g}`}
+                  onClick={() => setHighlighted(`Gender ${g}`)}
+                  style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, fontWeight: 600, flex: 1, padding: "8px 12px", border: `1.5px solid ${form.gender === g ? "#1d4ed8" : "#d1d5db"}`, borderRadius: 8, background: form.gender === g ? "#eff6ff" : "#fff", color: form.gender === g ? "#1d4ed8" : "#374151", transition: "all 0.15s" }}>
                   <input type="radio" name="mef-gender" checked={form.gender === g} onChange={() => set("gender", g)} style={{ accentColor: "#1d4ed8" }} />
                   {g}
                 </label>
@@ -415,20 +422,20 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
             </div>
           </div>
           <div style={fld}><label style={lbl}>Birthday</label>
-            <input type="date" id="mef-birthday" style={inp()} value={form.birthday} onChange={e => set("birthday", e.target.value)} />
+            <input type="date" id="mef-birthday" style={inp()} onFocus={() => setHighlighted(INPUT_ID_TO_FIELD["mef-birthday"])} onBlur={() => setHighlighted(null)} value={form.birthday} onChange={e => set("birthday", e.target.value)} />
           </div>
         </div>
         <div style={{ marginBottom: 12 }}>
           <div style={fld}><label style={lbl}>Contact number</label>
-            <input id="mef-contact" style={inp()} placeholder="09XX-XXX-XXXX" value={form.contact} onChange={e => set("contact", e.target.value)} />
+            <input id="mef-contact" style={inp()} onFocus={() => setHighlighted(INPUT_ID_TO_FIELD["mef-contact"])} onBlur={() => setHighlighted(null)} placeholder="09XX-XXX-XXXX" value={form.contact} onChange={e => set("contact", e.target.value)} />
           </div>
         </div>
         <div style={c2}>
           <div style={fld}><label style={lbl}>College / Section</label>
-            <input id="mef-college" style={inp()} placeholder="CCS / BSCS" value={form.college} onChange={e => set("college", e.target.value)} />
+            <input id="mef-college" style={inp()} onFocus={() => setHighlighted(INPUT_ID_TO_FIELD["mef-college"])} onBlur={() => setHighlighted(null)} placeholder="CCS / BSCS" value={form.college} onChange={e => set("college", e.target.value)} />
           </div>
           <div style={fld}><label style={lbl}>Academic year</label>
-            <input id="mef-academicYear" style={inp()} value={form.academicYear} onChange={e => set("academicYear", e.target.value)} />
+            <input id="mef-academicYear" style={inp()} onFocus={() => setHighlighted(INPUT_ID_TO_FIELD["mef-academicYear"])} onBlur={() => setHighlighted(null)} value={form.academicYear} onChange={e => set("academicYear", e.target.value)} />
           </div>
         </div>
       </div>
@@ -437,14 +444,14 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         <div style={sec}>Emergency contact</div>
         <div style={c2}>
           <div style={fld}><label style={lbl}>Person to notify</label>
-            <input id="mef-emergencyName" style={inp()} placeholder="Full name" value={form.emergencyName} onChange={e => set("emergencyName", e.target.value)} />
+            <input id="mef-emergencyName" style={inp()} onFocus={() => setHighlighted(INPUT_ID_TO_FIELD["mef-emergencyName"])} onBlur={() => setHighlighted(null)} placeholder="Full name" value={form.emergencyName} onChange={e => set("emergencyName", e.target.value)} />
           </div>
           <div style={fld}><label style={lbl}>Relationship</label>
-            <input id="mef-emergencyRel" style={inp()} placeholder="Parent" value={form.emergencyRel} onChange={e => set("emergencyRel", e.target.value)} />
+            <input id="mef-emergencyRel" style={inp()} onFocus={() => setHighlighted(INPUT_ID_TO_FIELD["mef-emergencyRel"])} onBlur={() => setHighlighted(null)} placeholder="Parent" value={form.emergencyRel} onChange={e => set("emergencyRel", e.target.value)} />
           </div>
         </div>
         <div style={fld}><label style={lbl}>Emergency contact number</label>
-          <input id="mef-emergencyContact" style={inp()} placeholder="09XX-XXX-XXXX" value={form.emergencyContact} onChange={e => set("emergencyContact", e.target.value)} />
+          <input id="mef-emergencyContact" style={inp()} onFocus={() => setHighlighted(INPUT_ID_TO_FIELD["mef-emergencyContact"])} onBlur={() => setHighlighted(null)} placeholder="09XX-XXX-XXXX" value={form.emergencyContact} onChange={e => set("emergencyContact", e.target.value)} />
         </div>
       </div>
 
@@ -452,10 +459,10 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         <div style={sec}>Authority to conduct examination</div>
         <div style={c2}>
           <div style={fld}><label style={lbl}>Full name</label>
-            <input id="mef-studentNameAuth" style={inp()} placeholder="Juan A. Dela Cruz" value={form.studentNameAuth} onChange={e => set("studentNameAuth", e.target.value)} />
+            <input id="mef-studentNameAuth" style={inp()} onFocus={() => setHighlighted(INPUT_ID_TO_FIELD["mef-studentNameAuth"])} onBlur={() => setHighlighted(null)} placeholder="Juan A. Dela Cruz" value={form.studentNameAuth} onChange={e => set("studentNameAuth", e.target.value)} />
           </div>
           <div style={fld}><label style={lbl}>Age</label>
-            <input id="mef-studentAge" style={inp()} placeholder="18" type="number" value={form.studentAge} onChange={e => set("studentAge", e.target.value)} />
+            <input id="mef-studentAge" style={inp()} onFocus={() => setHighlighted(INPUT_ID_TO_FIELD["mef-studentAge"])} onBlur={() => setHighlighted(null)} placeholder="18" type="number" value={form.studentAge} onChange={e => set("studentAge", e.target.value)} />
           </div>
         </div>
         <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#6b7280", lineHeight: 1.7 }}>
