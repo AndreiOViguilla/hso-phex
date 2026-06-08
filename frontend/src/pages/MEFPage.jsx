@@ -289,8 +289,9 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     clearTimeout(renderTimeout.current);
     renderTimeout.current = setTimeout(() => renderPreview(form, highlighted), 300);
     return () => clearTimeout(renderTimeout.current);
-  }, [form, pdfReady, renderPreview, highlighted]);
+  }, [form, pdfReady, renderPreview]); // highlighted excluded — handled by separate overlay
 
+  // Re-render on resize only
   useEffect(() => {
     if (!pdfReady) return;
     const onResize = () => {
@@ -299,7 +300,27 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [pdfReady, form, renderPreview, highlighted]);
+  }, [pdfReady, form, renderPreview]);
+
+  // Highlight changes — just redraw overlay on top of existing canvas without full re-render
+  useEffect(() => {
+    if (!pdfReady || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const s = scaleRef.current;
+    const ctx = canvas.getContext("2d");
+    // Redraw all field overlays with updated highlight — no page re-render
+    ALL_FIELDS.forEach(({ name, x, y, w, h }) => {
+      const isCheck = CHECK_FIELDS.some(f => f.name === name);
+      const isHl = highlighted === name;
+      const value = isCheck ? null : buildFieldMap(form)[name];
+      const checked = isCheck && (name === "Gender Female" ? form.gender === "Female" : form.gender === "Male");
+      ctx.fillStyle = isHl ? "rgba(59,130,246,0.25)" : (value || checked) ? "rgba(59,130,246,0.12)" : "rgba(59,130,246,0.06)";
+      ctx.fillRect(x * s, y * s, w * s, h * s);
+      ctx.strokeStyle = isHl ? "#1d4ed8" : "#3b82f6";
+      ctx.lineWidth = isHl ? 2 * s : 1 * s;
+      ctx.strokeRect(x * s, y * s, w * s, h * s);
+    });
+  }, [highlighted]);
 
   // ── Download ─────────────────────────────────────────────────────────────
   const handleDownload = async () => {
@@ -343,14 +364,10 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
   };
 
   // ── Styles ────────────────────────────────────────────────────────────────
-  const inp = (id, extra) => ({
-    id, padding: "9px 12px", border: "1px solid #d1d5db", borderRadius: 8,
+  const inp = (extra) => ({
+    padding: "9px 12px", border: "1px solid #d1d5db", borderRadius: 8,
     fontSize: 13, fontFamily: "inherit", outline: "none",
     width: "100%", boxSizing: "border-box",
-    transition: "border-color 0.2s, box-shadow 0.2s",
-    ...(highlighted && FIELD_TO_INPUT_ID[highlighted] === id
-      ? { borderColor: "#1d4ed8", boxShadow: "0 0 0 3px rgba(29,78,216,0.15)" }
-      : {}),
     ...extra,
   });
   const lbl = { fontSize: 12, fontWeight: 600, color: "#6b7280", display: "block", marginBottom: 4 };
@@ -365,21 +382,21 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         <div style={sec}>Student information</div>
         <div style={c2}>
           <div style={fld}><label style={lbl}>ID number</label>
-            <input {...inp("mef-idNumber")} value={form.idNumber} onChange={e => set("idNumber", e.target.value)} placeholder="e.g. 12512345" />
+            <input id="mef-idNumber" style={inp()} value={form.idNumber} onChange={e => set("idNumber", e.target.value)} placeholder="e.g. 12512345" />
           </div>
           <div style={fld}><label style={lbl}>Date</label>
-            <input type="date" {...inp("mef-date")} value={form.date} onChange={e => set("date", e.target.value)} />
+            <input type="date" id="mef-date" style={inp()} value={form.date} onChange={e => set("date", e.target.value)} />
           </div>
         </div>
         <div style={c3}>
           <div style={fld}><label style={lbl}>Last name</label>
-            <input {...inp("mef-lastName")} placeholder="Dela Cruz" value={form.lastName} onChange={e => set("lastName", e.target.value)} />
+            <input id="mef-lastName" style={inp()} placeholder="Dela Cruz" value={form.lastName} onChange={e => set("lastName", e.target.value)} />
           </div>
           <div style={fld}><label style={lbl}>First name</label>
-            <input {...inp("mef-firstName")} placeholder="Juan" value={form.firstName} onChange={e => set("firstName", e.target.value)} />
+            <input id="mef-firstName" style={inp()} placeholder="Juan" value={form.firstName} onChange={e => set("firstName", e.target.value)} />
           </div>
           <div style={fld}><label style={lbl}>M.I.</label>
-            <input {...inp("mef-mi")} placeholder="A." value={form.mi} onChange={e => set("mi", e.target.value)} />
+            <input id="mef-mi" style={inp()} placeholder="A." value={form.mi} onChange={e => set("mi", e.target.value)} />
           </div>
         </div>
         <div style={c2}>
@@ -395,20 +412,20 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
             </div>
           </div>
           <div style={fld}><label style={lbl}>Birthday</label>
-            <input type="date" {...inp("mef-birthday")} value={form.birthday} onChange={e => set("birthday", e.target.value)} />
+            <input type="date" id="mef-birthday" style={inp()} value={form.birthday} onChange={e => set("birthday", e.target.value)} />
           </div>
         </div>
         <div style={{ marginBottom: 12 }}>
           <div style={fld}><label style={lbl}>Contact number</label>
-            <input {...inp("mef-contact")} placeholder="09XX-XXX-XXXX" value={form.contact} onChange={e => set("contact", e.target.value)} />
+            <input id="mef-contact" style={inp()} placeholder="09XX-XXX-XXXX" value={form.contact} onChange={e => set("contact", e.target.value)} />
           </div>
         </div>
         <div style={c2}>
           <div style={fld}><label style={lbl}>College / Section</label>
-            <input {...inp("mef-college")} placeholder="CCS / BSCS" value={form.college} onChange={e => set("college", e.target.value)} />
+            <input id="mef-college" style={inp()} placeholder="CCS / BSCS" value={form.college} onChange={e => set("college", e.target.value)} />
           </div>
           <div style={fld}><label style={lbl}>Academic year</label>
-            <input {...inp("mef-academicYear")} value={form.academicYear} onChange={e => set("academicYear", e.target.value)} />
+            <input id="mef-academicYear" style={inp()} value={form.academicYear} onChange={e => set("academicYear", e.target.value)} />
           </div>
         </div>
       </div>
@@ -417,14 +434,14 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         <div style={sec}>Emergency contact</div>
         <div style={c2}>
           <div style={fld}><label style={lbl}>Person to notify</label>
-            <input {...inp("mef-emergencyName")} placeholder="Full name" value={form.emergencyName} onChange={e => set("emergencyName", e.target.value)} />
+            <input id="mef-emergencyName" style={inp()} placeholder="Full name" value={form.emergencyName} onChange={e => set("emergencyName", e.target.value)} />
           </div>
           <div style={fld}><label style={lbl}>Relationship</label>
-            <input {...inp("mef-emergencyRel")} placeholder="Parent" value={form.emergencyRel} onChange={e => set("emergencyRel", e.target.value)} />
+            <input id="mef-emergencyRel" style={inp()} placeholder="Parent" value={form.emergencyRel} onChange={e => set("emergencyRel", e.target.value)} />
           </div>
         </div>
         <div style={fld}><label style={lbl}>Emergency contact number</label>
-          <input {...inp("mef-emergencyContact")} placeholder="09XX-XXX-XXXX" value={form.emergencyContact} onChange={e => set("emergencyContact", e.target.value)} />
+          <input id="mef-emergencyContact" style={inp()} placeholder="09XX-XXX-XXXX" value={form.emergencyContact} onChange={e => set("emergencyContact", e.target.value)} />
         </div>
       </div>
 
@@ -432,10 +449,10 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         <div style={sec}>Authority to conduct examination</div>
         <div style={c2}>
           <div style={fld}><label style={lbl}>Full name</label>
-            <input {...inp("mef-studentNameAuth")} placeholder="Juan A. Dela Cruz" value={form.studentNameAuth} onChange={e => set("studentNameAuth", e.target.value)} />
+            <input id="mef-studentNameAuth" style={inp()} placeholder="Juan A. Dela Cruz" value={form.studentNameAuth} onChange={e => set("studentNameAuth", e.target.value)} />
           </div>
           <div style={fld}><label style={lbl}>Age</label>
-            <input {...inp("mef-studentAge")} placeholder="18" type="number" value={form.studentAge} onChange={e => set("studentAge", e.target.value)} />
+            <input id="mef-studentAge" style={inp()} placeholder="18" type="number" value={form.studentAge} onChange={e => set("studentAge", e.target.value)} />
           </div>
         </div>
         <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#6b7280", lineHeight: 1.7 }}>
