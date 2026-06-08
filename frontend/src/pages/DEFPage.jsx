@@ -3,44 +3,65 @@ import { useIsMobile } from "../utils/useIsMobile";
 import { NavBar, Btn } from "../components/UI";
 
 const EMPTY_FORM = {
-  name:          "",
-  idNo:          "",
+  name: "",
+  idNo: "",
 };
 
 function buildFieldMap(f) {
   return {
-    "Name":   f.name,
-    "ID No":  f.idNo,
+    "Name":  f.name,
+    "ID No": f.idNo,
   };
 }
 
+const FIELD_TO_INPUT_ID = {
+  "Name":  "def-name",
+  "ID No": "def-idNo",
+};
+
+const INPUT_ID_TO_FIELD = Object.fromEntries(
+  Object.entries(FIELD_TO_INPUT_ID).map(([k, v]) => [v, k])
+);
+
+const DEF_FIELDS = [
+  { name: "Name",  x: 59, y: 107, w: 95, h: 15 },
+  { name: "ID No", x: 61, y: 123, w: 95, h: 15 },
+];
+
 export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
-  const isMobile    = useIsMobile();
-  const canvasRef   = useRef(null);
-  const pdfDocRef   = useRef(null);
-  const pdfBytesRef = useRef(null);
+  const isMobile      = useIsMobile();
+  const canvasRef     = useRef(null);
+  const pdfDocRef     = useRef(null);
+  const pdfBytesRef   = useRef(null);
+  const offscreenRef  = useRef(null);
   const renderTimeout = useRef(null);
+  const scaleRef      = useRef(1);
 
   const [pdfReady,    setPdfReady]    = useState(false);
   const [pdfError,    setPdfError]    = useState(false);
   const [rendering,   setRendering]   = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [highlighted, setHighlighted] = useState(null);
 
-  const [form, setForm] = useState({
-    ...EMPTY_FORM,
-    idNo: prefillId   || "",
-    name: prefillName || "",
-  });
+  const [form, setForm] = useState({ ...EMPTY_FORM, idNo: prefillId || "", name: prefillName || "" });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // Sync when prefill props change — always use latest from DB
+  // Fetch fresh from backend on mount
   useEffect(() => {
-    setForm(f => ({
-      ...f,
-      idNo: prefillId   !== undefined ? prefillId   : f.idNo,
-      name: prefillName !== undefined ? prefillName : f.name,
-    }));
-  }, [prefillId, prefillName]);
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    fetch("/api/students/me", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(user => {
+        if (!user) return;
+        setForm(f => ({
+          ...f,
+          idNo: user.studentId || f.idNo,
+          name: [user.firstName, user.middleInitial, user.lastName].filter(Boolean).join(" ") || f.name,
+        }));
+      })
+      .catch(() => {});
+  }, []);
 
   // Load pdf.js + PDF
   useEffect(() => {
@@ -62,77 +83,112 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
         pdfBytesRef.current = buf.slice(0);
         pdfDocRef.current = await window.pdfjsLib.getDocument({ data: buf }).promise;
         setPdfReady(true);
-      } catch (e) {
-        setPdfError(true);
-      }
+      } catch (e) { setPdfError(true); }
     };
     load();
   }, []);
 
-  // Render preview
-  const renderPreview = useCallback(async (f) => {
+  // Canvas click → focus matching input
+  const handleCanvasClick = useCallback((e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    const cssW = parseFloat(canvas.style.width) || rect.width;
+    const cssH = parseFloat(canvas.style.height) || rect.height;
+    const pdfW = canvas.width / scaleRef.current;
+    const pdfH = canvas.height / scaleRef.current;
+    const px = (cx / cssW) * pdfW;
+    const py = (cy / cssH) * pdfH;
+
+    const hit = DEF_FIELDS.find(f => px >= f.x && px <= f.x + f.w && py >= f.y && py <= f.y + f.h);
+    if (hit) {
+      setHighlighted(hit.name);
+      const el = document.getElementById(FIELD_TO_INPUT_ID[hit.name]);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => { el.focus(); el.select?.(); }, 300);
+      }
+    }
+  }, []);
+
+  // Draw overlay on canvas
+  const drawOverlay = useCallback((ctx, f, hl, s) => {
+    const fm = buildFieldMap(f);
+    DEF_FIELDS.forEach(({ name, x, y, w, h }) => {
+      const value = fm[name];
+      const isHl  = hl === name;
+      ctx.fillStyle = isHl ? "rgba(59,130,246,0.28)" : value ? "rgba(59,130,246,0.12)" : "rgba(59,130,246,0.05)";
+      ctx.fillRect(x * s, y * s, w * s, h * s);
+      ctx.strokeStyle = isHl ? "#1d4ed8" : value ? "#3b82f6" : "rgba(59,130,246,0.35)";
+      ctx.lineWidth = isHl ? 2 * s : value ? 1.2 * s : 0.7 * s;
+      ctx.strokeRect(x * s, y * s, w * s, h * s);
+      if (value) {
+        ctx.fillStyle = "#1d4ed8";
+        ctx.font = `${7 * s}px Arial`;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x * s, y * s, w * s, h * s);
+        ctx.clip();
+        ctx.fillText(String(value), (x + 1.5) * s, (y + h - 3) * s);
+        ctx.restore();
+      }
+    });
+  }, []);
+
+  // Composite: copy offscreen PDF + overlay
+  const composite = useCallback((f, hl) => {
+    const canvas = canvasRef.current;
+    const offscreen = offscreenRef.current;
+    if (!canvas || !offscreen) return;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(offscreen, 0, 0);
+    drawOverlay(ctx, f, hl, scaleRef.current);
+  }, [drawOverlay]);
+
+  // Full render: PDF to offscreen, then composite
+  const renderPreview = useCallback(async (f, hl) => {
     if (!pdfDocRef.current || !canvasRef.current) return;
     setRendering(true);
     try {
       const page = await pdfDocRef.current.getPage(1);
       const canvas = canvasRef.current;
       const container = canvas.parentElement;
-      const previewPanel = container ? container.parentElement : null;
       const dpr = window.devicePixelRatio || 1;
-      const availableWidth = (previewPanel ? previewPanel.clientWidth : container ? container.clientWidth : 700) - 24;
-      const fitWidth = Math.max(availableWidth, 280);
+      const previewPanel = container?.parentElement;
+      const panelW = (previewPanel ? previewPanel.clientWidth : 700) - 24;
       const pdfNatural = page.getViewport({ scale: 1 });
+      const fitWidth = Math.max(panelW, 280);
       const fitScale = fitWidth / pdfNatural.width;
       const renderScale = fitScale * Math.max(dpr, 2);
-      const viewport = page.getViewport({ scale: renderScale });
+      scaleRef.current = renderScale;
 
+      const viewport = page.getViewport({ scale: renderScale });
       canvas.width  = viewport.width;
       canvas.height = viewport.height;
-      canvas.style.width  = `${fitWidth}px`;
-      canvas.style.height = `${pdfNatural.height * fitScale}px`;
+      canvas.style.width   = `${fitWidth}px`;
+      canvas.style.height  = `${pdfNatural.height * fitScale}px`;
       canvas.style.display = "block";
       canvas.style.margin  = "0 auto";
+      canvas.style.cursor  = "pointer";
 
-      const ctx = canvas.getContext("2d");
-      await page.render({ canvasContext: ctx, viewport }).promise;
+      const off = document.createElement("canvas");
+      off.width  = viewport.width;
+      off.height = viewport.height;
+      offscreenRef.current = off;
+      await page.render({ canvasContext: off.getContext("2d"), viewport }).promise;
 
-      const s = renderScale;
-
-      // AcroForm field positions from pymupdf
-      // Name: x=59 y=107, ID No: x=61 y=123
-      const drawText = (text, x, y, size = 8) => {
-        if (!text) return;
-        ctx.font = `${size * s}px Arial`;
-        ctx.fillStyle = "#1a56db";
-        ctx.save();
-        ctx.fillText(String(text), (x + 1) * s, (y + size) * s);
-        ctx.restore();
-      };
-
-      // Highlight fields
-      const highlight = (x, y, w, h, value) => {
-        ctx.fillStyle = value ? "rgba(59,130,246,0.12)" : "rgba(59,130,246,0.06)";
-        ctx.fillRect(x * s, y * s, w * s, h * s);
-        ctx.strokeStyle = value ? "#3b82f6" : "rgba(59,130,246,0.4)";
-        ctx.lineWidth = value ? 1.5 * s : 0.8 * s;
-        ctx.strokeRect(x * s, y * s, w * s, h * s);
-      };
-
-      highlight(59, 107, 95, 15, f.name);
-      highlight(61, 123, 95, 15, f.idNo);
-      drawText(f.name,  60, 107);
-      drawText(f.idNo,  62, 123);
-
-    } catch (e) {
-      console.error("Render error:", e);
-    }
+      composite(f, hl);
+    } catch (e) { console.error("Render error:", e); }
     setRendering(false);
-  }, []);
+  }, [composite]);
 
   useEffect(() => {
     if (!pdfReady) return;
     clearTimeout(renderTimeout.current);
-    renderTimeout.current = setTimeout(() => renderPreview(form), 300);
+    renderTimeout.current = setTimeout(() => renderPreview(form, highlighted), 300);
     return () => clearTimeout(renderTimeout.current);
   }, [form, pdfReady, renderPreview]);
 
@@ -140,11 +196,17 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
     if (!pdfReady) return;
     const onResize = () => {
       clearTimeout(renderTimeout.current);
-      renderTimeout.current = setTimeout(() => renderPreview(form), 200);
+      renderTimeout.current = setTimeout(() => renderPreview(form, highlighted), 200);
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, [pdfReady, form, renderPreview]);
+
+  // Highlight change — composite only, no flash
+  useEffect(() => {
+    if (!pdfReady) return;
+    composite(form, highlighted);
+  }, [highlighted, pdfReady, composite, form]);
 
   // Download
   const handleDownload = async () => {
@@ -162,26 +224,18 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       const { PDFDocument } = window.PDFLib;
       const pdfDoc  = await PDFDocument.load(pdfBytesRef.current.slice(0), { ignoreEncryption: true });
       const pdfForm = pdfDoc.getForm();
-      const fieldMap = buildFieldMap(form);
-
-      for (const [name, value] of Object.entries(fieldMap)) {
+      for (const [name, value] of Object.entries(buildFieldMap(form))) {
         try { pdfForm.getTextField(name).setText(value || ""); } catch (_) {}
       }
-
       try { pdfForm.flatten(); } catch (_) {}
-
       const bytes = await pdfDoc.save({ updateFieldAppearances: false });
       const blob  = new Blob([bytes], { type: "application/pdf" });
       const url   = URL.createObjectURL(blob);
       const a     = document.createElement("a");
-      a.href      = url;
-      a.download  = `DEF_${form.idNo || "student"}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      a.href = url; a.download = `DEF_${form.idNo || "student"}.pdf`;
+      a.click(); URL.revokeObjectURL(url);
       onSuccess();
-    } catch (e) {
-      alert("Download failed: " + e.message);
-    }
+    } catch (e) { alert("Download failed: " + e.message); }
     setDownloading(false);
   };
 
@@ -201,16 +255,31 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
         <div style={c2}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <label style={lbl}>Full name</label>
-            <input style={inp()} placeholder="Juan A. Dela Cruz" value={form.name} onChange={e => set("name", e.target.value)} />
+            <input
+              id="def-name"
+              style={inp()}
+              placeholder="Juan A. Dela Cruz"
+              value={form.name}
+              onChange={e => set("name", e.target.value)}
+              onFocus={() => setHighlighted("Name")}
+              onBlur={() => setHighlighted(null)}
+            />
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <label style={lbl}>ID number</label>
-            <input style={inp()} placeholder="12512345" value={form.idNo} onChange={e => set("idNo", e.target.value)} />
+            <input
+              id="def-idNo"
+              style={inp()}
+              placeholder="12512345"
+              value={form.idNo}
+              onChange={e => set("idNo", e.target.value)}
+              onFocus={() => setHighlighted("ID No")}
+              onBlur={() => setHighlighted(null)}
+            />
           </div>
         </div>
       </div>
 
-      {/* Info notice — rest is filled by dentist */}
       <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 12, padding: "14px 16px", marginBottom: 22 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "#0369a1", marginBottom: 6 }}>Dentist-filled section</div>
         <div style={{ fontSize: 12, color: "#0369a1", lineHeight: 1.7 }}>
@@ -218,14 +287,9 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
         </div>
       </div>
 
-      {/* What to bring */}
       <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 12, padding: "14px 16px", marginBottom: 22 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 8 }}>What to bring</div>
-        {[
-          "This printed DEF form (or show this screen)",
-          "Your student ID",
-          "Your PHEx appointment confirmation",
-        ].map((item, i) => (
+        {["This printed DEF form (or show this screen)", "Your student ID", "Your PHEx appointment confirmation"].map((item, i) => (
           <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 6 }}>
             <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#1d4ed8", marginTop: 5, flexShrink: 0 }} />
             <div style={{ fontSize: 13, color: "#374151" }}>{item}</div>
@@ -249,10 +313,11 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       <div style={{ background: "#1f2937", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: "#d1d5db" }}>Live PDF preview</span>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          {rendering  && <span style={{ fontSize: 11, color: "#9ca3af" }}>Updating…</span>}
+          {highlighted && <span style={{ fontSize: 11, color: "#93c5fd" }}>↑ {highlighted} selected</span>}
+          {rendering   && <span style={{ fontSize: 11, color: "#9ca3af" }}>Updating…</span>}
           {!pdfReady && !pdfError && <span style={{ fontSize: 11, color: "#9ca3af" }}>Loading…</span>}
-          {pdfError   && <span style={{ fontSize: 11, color: "#fca5a5" }}>dental-form.pdf not found in /public</span>}
-          {pdfReady   && !rendering && <span style={{ fontSize: 11, color: "#6ee7b7" }}>AcroForm ready</span>}
+          {pdfError    && <span style={{ fontSize: 11, color: "#fca5a5" }}>dental-form.pdf not found in /public</span>}
+          {pdfReady && !rendering && !highlighted && <span style={{ fontSize: 11, color: "#6ee7b7" }}>Click a field to jump to it →</span>}
         </div>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "12px" }}>
@@ -261,7 +326,7 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
             Place <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>dental-form.pdf</code> in your <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>public/</code> folder.
           </div>
         ) : (
-          <canvas ref={canvasRef} style={{ borderRadius: 4, display: "block" }} />
+          <canvas ref={canvasRef} onClick={handleCanvasClick} style={{ borderRadius: 4, display: "block", cursor: "pointer" }} />
         )}
       </div>
     </div>
@@ -269,12 +334,12 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-      <NavBar title="Dental Examination Form" sub="Fill left · See changes live on the right" onBack={onBack} />
+      <NavBar title="Dental Examination Form" sub="Click a field in the preview to jump to it" onBack={onBack} />
       <div style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", minHeight: 0, overflow: "hidden" }}>
         <div style={{ flex: isMobile ? "none" : "0 0 42%", minWidth: isMobile ? "none" : 380, maxWidth: isMobile ? "none" : 520, borderRight: isMobile ? "none" : "1px solid #e5e7eb", display: "flex", flexDirection: "column", overflowY: isMobile ? "visible" : "auto" }}>
           {formPanel}
         </div>
-        <div style={{ flex: 1, position: isMobile ? "relative" : "sticky", top: 0, height: isMobile ? "60vw" : "100%", minHeight: isMobile ? 280 : 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ flex: 1, height: isMobile ? "60vw" : "100%", minHeight: isMobile ? 280 : 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           {previewPanel}
         </div>
       </div>
