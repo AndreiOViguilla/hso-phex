@@ -76,6 +76,15 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       .then(r => r.ok ? r.json() : null)
       .then(user => {
         if (!user) return;
+        // Calculate age from birthday
+        let age = "";
+        if (user.birthday) {
+          const birth = new Date(user.birthday);
+          const today = new Date();
+          age = String(today.getFullYear() - birth.getFullYear() -
+            (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate()) ? 1 : 0));
+        }
+
         setForm(f => ({
           ...f,
           idNumber:        user.studentId     || f.idNumber,
@@ -86,6 +95,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
           birthday:        user.birthday      || f.birthday,
           contact:         user.contact       || f.contact,
           college:         user.college       || f.college,
+          studentAge:      age               || f.studentAge,
           studentNameAuth: user.firstName && user.lastName
             ? buildAuth(user.firstName, user.middleInitial, user.lastName)
             : f.studentNameAuth,
