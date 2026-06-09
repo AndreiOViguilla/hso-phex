@@ -30,7 +30,7 @@ function RequireAuth({ userData, authLoading, children }) {
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
-  if (!userData) return <Navigate to="/unauthorized" replace />;
+  if (!userData) return <Navigate to="/" replace />;
   return children;
 }
 
