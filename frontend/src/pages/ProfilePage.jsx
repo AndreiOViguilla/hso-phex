@@ -62,13 +62,14 @@ export default function ProfilePage({ userData, onBack, onSaved }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const inp = {
-    width: "100%", padding: "10px 12px",
-    border: `1.5px solid ${t.inputBorder}`,
-    borderRadius: 8, fontSize: 14,
-    fontFamily: "inherit", outline: "none",
-    boxSizing: "border-box",
-    background: t.input, color: t.text,
-  };
+  width: "100%", padding: "10px 12px",
+  border: `1.5px solid ${t.inputBorder}`,
+  borderRadius: 8, fontSize: 14,
+  fontFamily: "inherit", outline: "none",
+  boxSizing: "border-box",
+  background: t.input, color: t.text,
+  colorScheme: dark ? "dark" : "light",   // ← add this
+};
 
   const lbl = {
     fontSize: 12, fontWeight: 600,

@@ -464,6 +464,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     fontSize: 13, fontFamily: "inherit", outline: "none",
     width: "100%", boxSizing: "border-box",
     background: t.input, color: t.text,
+    colorScheme: dark ? "dark" : "light",   // ← add this
     ...extra,
   });
   const lbl = { fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 4 };
