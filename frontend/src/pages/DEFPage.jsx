@@ -258,13 +258,12 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       const pdfDoc  = await PDFDocument.load(pdfBytesRef.current.slice(0), { ignoreEncryption: true });
       const pdfForm = pdfDoc.getForm();
 
-      // Fill fields with black text
+      // Fill fields — setText first, then setFontSize so appearance is correct
       for (const [name, value] of Object.entries(buildFieldMap(form))) {
         try {
           const field = pdfForm.getTextField(name);
-          field.setFontSize(9);
-          field.defaultUpdateAppearances();
           field.setText(value || "");
+          field.setFontSize(9);
         } catch (_) {}
       }
 
