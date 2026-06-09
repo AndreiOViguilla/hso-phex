@@ -70,18 +70,6 @@ router.post("/", authMiddleware, async (req, res) => {
       }
     }
 
-    // Same time conflict — PHEx and DT can't be at the same time on the same day
-    const otherType = appointmentType === "phex" ? "dt" : "phex";
-    const conflict  = await Appointment.findOne({
-      userId: req.user.id,
-      appointmentType: otherType,
-      appointmentDate,
-      timeSlot,
-    });
-    if (conflict) return res.status(409).json({
-      error: `You already have a ${otherType.toUpperCase()} at ${timeSlot} on this day. Choose a different time.`
-    });
-
     // Backend check: validate booking period based on student ID prefix
     const PERIODS = [
       { prefix: 125, bookStart: "2026-06-05", bookEnd: "2026-06-19", examStart: "2026-06-08", examEnd: "2026-06-19" },
