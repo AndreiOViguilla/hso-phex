@@ -244,7 +244,7 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
     composite(form, highlighted);
   }, [highlighted, pdfReady, composite, form]);
 
-  // Download
+  // Download — white eraser over blue AcroForm text, redraw in black
   const handleDownload = async () => {
     if (!pdfBytesRef.current) return;
     setDownloading(true);
@@ -261,34 +261,28 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       const pdfDoc  = await PDFDocument.load(pdfBytesRef.current.slice(0), { ignoreEncryption: true });
       const pdfForm = pdfDoc.getForm();
 
-      // Fill AcroForm text fields
+      // Fill AcroForm fields then flatten (this bakes in the blue text)
       for (const [name, value] of Object.entries(buildFieldMap(form))) {
-        try {
-          const tf = pdfForm.getTextField(name);
-          tf.setText(value || "");
-          tf.enableReadOnly();
-        } catch (_) {}
+        try { pdfForm.getTextField(name).setText(value || ""); } catch (_) {}
       }
-
-      // Flatten — bakes in the (possibly blue) AcroForm text
       try { pdfForm.flatten(); } catch (_) {}
 
-      // Now paint white erasers over every text field, then redraw black text on top
+      // Now paint white erasers over every field, then redraw text in black
       const font  = await pdfDoc.embedFont(StandardFonts.Helvetica);
       const pages = pdfDoc.getPages();
       const page  = pages[0];
       const { height: pageHeight } = page.getSize();
 
-      // DEF field positions (x, yTop, w, h at 1x PDF units, top-left origin)
+      // DEF field positions: x, yTop, w, h at 1x PDF units (top-left origin)
       const DEF_TEXT_FIELDS = [
-        { key: "name", x: 59, yTop: 107, w: 95, h: 15, value: form.name },
-        { key: "idNo", x: 61, yTop: 123, w: 95, h: 15, value: form.idNo },
+        { x: 59, yTop: 107, w: 95, h: 15, value: form.name },
+        { x: 61, yTop: 123, w: 95, h: 15, value: form.idNo },
       ];
 
       DEF_TEXT_FIELDS.forEach(({ x, yTop, w, h, value }) => {
         const pdfY = pageHeight - yTop - h;
 
-        // 1. White eraser — covers any blue AcroForm text
+        // 1. White eraser — kills the blue AcroForm text underneath
         page.drawRectangle({
           x: x - 1, y: pdfY - 1,
           width: w + 2, height: h + 2,
@@ -298,7 +292,7 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
           borderColor: rgb(1, 1, 1),
         });
 
-        // 2. Redraw black text on top
+        // 2. Redraw text in black on top
         if (value) {
           page.drawText(String(value), {
             x: x + 1.5,
@@ -401,7 +395,6 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
           {pdfError    && <span style={{ fontSize: 11, color: "#fca5a5" }}>PDF not found</span>}
           {pdfReady && !rendering && !highlighted && <span style={{ fontSize: 11, color: "#6ee7b7" }}>Click a field to jump →</span>}
         </div>
-        {/* Zoom controls — centered */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, position: "absolute", left: "50%", transform: "translateX(-50%)" }}>
           <button onClick={() => setZoom(z => Math.max(0.5, parseFloat((z - 0.25).toFixed(2))))}
             title="Zoom out" disabled={zoom <= 0.5}
