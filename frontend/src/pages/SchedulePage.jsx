@@ -520,117 +520,52 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
             )}
           </StepRow>
 
-          {/* Step 3 — Collapsible Checklist */}
-          <StepRow n={3} t={t} active={currentStep === 3} done={firstCheckedDone && secondCheckedDone} lineColor={firstCheckedDone && secondCheckedDone ? t.stepLineDone : t.stepLine} isLast={false}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 3 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 3 — Preparation Checklist</div>
+          {/* Step 3 — Checklist for FIRST appointment */}
+          <StepRow n={3} t={t} active={currentStep === 3} done={firstCheckedDone} lineColor={firstCheckedDone ? t.stepLineDone : t.stepLine} isLast={false}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 3 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 3 — Preparation Checklist for {firstLabel}</div>
+            <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 10 }}>Complete before attending your {firstLabel} appointment.</div>
             {currentStep < 3 ? (
               <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: t.textMuted, display: "flex", alignItems: "center", gap: 8 }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                 Fill both MEF and DEF forms first.
               </div>
-            ) : (
-            <><div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 10 }}>Complete all items before attending your appointments.</div>
-
-            {/* Overall progress */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-              <div style={{ flex: 1, height: 6, background: t.cardBorder, borderRadius: 99, overflow: "hidden" }}>
-                <div style={{ height: "100%", borderRadius: 99, background: firstCheckedDone && secondCheckedDone ? t.green : t.accent, width: `${Math.round((checked.length / allItems.length) * 100)}%`, transition: "width 0.4s ease" }} />
-              </div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: firstCheckedDone && secondCheckedDone ? t.green : t.accent, whiteSpace: "nowrap" }}>
-                {checked.length}/{allItems.length}
-              </span>
-            </div>
-
-            {/* Collapsible sections */}
-            {[
-              { key: "phex", title: "For PHEx", color: t.blue, items: CHECKLIST_PHEX },
-              { key: "dt",   title: "For Drug Test", color: t.teal, items: CHECKLIST_DT },
-            ].map(({ key, title, color, items }) => {
-              const sectionDone = items.filter(i => checked.includes(i.id)).length;
-              const allSectionDone = sectionDone === items.length;
-              const isOpen = expandedSections[key];
-              return (
-                <div key={key} style={{ marginBottom: 8 }}>
-                  {/* Section header — clickable */}
-                  <button onClick={() => setExpandedSections(s => ({ ...s, [key]: !s[key] }))}
-                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: `1.5px solid ${allSectionDone ? t.green : t.cardBorder}`, borderRadius: isOpen ? "10px 10px 0 0" : 10, background: t.card, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}>
-                      <polyline points="9 18 15 12 9 6"/>
-                    </svg>
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: t.text, textAlign: "left" }}>{title}</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: allSectionDone ? t.green : color, background: allSectionDone ? t.greenBg : `${color}22`, padding: "2px 8px", borderRadius: 20 }}>
-                      {allSectionDone ? "Completed" : `${sectionDone}/${items.length}`}
-                    </span>
-                  </button>
-
-                  {/* Items — shown when expanded */}
-                  {isOpen && (
-                    <div style={{ border: `1.5px solid ${allSectionDone ? t.green : t.cardBorder}`, borderTop: "none", borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
-                      {items.map((item, idx) => {
-                        const isChecked = checked.includes(item.id);
-                        return (
-                          <button key={item.id} onClick={() => toggleCheck(item.id)}
-                            style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", border: "none", borderTop: idx > 0 ? `1px solid ${t.divider}` : "none", background: isChecked ? t.greenBg : t.card, cursor: "pointer", textAlign: "left", fontFamily: "inherit", transition: "background 0.15s" }}>
-                            <div style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${isChecked ? t.green : t.cardBorder}`, background: isChecked ? t.green : t.card, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>
-                              {isChecked && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
-                            </div>
-                            <span style={{ fontSize: 13, color: isChecked ? t.green : t.text, fontWeight: isChecked ? 600 : 400, textDecoration: isChecked ? "line-through" : "none" }}>{item.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {firstCheckedDone && secondCheckedDone && (
-              <div style={{ background: t.greenBg, border: `1px solid ${t.green}44`, borderRadius: 10, padding: "10px 14px", marginTop: 8, fontSize: 12, color: t.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                All items checked — you're ready to attend!
-              </div>
-            )}
-            </>)}
+            ) : renderChecklist(firstChecklist, firstColor, firstLabel)}
           </StepRow>
 
-          {/* Step 4 — Attend */}
-          <StepRow n={4} t={t} active={currentStep === 4} done={false} lineColor={t.stepLine} isLast={true}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 4 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 4 — Attend PHEx & Drug Test</div>
-            <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 4 }}>Attend both on your scheduled dates. Show your confirmation email at each station.</div>
+          {/* Step 4 — Attend FIRST appointment */}
+          <StepRow n={4} t={t} active={currentStep === 4} done={firstPast} lineColor={firstPast ? t.stepLineDone : t.stepLine} isLast={false}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 4 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 4 — Attend {firstLabel}</div>
+            <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 4 }}>Show your confirmation email at the {firstLabel} station.</div>
             {currentStep < 4 ? (
               <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: t.textMuted, display: "flex", alignItems: "center", gap: 8 }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                Complete all checklist items first.
+                Complete the {firstLabel} checklist first.
               </div>
-            ) : (
-            <>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {bookedPHEx && (() => {
-                const isPast = new Date(bookedPHEx.date + "T23:59:59") < new Date();
-                const accent = isPast || phexCountdown === "Now!" ? t.orangeText : t.blueText;
-                return (
-                  <div style={{ fontSize: 12, color: t.text, fontWeight: 600, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
-                    <IconTimer color={accent} />
-                    <span style={{ color: t.textSub, marginRight: 4 }}>PHEx:</span>
-                    {formatBookingDate(bookedPHEx.date)} at {bookedPHEx.time}
-                    {phexCountdown && <span style={{ color: accent }}>({phexCountdown} away)</span>}
-                  </div>
-                );
-              })()}
-              {bookedDT && (() => {
-                const isPast = new Date(bookedDT.date + "T23:59:59") < new Date();
-                const accent = isPast || dtCountdown === "Now!" ? t.orangeText : t.blueText;
-                return (
-                  <div style={{ fontSize: 12, color: t.text, fontWeight: 600, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
-                    <IconTimer color={accent} />
-                    <span style={{ color: t.textSub, marginRight: 4 }}>Drug Test:</span>
-                    {formatBookingDate(bookedDT.date)} at {bookedDT.time}
-                    {dtCountdown && <span style={{ color: accent }}>({dtCountdown} away)</span>}
-                  </div>
-                );
-              })()}
-            </div>
-            </>)}
+            ) : firstBooking && renderAttend(firstBooking, firstLabel, firstColor, first === "phex" ? phexCountdown : dtCountdown)}
+          </StepRow>
+
+          {/* Step 5 — Checklist for SECOND appointment */}
+          <StepRow n={5} t={t} active={currentStep === 5} done={secondCheckedDone} lineColor={secondCheckedDone ? t.stepLineDone : t.stepLine} isLast={false}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 5 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 5 — Preparation Checklist for {secondLabel}</div>
+            <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 10 }}>Complete before attending your {secondLabel} appointment.</div>
+            {currentStep < 5 ? (
+              <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: t.textMuted, display: "flex", alignItems: "center", gap: 8 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Attend your {firstLabel} appointment first.
+              </div>
+            ) : renderChecklist(secondChecklist, secondColor, secondLabel)}
+          </StepRow>
+
+          {/* Step 6 — Attend SECOND appointment */}
+          <StepRow n={6} t={t} active={currentStep === 6} done={secondPast} lineColor={t.stepLine} isLast={true}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 6 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 6 — Attend {secondLabel}</div>
+            <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 4 }}>Show your confirmation email at the {secondLabel} station.</div>
+            {currentStep < 6 ? (
+              <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: t.textMuted, display: "flex", alignItems: "center", gap: 8 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Complete the {secondLabel} checklist first.
+              </div>
+            ) : secondBooking && renderAttend(secondBooking, secondLabel, secondColor, second === "phex" ? phexCountdown : dtCountdown)}
           </StepRow>
         </div>
 
