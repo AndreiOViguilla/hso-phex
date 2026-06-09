@@ -9,6 +9,29 @@ router.get("/me", authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("-passwordHash");
     if (!user) return res.status(404).json({ error: "User not found" });
+
+    // Auto-reset progress if both appointments are past or missing
+    const Appointment = require("../models/Appointment");
+    const now = new Date();
+    const appointments = await Appointment.find({ userId: user._id, status: "confirmed" });
+
+    const phex = appointments.find(a => a.appointmentType === "phex");
+    const dt   = appointments.find(a => a.appointmentType === "dt");
+
+    const isPast = (appt) => appt && new Date(appt.appointmentDate + "T23:59:59") < now;
+    const needsReset = !phex || !dt || isPast(phex) || isPast(dt);
+
+    if (needsReset && (user.filledMEF || user.filledDEF || user.checklist?.length > 0)) {
+      await User.findByIdAndUpdate(user._id, {
+        filledMEF: false,
+        filledDEF: false,
+        checklist: [],
+      });
+      user.filledMEF = false;
+      user.filledDEF = false;
+      user.checklist = [];
+    }
+
     res.json(user);
   } catch (err) {
     console.error("GET /me error:", err.message);

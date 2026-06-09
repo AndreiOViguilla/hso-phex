@@ -51,6 +51,25 @@ router.post("/", authMiddleware, async (req, res) => {
     const existing = await Appointment.findOne({ userId: req.user.id, appointmentType });
     if (existing) return res.status(409).json({ error: "You already have a booking for this activity" });
 
+    // Check 1-hour gap if both appointments on the same day
+    const otherType = appointmentType === "phex" ? "dt" : "phex";
+    const otherAppt = await Appointment.findOne({ userId: req.user.id, appointmentType: otherType, status: "confirmed" });
+    if (otherAppt && otherAppt.appointmentDate === appointmentDate) {
+      const parseMin = (t) => {
+        const [tp, ap] = [t.slice(0, -2), t.slice(-2)];
+        let [h, m] = tp.split(":").map(Number);
+        if (ap === "pm" && h !== 12) h += 12;
+        if (ap === "am" && h === 12) h = 0;
+        return h * 60 + m;
+      };
+      const diff = Math.abs(parseMin(timeSlot) - parseMin(otherAppt.timeSlot));
+      if (diff < 60) {
+        return res.status(400).json({
+          error: `Your ${otherType === "dt" ? "Drug Test" : "PHEx"} is at ${otherAppt.timeSlot}. Both appointments must be at least 1 hour apart on the same day.`
+        });
+      }
+    }
+
     // Same time conflict — PHEx and DT can't be at the same time on the same day
     const otherType = appointmentType === "phex" ? "dt" : "phex";
     const conflict  = await Appointment.findOne({
@@ -62,6 +81,39 @@ router.post("/", authMiddleware, async (req, res) => {
     if (conflict) return res.status(409).json({
       error: `You already have a ${otherType.toUpperCase()} at ${timeSlot} on this day. Choose a different time.`
     });
+
+    // Backend check: validate booking period based on student ID prefix
+    const PERIODS = [
+      { prefix: 125, bookStart: "2026-06-05", bookEnd: "2026-06-19", examStart: "2026-06-08", examEnd: "2026-06-19" },
+      { prefix: 124, bookStart: "2026-06-17", bookEnd: "2026-07-04", examStart: "2026-06-20", examEnd: "2026-07-04" },
+      { prefix: 123, bookStart: "2026-07-03", bookEnd: "2026-07-16", examStart: "2026-07-06", examEnd: "2026-07-16" },
+      { prefix: 122, bookStart: "2026-07-17", bookEnd: "2026-07-27", examStart: "2026-07-17", examEnd: "2026-07-27" },
+      { prefix: 121, bookStart: "2026-07-25", bookEnd: "2026-07-31", examStart: "2026-07-28", examEnd: "2026-07-31" },
+    ];
+
+    // Get student ID prefix (first 3 digits)
+    const studentIdPrefix = parseInt(req.user.studentId?.toString().substring(0, 3));
+    const period = PERIODS.find(p => p.prefix === studentIdPrefix)
+      || (studentIdPrefix <= 121 ? PERIODS[4] : null);
+
+    if (!period) {
+      return res.status(400).json({ error: "Your student ID is not eligible for booking." });
+    }
+
+    const nowDate = new Date();
+    const bookStart = new Date(period.bookStart + "T00:00:00");
+    const bookEnd   = new Date(period.bookEnd   + "T23:59:59");
+
+    if (nowDate < bookStart) {
+      return res.status(400).json({
+        error: `Your booking period has not opened yet. It opens on ${new Date(period.bookStart).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })}.`
+      });
+    }
+    if (nowDate > bookEnd) {
+      return res.status(400).json({
+        error: `Your booking period has already closed.`
+      });
+    }
 
     // Backend check: reject past dates
     const today = new Date();

@@ -151,21 +151,20 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
     setForgotCodeLoading(false);
   };
 
-  // Reset Steps 2-4 progress when either booking is dropped
+  // Reset Steps 2-4 progress when either booking is dropped or appointment is past
   useEffect(() => {
-    if (!bookedPHEx || !bookedDT) {
-      // Clear local state
+    const needsReset = !bookedPHEx || !bookedDT || phexPast || dtPast || phexNow || dtNow;
+    if (needsReset && (filledMEF || filledDEF || checked.length > 0)) {
       setFilledMEF(false);
       setFilledDEF(false);
       setChecked([]);
-      // Reset in backend
       fetch("/api/students/me/progress", {
         method: "PUT",
         headers: { "Content-Type": "application/json", ...getAuthHeader() },
         body: JSON.stringify({ filledMEF: false, filledDEF: false, checklist: [] }),
       }).catch(() => {});
     }
-  }, [bookedPHEx, bookedDT]);
+  }, [bookedPHEx, bookedDT, phexPast, dtPast, phexNow, dtNow]);
 
   const allItems = [...CHECKLIST_PHEX, ...CHECKLIST_DT];
   const checklistDone = allItems.every(item => checked.includes(item.id));

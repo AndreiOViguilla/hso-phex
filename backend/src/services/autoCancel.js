@@ -37,11 +37,45 @@ async function releaseSlot(appointment) {
   }
 }
 
+const parseMin = (t) => {
+  const [tp, ap] = [t.slice(0, -2), t.slice(-2)];
+  let [h, m] = tp.split(":").map(Number);
+  if (ap === "pm" && h !== 12) h += 12;
+  if (ap === "am" && h === 12) h = 0;
+  return h * 60 + m;
+};
+
 async function runAutoCancel() {
   const now = new Date();
   try {
     const appointments = await Appointment.find({ status: "confirmed" });
     let cancelled = 0;
+
+    // ── Check same-day 1-hour gap violations ─────────────────────────────
+    // Group by userId
+    const byUser = {};
+    for (const appt of appointments) {
+      const uid = appt.userId.toString();
+      if (!byUser[uid]) byUser[uid] = [];
+      byUser[uid].push(appt);
+    }
+    for (const [userId, appts] of Object.entries(byUser)) {
+      const phex = appts.find(a => a.appointmentType === "phex");
+      const dt   = appts.find(a => a.appointmentType === "dt");
+      if (phex && dt && phex.appointmentDate === dt.appointmentDate) {
+        const diff = Math.abs(parseMin(phex.timeSlot) - parseMin(dt.timeSlot));
+        if (diff < 60) {
+          // Drop both + restore slots + reset progress
+          for (const appt of [phex, dt]) {
+            await releaseSlot(appt);
+            await Appointment.deleteOne({ _id: appt._id });
+          }
+          await User.findByIdAndUpdate(userId, { filledMEF: false, filledDEF: false, checklist: [] });
+          cancelled += 2;
+          console.log(`[AutoCancel] Dropped both appointments for user ${userId} — same-day gap < 1 hour`);
+        }
+      }
+    }
 
     for (const appt of appointments) {
       const user = await User.findById(appt.userId).select("studentId").lean();
