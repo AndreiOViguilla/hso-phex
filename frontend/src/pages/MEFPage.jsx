@@ -363,7 +363,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
   const handleDownload = async () => {
     if (!pdfBytesRef.current) return;
 
-    // Validate required fields
+    // Validate — every field must be filled
     const missing = [];
     if (!form.idNumber)         missing.push("ID number");
     if (!form.lastName)         missing.push("Last name");
@@ -372,14 +372,15 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     if (!form.birthday)         missing.push("Birthday");
     if (!form.contact)          missing.push("Contact number");
     if (!form.college)          missing.push("College / Section");
+    if (!form.academicYear)     missing.push("Academic year");
     if (!form.emergencyName)    missing.push("Emergency contact name");
-    if (!form.emergencyRel)     missing.push("Emergency relationship");
+    if (!form.emergencyRel)     missing.push("Relationship");
     if (!form.emergencyContact) missing.push("Emergency contact number");
     if (!form.studentNameAuth)  missing.push("Authority full name");
     if (!form.studentAge)       missing.push("Age");
 
     if (missing.length > 0) {
-      show({ type: "error", title: "Incomplete form", message: `Please fill in: ${missing.join(", ")}.` });
+      show({ type: "error", title: "Incomplete form", message: `Please fill in all required fields: ${missing.join(", ")}.` });
       return;
     }
 
