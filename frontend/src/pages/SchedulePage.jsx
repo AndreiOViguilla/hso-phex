@@ -151,6 +151,22 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
     setForgotCodeLoading(false);
   };
 
+  // Reset Steps 2-4 progress when either booking is dropped
+  useEffect(() => {
+    if (!bookedPHEx || !bookedDT) {
+      // Clear local state
+      setFilledMEF(false);
+      setFilledDEF(false);
+      setChecked([]);
+      // Reset in backend
+      fetch("/api/students/me/progress", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        body: JSON.stringify({ filledMEF: false, filledDEF: false, checklist: [] }),
+      }).catch(() => {});
+    }
+  }, [bookedPHEx, bookedDT]);
+
   const allItems = [...CHECKLIST_PHEX, ...CHECKLIST_DT];
   const checklistDone = allItems.every(item => checked.includes(item.id));
 

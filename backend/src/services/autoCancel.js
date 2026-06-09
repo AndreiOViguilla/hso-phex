@@ -2,13 +2,9 @@
  * Auto-cancel appointments that are outside the student's booking window.
  * Runs every minute via cron.
  *
- * Rule: if the student's booking window is NOT currently open AND the
- * appointment has not yet been attended → DELETE the appointment and restore the slot.
- *
- * A bypassed booking (booked outside the window) is dropped immediately.
- * A past appointment (student attended) is always kept.
+ * Rule: if the student's booking window is NOT currently open → DELETE the
+ * appointment, restore the slot, and reset the student's form/checklist progress.
  */
-
 const cron        = require("node-cron");
 const Appointment = require("../models/Appointment");
 const User        = require("../models/User");
@@ -43,31 +39,33 @@ async function releaseSlot(appointment) {
 
 async function runAutoCancel() {
   const now = new Date();
-
   try {
-    // Get ALL confirmed appointments
     const appointments = await Appointment.find({ status: "confirmed" });
     let cancelled = 0;
 
     for (const appt of appointments) {
-      // Get the student's booking window
       const user = await User.findById(appt.userId).select("studentId").lean();
       if (!user) continue;
 
       const period = getBookingPeriod(user.studentId);
       if (!period) continue;
 
-      // Is the booking window currently open for this student?
       const bookingIsOpen = now >= period.bookStart && now <= period.bookEnd;
 
-      // Has the appointment date already passed? (student attended)
-      const apptDate  = new Date(appt.appointmentDate + "T23:59:59");
-      const apptPassed = apptDate < now;
-
-      // Drop if booking window is not currently open — no exceptions
       if (!bookingIsOpen) {
+        // 1. Restore the slot
         await releaseSlot(appt);
+
+        // 2. Delete the appointment
         await Appointment.deleteOne({ _id: appt._id });
+
+        // 3. Reset student's form/checklist progress in DB
+        await User.findByIdAndUpdate(appt.userId, {
+          filledMEF: false,
+          filledDEF: false,
+          checklist: [],
+        });
+
         cancelled++;
         console.log(
           `[AutoCancel] Dropped ${appt.appointmentType} for student ${user.studentId}` +
@@ -85,12 +83,9 @@ async function runAutoCancel() {
 }
 
 function startAutoCancel() {
-  // Run every 1 minute
   cron.schedule("* * * * *", () => {
     runAutoCancel();
   });
-
-  // Run once on startup after 5 seconds
   setTimeout(runAutoCancel, 5000);
   console.log("[AutoCancel] Scheduler started — runs every minute");
 }
