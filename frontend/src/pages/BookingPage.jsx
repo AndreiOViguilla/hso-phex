@@ -79,7 +79,7 @@ const ACTIVITIES = {
 // ── Step 1: Calendar + time slot picker ──────────────────────────────────────
 function StepPicker({ activity, onSelect }) {
   const act = ACTIVITIES[activity];
-  const { t } = useTheme();
+  const { dark, t } = useTheme();
   // available dates now come from daysData (DB) — kept for fallback only
   const available = getAvailableDates(act.bookStart, act.bookEnd);
   const today = new Date();
@@ -328,7 +328,7 @@ function StepPicker({ activity, onSelect }) {
 // ── Step 2: Enter details form ────────────────────────────────────────────────
 function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName, prefillLastName, prefillEmail }) {
   const act = ACTIVITIES[activity];
-  const { t } = useTheme();
+  const { dark, t } = useTheme();
   const [form, setForm] = useState({ firstName: prefillFirstName || "", lastName: prefillLastName || "", email: prefillEmail || "", code: "" });
   const { show } = useModal();
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
