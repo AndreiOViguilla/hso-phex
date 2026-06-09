@@ -246,7 +246,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         const endX   = (x + w - pad)  * s;
         const endY   = (y + pad)       * s;
         ctx.save();
-        ctx.strokeStyle = "#000000";
+        ctx.strokeStyle = "#3b82f6";
         ctx.lineWidth   = 1.5 * s;
         ctx.lineCap     = "round";
         ctx.lineJoin    = "round";
