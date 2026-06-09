@@ -129,6 +129,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
   const [checked,        setChecked]       = useState([]);
   const [attendedFirst,  setAttendedFirst]  = useState(false);
   const [attendedSecond, setAttendedSecond] = useState(false);
+  const [showCongrats,   setShowCongrats]   = useState(false);
   const [rescheduleFor,    setRescheduleFor]    = useState(null);
   const [expandedSections, setExpandedSections] = useState({ phex: false, dt: false });
   const [rescheduleCode,setRescheduleCode]= useState("");
@@ -169,6 +170,13 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
       }).catch(() => {});
     }
   }, [bookedPHEx, bookedDT]);
+
+  // Show congratulations modal when both appointments are attended
+  useEffect(() => {
+    if (attendedFirst && attendedSecond) {
+      setShowCongrats(true);
+    }
+  }, [attendedFirst, attendedSecond]);
 
   // Determine which appointment comes first
   const getApptMinutes = (booking) => {
@@ -363,9 +371,17 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
           {countdown && !attended && <span style={{ color: accent }}>({countdown} away)</span>}
         </div>
         {attended ? (
-          <div style={{ background: t.greenBg, border: `1px solid ${t.green}44`, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: t.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            {label} attendance confirmed!
+          <div>
+            <div style={{ background: t.greenBg, border: `1px solid ${t.green}44`, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: t.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              {label} attendance confirmed!
+            </div>
+            <button onClick={() => {
+              if (isFirst) { setAttendedFirst(false); saveProgress({ attendedFirst: false }); }
+              else { setAttendedSecond(false); saveProgress({ attendedSecond: false }); }
+            }} style={{ width: "100%", padding: "9px", background: "none", border: `1.5px solid ${t.cardBorder}`, borderRadius: 10, fontSize: 12, fontWeight: 600, color: t.textMuted, cursor: "pointer", fontFamily: "inherit" }}>
+              Mark as undone
+            </button>
           </div>
         ) : (
           <button onClick={setAttended} style={{ width: "100%", padding: "13px", background: t.green, color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
@@ -454,6 +470,25 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
                 setRescheduleFor(null);
               }} style={{ flex: 1, padding: "11px", border: "none", borderRadius: 10, background: t.accentBtn, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Confirm</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Congratulations modal */}
+      {showCongrats && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16 }}>
+          <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 20, padding: "40px 32px", maxWidth: 400, width: "100%", textAlign: "center", boxShadow: "0 24px 80px rgba(0,0,0,0.25)" }}>
+            <div style={{ fontSize: 52, marginBottom: 16 }}>🎉</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: t.text, marginBottom: 10 }}>Congratulations!</div>
+            <div style={{ fontSize: 14, color: t.textSub, lineHeight: 1.7, marginBottom: 24 }}>
+              You have completed both your <strong style={{ color: t.text }}>PHEx</strong> and <strong style={{ color: t.text }}>Drug Test</strong> appointments. Your results will be available from HSO after processing.
+            </div>
+            <div style={{ background: t.greenBg, border: `1px solid ${t.green}44`, borderRadius: 12, padding: "14px 16px", marginBottom: 24, fontSize: 13, color: t.green, fontWeight: 600 }}>
+              All steps complete — you're all done!
+            </div>
+            <button onClick={() => setShowCongrats(false)} style={{ width: "100%", padding: "13px", background: t.green, color: "#fff", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+              Done
+            </button>
           </div>
         </div>
       )}
