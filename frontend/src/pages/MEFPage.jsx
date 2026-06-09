@@ -376,7 +376,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       const pdfForm = pdfDoc.getForm();
       const fieldMap = buildFieldMap(form);
 
-      // Fill text fields
+      // Fill text fields only — skip checkbox fields entirely
       for (const [name, value] of Object.entries(fieldMap)) {
         if (value === "Yes" || value === "Off") continue;
         try {
@@ -386,13 +386,57 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         } catch (_) {}
       }
 
-      // Force both checkboxes UNCHECKED before flatten — prevents the ZapfDingbats glyph from rendering.
-      // We draw our own line checkmark on top after flatten.
-      ["Gender Female", "Gender Male"].forEach(name => {
-        try { pdfForm.getCheckBox(name).uncheck(); } catch (_) {}
-      });
+      // ── Nuclear fix: physically remove checkbox widgets from the AcroForm
+      // fields array AND from each page's /Annots array before flatten.
+      // This prevents pdf-lib's flatten from ever touching them or rendering
+      // the ZapfDingbats glyph. We draw our own lines on top instead.
+      try {
+        const acroForm = pdfDoc.catalog.lookup(pdfDoc.catalog.get("AcroForm"));
+        if (acroForm) {
+          const fieldsArray = acroForm.lookup(acroForm.get("Fields"));
+          if (fieldsArray) {
+            const checkboxNames = new Set(["Gender Female", "Gender Male"]);
+            const keptFields = [];
+            const removedRefs = new Set();
 
-      // Flatten everything — checkboxes blank, text fields baked in
+            for (let i = 0; i < fieldsArray.size(); i++) {
+              const fieldRef = fieldsArray.get(i);
+              const field = pdfDoc.context.lookup(fieldRef);
+              let shouldRemove = false;
+              try {
+                const tObj = field.get(field.constructor.of ? null : "T") || field.lookup("T");
+                const nameVal = tObj ? tObj.decodeText?.() || tObj.toString() : "";
+                if (checkboxNames.has(nameVal)) shouldRemove = true;
+              } catch (_) {}
+              if (shouldRemove) {
+                removedRefs.add(fieldRef.toString());
+              } else {
+                keptFields.push(fieldRef);
+              }
+            }
+
+            // Rebuild Fields array without the checkboxes
+            acroForm.set("Fields", pdfDoc.context.obj(keptFields));
+
+            // Also remove their widget annotations from page /Annots
+            const pages2 = pdfDoc.getPages();
+            pages2.forEach(pg => {
+              try {
+                const annots = pg.node.lookup(pg.node.get("Annots"));
+                if (!annots) return;
+                const kept = [];
+                for (let i = 0; i < annots.size(); i++) {
+                  const ref = annots.get(i);
+                  if (!removedRefs.has(ref.toString())) kept.push(ref);
+                }
+                pg.node.set("Annots", pdfDoc.context.obj(kept));
+              } catch (_) {}
+            });
+          }
+        }
+      } catch (_) {}
+
+      // Flatten remaining fields (text only, no checkboxes)
       try { pdfForm.flatten(); } catch (_) {}
 
       // Draw line checkmarks manually — NO emoji, NO special chars
