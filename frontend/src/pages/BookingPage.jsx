@@ -80,7 +80,18 @@ const ACTIVITIES = {
 function StepPicker({ activity, onSelect }) {
   const act = ACTIVITIES[activity];
   const { dark, t } = useTheme();
-  // available dates now come from daysData (DB) — kept for fallback only
+
+  // Theme-aware accent colors — readable in both light and dark mode
+  const accentColor  = activity === "dt"
+    ? (dark ? t.tealText  : act.color)
+    : (dark ? t.blueText  : act.color);
+  const accentBg     = activity === "dt"
+    ? (dark ? t.tealBg    : t.blueBg)
+    : (dark ? t.blueBg    : t.blueBg);
+  const accentSolid  = activity === "dt"
+    ? (dark ? "#0d9488"   : act.color)
+    : (dark ? "#2563eb"   : act.color);
+
   const available = getAvailableDates(act.bookStart, act.bookEnd);
   const today = new Date();
 
@@ -88,15 +99,12 @@ function StepPicker({ activity, onSelect }) {
   const [calMonth, setCalMonth] = useState(act.bookStart.getMonth());
   const [selected, setSelected] = useState(null);
   const [slots,    setSlots]    = useState([]);
-  const [slotsLoading] = useState(false); // slots load from daysData instantly
+  const [slotsLoading] = useState(false);
   const [pickedSlot, setPickedSlot] = useState(null);
 
-  const [expandedDate, setExpandedDate] = useState(null);
-  const [daySlots, setDaySlots] = useState({}); // { "2026-06-08": [...slots] }
-  const [daysData, setDaysData] = useState([]);  // [{ date, totalSlots, bookedSlots, slots }]
+  const [daysData, setDaysData] = useState([]);
   const [daysLoading, setDaysLoading] = useState(false);
 
-  // Fetch all days summary on mount
   useEffect(() => {
     const fetchDays = async () => {
       setDaysLoading(true);
@@ -114,7 +122,6 @@ function StepPicker({ activity, onSelect }) {
     fetchDays();
   }, [activity]);
 
-  // Load slots directly from daysData (already fetched) — no extra API call needed
   const fetchSlots = (date) => {
     const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
     const dayData = daysData.find(d => d.date === dateStr);
@@ -134,7 +141,6 @@ function StepPicker({ activity, onSelect }) {
   const daysInMonth = getDaysInMonth(calYear, calMonth);
   const firstDay    = getFirstDayOfMonth(calYear, calMonth);
 
-  // Check if a time string has passed today
   const isTimePast = (timeStr) => {
     const now = new Date();
     const [timePart, ampm] = [timeStr.slice(0, -2), timeStr.slice(-2)];
@@ -146,19 +152,16 @@ function StepPicker({ activity, onSelect }) {
     return slotTime < now;
   };
 
-  // Use dates from DB — a date is available only if it has at least one bookable, non-past slot
   const isAvailable = (d) => {
     const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const dayData = daysData.find(day => day.date === dateStr);
     if (!dayData) return false;
-
     const today = new Date();
     const dateObj = new Date(calYear, calMonth, d);
     const isToday = dateObj.toDateString() === today.toDateString();
-
     return dayData.slots.some(s => {
-      if (s.booked >= s.capacity) return false; // full
-      if (isToday && isTimePast(s.time)) return false; // past time today
+      if (s.booked >= s.capacity) return false;
+      if (isToday && isTimePast(s.time)) return false;
       return true;
     });
   };
@@ -179,7 +182,7 @@ function StepPicker({ activity, onSelect }) {
       {/* Left info panel */}
       <div style={{ width: isMobile ? "100%" : 220, padding: "24px 20px", borderRight: isMobile ? "none" : `1px solid ${t.cardBorder}`, borderBottom: isMobile ? `1px solid ${t.cardBorder}` : "none", flexShrink: 0, background: dark ? "#263248" : "#fff" }}>
         <div style={{ fontSize: 12, color: t.textSub, marginBottom: 4 }}>{act.org}</div>
-        <div style={{ fontSize: 20, fontWeight: 800, color: act.color, marginBottom: 16 }}>{act.title}</div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: accentColor, marginBottom: 16 }}>{act.title}</div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, fontSize: 13, color: t.text }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           {act.duration}
@@ -214,28 +217,37 @@ function StepPicker({ activity, onSelect }) {
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const d = i + 1;
             const date = new Date(calYear, calMonth, d);
-            // isAvailable already accounts for today's passed slots
-            // so if isAvailable is false AND date is today or past → orange
             const avail = isAvailable(d);
             const isPast = date < new Date(new Date().setHours(0,0,0,0));
             const isToday = date.toDateString() === new Date().toDateString();
-            // A day is "used up" if it's past OR if it's today with no available slots left
             const isPassedOrUsedUp = isPast || (isToday && !avail);
             const sel = selected && isSameDay(selected, date);
             const clickable = avail && !isPassedOrUsedUp;
 
-            // Determine if this date existed in DB (was ever bookable)
             const dateStr2 = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
             const wasInDB = daysData.some(day => day.date === dateStr2);
 
             return (
               <div key={d} style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "3px 0" }}>
-                <button onClick={() => { if (clickable) { setSelected(date); setPickedSlot(null); fetchSlots(date); } }}
+                <button
+                  onClick={() => { if (clickable) { setSelected(date); setPickedSlot(null); fetchSlots(date); } }}
                   style={{
                     width: 36, height: 36, borderRadius: "50%",
                     cursor: clickable ? "pointer" : "default",
-                    background: sel ? act.color : (wasInDB && isPassedOrUsedUp) ? t.orangeBg : (avail && !isPassedOrUsedUp) ? t.blueBg : "transparent",
-                    color: sel ? "#fff" : (wasInDB && isPassedOrUsedUp) ? "#f97316" : (avail && !isPassedOrUsedUp) ? act.color : t.textMuted,
+                    background: sel
+                      ? accentSolid
+                      : (wasInDB && isPassedOrUsedUp)
+                        ? t.orangeBg
+                        : (avail && !isPassedOrUsedUp)
+                          ? accentBg
+                          : "transparent",
+                    color: sel
+                      ? "#fff"
+                      : (wasInDB && isPassedOrUsedUp)
+                        ? "#f97316"
+                        : (avail && !isPassedOrUsedUp)
+                          ? accentColor
+                          : t.textMuted,
                     fontWeight: clickable ? 700 : 400, fontSize: 14,
                     transition: "all 0.15s", flexShrink: 0,
                     display: "flex", alignItems: "center", justifyContent: "center",
@@ -271,14 +283,11 @@ function StepPicker({ activity, onSelect }) {
                 const isFull   = slot.full || slot.available <= 0;
                 const isLow    = !isFull && slot.available <= 3;
 
-                // Check if this time slot has already passed today
                 const isPastSlot = (() => {
                   if (!selected) return false;
                   const now = new Date();
                   const selectedDate = new Date(selected);
-                  // If selected date is before today, all slots are past
                   if (selectedDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) return true;
-                  // If selected date is today, check the time
                   if (selectedDate.toDateString() === now.toDateString()) {
                     const [timePart, ampm] = [slot.time.slice(0, -2), slot.time.slice(-2)];
                     let [h, m] = timePart.split(":").map(Number);
@@ -298,17 +307,17 @@ function StepPicker({ activity, onSelect }) {
                     disabled={isDisabled}
                     onClick={() => { if (!isDisabled) { setPickedSlot(slot); onSelect(selected, slot); } }}
                     style={{
-                      border: `1.5px solid ${isDisabled ? t.cardBorder : act.color}`,
+                      border: `1.5px solid ${isDisabled ? t.cardBorder : accentColor}`,
                       borderRadius: 8, padding: "10px 8px",
-                      background: isPicked ? act.color : dark ? "#1a2740" : "#fff",
-                      color: isPicked ? "#fff" : isDisabled ? "#c4c4c4" : act.color,
+                      background: isPicked ? accentSolid : dark ? "#1a2740" : "#fff",
+                      color: isPicked ? "#fff" : isDisabled ? (dark ? "#4b5563" : "#c4c4c4") : accentColor,
                       cursor: isDisabled ? "not-allowed" : "pointer",
                       fontSize: 13, fontWeight: 600, textAlign: "center", transition: "all 0.15s",
                       opacity: isDisabled ? 0.5 : 1,
                       position: "relative",
                     }}>
                     <div>{slot.time}</div>
-                    <div style={{ fontSize: 10, fontWeight: 400, marginTop: 2, color: isDisabled ? "#c4c4c4" : isLow ? "#ef4444" : isPicked ? "rgba(255,255,255,0.8)" : "#9ca3af" }}>
+                    <div style={{ fontSize: 10, fontWeight: 400, marginTop: 2, color: isDisabled ? (dark ? "#4b5563" : "#c4c4c4") : isLow ? "#ef4444" : isPicked ? "rgba(255,255,255,0.8)" : t.textMuted }}>
                       {isPastSlot ? "Passed" : isFull ? "Full" : isLow ? `Only ${slot.available} left!` : `${slot.available} spots left`}
                     </div>
                     {isDisabled && (
@@ -329,6 +338,9 @@ function StepPicker({ activity, onSelect }) {
 function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName, prefillLastName, prefillEmail }) {
   const act = ACTIVITIES[activity];
   const { dark, t } = useTheme();
+  const accentColor = activity === "dt" ? (dark ? t.tealText : act.color) : (dark ? t.blueText : act.color);
+  const accentSolid = activity === "dt" ? (dark ? "#0d9488" : act.color) : (dark ? "#2563eb" : act.color);
+
   const [form, setForm] = useState({ firstName: prefillFirstName || "", lastName: prefillLastName || "", email: prefillEmail || "", code: "" });
   const { show } = useModal();
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -343,7 +355,6 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
     if (!form.firstName || !form.lastName || !form.email) { show({ type: "error", message: "Please fill in all required fields." }); return; }
     if (!form.email.endsWith("@dlsu.edu.ph")) { show({ type: "warning", title: "DLSU email required", message: "Please use your DLSU email address (@dlsu.edu.ph). You won't receive confirmation without it." }); return; }
 
-    // Check 1-hour gap if student already has the other appointment on the same day
     if (localStorage.getItem("token")) {
       try {
         const mineResp = await fetch("/api/appointments/mine", {
@@ -355,7 +366,6 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
           const other = existing.find(b => b.appointmentType === otherType);
           const thisDateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
           if (other && other.appointmentDate === thisDateStr) {
-            // Parse both times and check 1-hour gap
             const parseTime = (t) => {
               const [timePart, ampm] = [t.slice(0, -2), t.slice(-2)];
               let [h, m] = timePart.split(":").map(Number);
@@ -380,7 +390,6 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
 
     if (token) {
       try {
-        // Cancel existing booking first (reschedule flow)
         const mineResp = await fetch("/api/appointments/mine", {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         });
@@ -395,7 +404,6 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
           }
         }
 
-        // Create new booking
         const resp = await fetch("/api/appointments", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` },
@@ -420,9 +428,9 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
     <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", height: "100%" }}>
       {/* Left summary */}
       <div style={{ width: isMobile ? "100%" : 220, padding: "24px 20px", borderRight: isMobile ? "none" : `1px solid ${t.cardBorder}`, borderBottom: isMobile ? `1px solid ${t.cardBorder}` : "none", flexShrink: 0, background: dark ? "#263248" : "#fff" }}>
-        <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: act.color, fontSize: 20, padding: 0, marginBottom: 12 }}>←</button>
+        <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: accentColor, fontSize: 20, padding: 0, marginBottom: 12 }}>←</button>
         <div style={{ fontSize: 12, color: t.textSub, marginBottom: 4 }}>{act.org}</div>
-        <div style={{ fontSize: 18, fontWeight: 800, color: act.color, marginBottom: 14 }}>{act.title}</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: accentColor, marginBottom: 14 }}>{act.title}</div>
         {[
           { icon: "clock", text: act.duration },
           { icon: "pin",   text: act.venue },
@@ -459,7 +467,7 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
         <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 16 }}>
           By proceeding, you confirm that you have read and agree to the booking terms.
         </div>
-        <button onClick={handleSubmit} style={{ background: act.color, color: "#fff", border: "none", borderRadius: 24, padding: "12px 28px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+        <button onClick={handleSubmit} style={{ background: accentSolid, color: "#fff", border: "none", borderRadius: 24, padding: "12px 28px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
           Schedule Event
         </button>
       </div>
@@ -470,8 +478,10 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
 // ── Step 3: Confirmation ──────────────────────────────────────────────────────
 function StepConfirmed({ activity, booking, onDone }) {
   const act = ACTIVITIES[activity];
-  const { t } = useTheme();
-  // booking = { date: "YYYY-MM-DD", time: "9:00am", code: "..." }
+  const { dark, t } = useTheme();
+  const accentColor = activity === "dt" ? (dark ? t.tealText : act.color) : (dark ? t.blueText : act.color);
+  const accentSolid = activity === "dt" ? (dark ? "#0d9488" : act.color) : (dark ? "#2563eb" : act.color);
+
   const d = new Date(booking.date + "T00:00:00");
   const dateStr = `${booking.time} – ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
   return (
@@ -483,13 +493,8 @@ function StepConfirmed({ activity, booking, onDone }) {
       <div style={{ fontSize: 14, color: t.textSub, marginBottom: 24 }}>A calendar invitation has been sent to your email address.</div>
 
       <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, padding: "20px 24px", maxWidth: 340, width: "100%", textAlign: "left", marginBottom: 24 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: act.color, marginBottom: 12 }}>{act.title}</div>
-        {[
-          act.org,
-          dateStr,
-          "Philippine Time",
-          act.venue,
-        ].map((label, i) => (
+        <div style={{ fontSize: 14, fontWeight: 700, color: accentColor, marginBottom: 12 }}>{act.title}</div>
+        {[act.org, dateStr, "Philippine Time", act.venue].map((label, i) => (
           <div key={i} style={{ fontSize: 13, color: t.text, marginBottom: 6, display: "flex", gap: 8, alignItems: "flex-start" }}>
             <div style={{ width: 5, height: 5, borderRadius: "50%", background: t.textMuted, marginTop: 5, flexShrink: 0 }} />
             {label}
@@ -501,7 +506,7 @@ function StepConfirmed({ activity, booking, onDone }) {
         Show this confirmation email to the guard at the {act.label} station on your appointment day.
       </div>
 
-      <button onClick={onDone} style={{ background: act.color, color: "#fff", border: "none", borderRadius: 10, padding: "13px 32px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+      <button onClick={onDone} style={{ background: accentSolid, color: "#fff", border: "none", borderRadius: 10, padding: "13px 32px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
         Back to Schedule
       </button>
     </div>
@@ -511,7 +516,7 @@ function StepConfirmed({ activity, booking, onDone }) {
 // ── Main BookingPage ──────────────────────────────────────────────────────────
 export default function BookingPage({ activity = "phex", studentId, prefillFirstName, prefillLastName, prefillEmail, onBack, onBooked }) {
   const { dark, toggle, t } = useTheme();
-  const [step, setStep]       = useState("pick");   // pick | details | confirmed
+  const [step, setStep]       = useState("pick");
   const [date, setDate]       = useState(null);
   const [slot, setSlot]       = useState(null);
   const [booking, setBooking] = useState(null);
@@ -519,7 +524,6 @@ export default function BookingPage({ activity = "phex", studentId, prefillFirst
   const [authValid,   setAuthValid]   = useState(false);
   const act = ACTIVITIES[activity];
 
-  // Verify JWT with backend on mount — prevents URL-bypass attempts
   useEffect(() => {
     const verify = async () => {
       try {
@@ -541,7 +545,6 @@ export default function BookingPage({ activity = "phex", studentId, prefillFirst
     verify();
   }, []);
 
-  // Auth gate
   if (!authChecked) {
     return (
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12 }}>
