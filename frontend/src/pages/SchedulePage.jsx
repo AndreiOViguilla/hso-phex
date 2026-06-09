@@ -351,7 +351,8 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
 
           {/* Step 1 */}
           <StepRow n={1} t={t} active={currentStep === 1} done={!!bookedPHEx && !!bookedDT && !phexPast && !dtPast && !phexNow && !dtNow} lineColor={bookedPHEx && bookedDT && !phexPast && !dtPast ? t.stepLineDone : t.stepLine} isLast={false}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginBottom: 12, paddingTop: 6 }}>Step 1 — Book your appointments</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginBottom: 4, paddingTop: 6 }}>Step 1 — Book your appointments</div>
+            <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 12 }}>Book your PHEx and Drug Test appointments separately. Space at least 1 hour apart if on the same day.</div>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
               {bookedPHEx ? (
                 <BookedCard label="PHEx" color={t.blue} bgColor={t.blueBg} booking={bookedPHEx} countdown={phexCountdown} onReschedule={() => { setRescheduleCode(""); setRescheduleFor("phex"); }} />
@@ -382,7 +383,8 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
 
           {/* Step 2 */}
           <StepRow n={2} t={t} active={currentStep === 2} done={filledMEF && filledDEF} lineColor={filledMEF && filledDEF ? t.stepLineDone : t.stepLine} isLast={false}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 2 ? t.text : t.textMuted, marginBottom: 8, paddingTop: 6 }}>Step 2 — Fill your forms</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 2 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 2 — Fill your forms</div>
+            <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 8 }}>Fill and download both MEF and DEF forms, then mark each as complete.</div>
             {currentStep < 2 ? (
               <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: t.textMuted, display: "flex", alignItems: "center", gap: 8 }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -489,13 +491,14 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
           {/* Step 4 — Attend */}
           <StepRow n={4} t={t} active={currentStep === 4} done={false} lineColor={t.stepLine} isLast={true}>
             <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 4 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 4 — Attend PHEx & Drug Test</div>
+            <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 4 }}>Attend both on your scheduled dates. Show your confirmation email at each station.</div>
             {currentStep < 4 ? (
               <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: t.textMuted, display: "flex", alignItems: "center", gap: 8 }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                 Complete all checklist items first.
               </div>
             ) : (
-            <><div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 10 }}>Attend both on your scheduled dates. Order is interchangeable — show your confirmation email to the guard at each station.</div>
+            <>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {bookedPHEx && (() => {
                 const isPast = new Date(bookedPHEx.date + "T23:59:59") < new Date();
