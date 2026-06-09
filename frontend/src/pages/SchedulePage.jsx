@@ -153,7 +153,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
 
   // Reset Steps 2-4 progress when either booking is dropped or appointment is past
   useEffect(() => {
-    const needsReset = !bookedPHEx || !bookedDT || phexPast || dtPast || phexNow || dtNow;
+    const needsReset = !bookedPHEx || !bookedDT;
     if (needsReset && (filledMEF || filledDEF || checked.length > 0)) {
       setFilledMEF(false);
       setFilledDEF(false);
@@ -164,10 +164,38 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
         body: JSON.stringify({ filledMEF: false, filledDEF: false, checklist: [] }),
       }).catch(() => {});
     }
-  }, [bookedPHEx, bookedDT, phexPast, dtPast, phexNow, dtNow]);
+  }, [bookedPHEx, bookedDT]);
+
+  // Determine which appointment comes first
+  const getApptMinutes = (booking) => {
+    if (!booking) return Infinity;
+    const d = new Date(booking.date + "T00:00:00");
+    const [tp, ap] = [booking.time.slice(0, -2), booking.time.slice(-2)];
+    let [h, m] = tp.split(":").map(Number);
+    if (ap === "pm" && h !== 12) h += 12;
+    if (ap === "am" && h === 12) h = 0;
+    return d.getTime() + h * 3600000 + m * 60000;
+  };
+
+  // first = whichever appointment date/time is earlier
+  const phexFirst = !bookedDT || getApptMinutes(bookedPHEx) <= getApptMinutes(bookedDT);
+  const first  = phexFirst ? "phex" : "dt";
+  const second = phexFirst ? "dt"   : "phex";
+
+  const firstBooking  = phexFirst ? bookedPHEx : bookedDT;
+  const secondBooking = phexFirst ? bookedDT   : bookedPHEx;
+
+  const firstChecklist  = phexFirst ? CHECKLIST_PHEX : CHECKLIST_DT;
+  const secondChecklist = phexFirst ? CHECKLIST_DT   : CHECKLIST_PHEX;
+  const firstLabel  = phexFirst ? "PHEx"      : "Drug Test";
+  const secondLabel = phexFirst ? "Drug Test" : "PHEx";
+  const firstColor  = phexFirst ? t.blue      : t.teal;
+  const secondColor = phexFirst ? t.teal      : t.blue;
+
+  const firstPast  = firstBooking  ? new Date(firstBooking.date  + "T23:59:59") < new Date() : false;
+  const secondPast = secondBooking ? new Date(secondBooking.date + "T23:59:59") < new Date() : false;
 
   const allItems = [...CHECKLIST_PHEX, ...CHECKLIST_DT];
-  const checklistDone = allItems.every(item => checked.includes(item.id));
 
   useEffect(() => {
     fetch("/api/students/me", { headers: getAuthHeader() })
@@ -202,11 +230,16 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
   const phexNow = phexCountdown === "Now!";
   const dtNow   = dtCountdown   === "Now!";
 
+  const firstCheckedDone  = firstChecklist.every(i => checked.includes(i.id));
+  const secondCheckedDone = secondChecklist.every(i => checked.includes(i.id));
+
   const currentStep = (() => {
     if (!bookedPHEx || !bookedDT || phexPast || dtPast || phexNow || dtNow) return 1;
     if (!filledMEF || !filledDEF) return 2;
-    if (!checklistDone) return 3;
-    return 4;
+    if (!firstCheckedDone) return 3;   // checklist for first appointment
+    if (!firstPast) return 4;          // attend first appointment
+    if (!secondCheckedDone) return 5;  // checklist for second appointment
+    return 6;                          // attend second appointment
   })();
 
   let bookBadge, bookingOpen = false;
@@ -254,6 +287,63 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
         <button onClick={onReschedule} style={{ width: "100%", padding: "8px", borderRadius: 8, border: `1.5px solid ${isNowOrPast ? t.orange : t.cardBorder}`, background: isNowOrPast ? t.orangeBg : t.card, color: isNowOrPast ? t.orangeText : t.textSub, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
           Change appointment
         </button>
+      </div>
+    );
+  };
+
+  // Reusable checklist renderer
+  const renderChecklist = (items, color, label) => {
+    const sectionKey = label === "PHEx" ? "phex" : "dt";
+    const sectionDone = items.filter(i => checked.includes(i.id)).length;
+    const allDone = sectionDone === items.length;
+    const isOpen = expandedSections[sectionKey];
+    return (
+      <div style={{ marginBottom: 8 }}>
+        <button onClick={() => setExpandedSections(s => ({ ...s, [sectionKey]: !s[sectionKey] }))}
+          style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: `1.5px solid ${allDone ? t.green : t.cardBorder}`, borderRadius: isOpen ? "10px 10px 0 0" : 10, background: t.card, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}><polyline points="9 18 15 12 9 6"/></svg>
+          <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: t.text, textAlign: "left" }}>For {label}</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: allDone ? t.green : color, background: allDone ? t.greenBg : `${color}22`, padding: "2px 8px", borderRadius: 20 }}>
+            {allDone ? "Completed" : `${sectionDone}/${items.length}`}
+          </span>
+        </button>
+        {isOpen && (
+          <div style={{ border: `1.5px solid ${allDone ? t.green : t.cardBorder}`, borderTop: "none", borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
+            {items.map((item, idx) => {
+              const isChecked = checked.includes(item.id);
+              return (
+                <button key={item.id} onClick={() => toggleCheck(item.id)}
+                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", border: "none", borderTop: idx > 0 ? `1px solid ${t.divider}` : "none", background: isChecked ? t.greenBg : t.card, cursor: "pointer", textAlign: "left", fontFamily: "inherit", transition: "background 0.15s" }}>
+                  <div style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${isChecked ? t.green : t.cardBorder}`, background: isChecked ? t.green : t.card, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>
+                    {isChecked && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                  </div>
+                  <span style={{ fontSize: 13, color: isChecked ? t.green : t.text, fontWeight: isChecked ? 600 : 400, textDecoration: isChecked ? "line-through" : "none" }}>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {allDone && (
+          <div style={{ background: t.greenBg, border: `1px solid ${t.green}44`, borderRadius: 10, padding: "10px 14px", marginTop: 8, fontSize: 12, color: t.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            All {label} items checked — you're ready!
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Reusable attend renderer
+  const renderAttend = (booking, label, color, countdown) => {
+    const isPast = new Date(booking.date + "T23:59:59") < new Date();
+    const isNow  = countdown === "Now!";
+    const accent = isPast || isNow ? t.orangeText : color;
+    return (
+      <div style={{ fontSize: 12, color: t.text, fontWeight: 600, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
+        <IconTimer color={accent} />
+        <span style={{ color: t.textSub, marginRight: 4 }}>{label}:</span>
+        {formatBookingDate(booking.date)} at {booking.time}
+        {countdown && <span style={{ color: accent }}>({countdown} {isPast ? "ago" : "away"})</span>}
       </div>
     );
   };

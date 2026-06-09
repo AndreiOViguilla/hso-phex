@@ -24,7 +24,7 @@ const userSchema = new mongoose.Schema({
   // Progress tracking
   filledMEF:    { type: Boolean, default: false },
   filledDEF:    { type: Boolean, default: false },
-  currentStep:  { type: Number, default: 1, min: 1, max: 4 },
+  currentStep:  { type: Number, default: 1, min: 1, max: 6 },
 }, { timestamps: true });
 
 userSchema.methods.comparePassword = function(password) {
