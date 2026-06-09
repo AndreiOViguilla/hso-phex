@@ -380,23 +380,62 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
           document.head.appendChild(s);
         });
       }
-      const { PDFDocument } = window.PDFLib;
+      const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
       const pdfDoc  = await PDFDocument.load(pdfBytesRef.current.slice(0), { ignoreEncryption: true });
       const pdfForm = pdfDoc.getForm();
       const fieldMap = buildFieldMap(form);
+
+      // Fill text fields
       for (const [name, value] of Object.entries(fieldMap)) {
+        if (value === "Yes" || value === "Off") continue; // handle checkboxes separately
         try {
-          if (value === "Yes" || value === "Off") {
-            const cb = pdfForm.getCheckBox(name);
-            value === "Yes" ? cb.check() : cb.uncheck();
-          } else {
-            const tf = pdfForm.getTextField(name);
-            tf.setText(value || "");
-            tf.enableReadOnly();
-          }
+          const tf = pdfForm.getTextField(name);
+          tf.setText(value || "");
+          tf.enableReadOnly();
         } catch (_) {}
       }
+
+      // Flatten text fields first
       try { pdfForm.flatten(); } catch (_) {}
+
+      // Draw checkmarks manually on the page (reliable across all PDF readers)
+      const pages = pdfDoc.getPages();
+      const page  = pages[0];
+      const { height } = page.getSize();
+      const helvetica = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+      // AcroForm checkbox positions (x, y at 1x PDF units, origin bottom-left)
+      // PDF coordinate system: y=0 is bottom, so convert from top-left coords
+      const CHECK_POSITIONS = [
+        { name: "Gender Female", x: 89,  yTop: 134, w: 8, h: 8  },
+        { name: "Gender Male",   x: 141, yTop: 134, w: 8, h: 7  },
+      ];
+
+      CHECK_POSITIONS.forEach(({ name, x, yTop, w, h }) => {
+        const isChecked = fieldMap[name] === "Yes";
+        if (!isChecked) return;
+        // Convert top-left PDF units → bottom-left (pdf-lib uses bottom-left origin)
+        // The PDF natural size matches the coords used in the canvas overlay
+        // Get PDF page dimensions to scale
+        const pdfPageHeight = height; // pdf-lib page height in points
+        // The coords in TEXT_FIELDS/CHECK_FIELDS are in PDF units at 1x scale
+        // pdf-lib works in points — these coords match directly
+        const yBottom = pdfPageHeight - yTop - h;
+        // Draw a filled blue square background
+        page.drawRectangle({
+          x, y: yBottom, width: w, height: h,
+          color: rgb(0.11, 0.30, 0.85),
+          opacity: 0.9,
+        });
+        // Draw white checkmark text
+        page.drawText("✓", {
+          x: x + 0.5,
+          y: yBottom + 0.5,
+          size: h * 0.85,
+          font: helvetica,
+          color: rgb(1, 1, 1),
+        });
+      });
       const bytes = await pdfDoc.save({ updateFieldAppearances: false });
       const blob  = new Blob([bytes], { type: "application/pdf" });
       const url   = URL.createObjectURL(blob);
