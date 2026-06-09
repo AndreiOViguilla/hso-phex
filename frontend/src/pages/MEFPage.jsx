@@ -376,7 +376,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       const pdfForm = pdfDoc.getForm();
       const fieldMap = buildFieldMap(form);
 
-      // Fill text fields only — skip checkbox fields entirely
+      // Fill text fields only — skip checkboxes
       for (const [name, value] of Object.entries(fieldMap)) {
         if (value === "Yes" || value === "Off") continue;
         try {
@@ -386,57 +386,10 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         } catch (_) {}
       }
 
-      // ── Nuclear fix: physically remove checkbox widgets from the AcroForm
-      // fields array AND from each page's /Annots array before flatten.
-      // This prevents pdf-lib's flatten from ever touching them or rendering
-      // the ZapfDingbats glyph. We draw our own lines on top instead.
-      try {
-        const acroForm = pdfDoc.catalog.lookup(pdfDoc.catalog.get("AcroForm"));
-        if (acroForm) {
-          const fieldsArray = acroForm.lookup(acroForm.get("Fields"));
-          if (fieldsArray) {
-            const checkboxNames = new Set(["Gender Female", "Gender Male"]);
-            const keptFields = [];
-            const removedRefs = new Set();
-
-            for (let i = 0; i < fieldsArray.size(); i++) {
-              const fieldRef = fieldsArray.get(i);
-              const field = pdfDoc.context.lookup(fieldRef);
-              let shouldRemove = false;
-              try {
-                const tObj = field.get(field.constructor.of ? null : "T") || field.lookup("T");
-                const nameVal = tObj ? tObj.decodeText?.() || tObj.toString() : "";
-                if (checkboxNames.has(nameVal)) shouldRemove = true;
-              } catch (_) {}
-              if (shouldRemove) {
-                removedRefs.add(fieldRef.toString());
-              } else {
-                keptFields.push(fieldRef);
-              }
-            }
-
-            // Rebuild Fields array without the checkboxes
-            acroForm.set("Fields", pdfDoc.context.obj(keptFields));
-
-            // Also remove their widget annotations from page /Annots
-            const pages2 = pdfDoc.getPages();
-            pages2.forEach(pg => {
-              try {
-                const annots = pg.node.lookup(pg.node.get("Annots"));
-                if (!annots) return;
-                const kept = [];
-                for (let i = 0; i < annots.size(); i++) {
-                  const ref = annots.get(i);
-                  if (!removedRefs.has(ref.toString())) kept.push(ref);
-                }
-                pg.node.set("Annots", pdfDoc.context.obj(kept));
-              } catch (_) {}
-            });
-          }
-        }
-      } catch (_) {}
-
-      // Flatten remaining fields (text only, no checkboxes)
+      // Flatten text fields only.
+      // We do NOT touch the checkbox fields at all — instead we paint over
+      // their widget area with a white rectangle AFTER flatten to erase
+      // whatever glyph the AcroForm renderer baked in, then draw our lines.
       try { pdfForm.flatten(); } catch (_) {}
 
       // Draw line checkmarks manually — NO emoji, NO special chars
@@ -452,50 +405,43 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         { name: "Gender Male",   x: 141, yTop: 134, w: 8, h: 7 },
       ];
 
+      // Draw both checkboxes from scratch — white eraser, then border, then
+      // blue fill + tick if checked. Completely bypasses AcroForm rendering.
       CHECK_POSITIONS.forEach(({ name, x, yTop, w, h }) => {
-        if (fieldMap[name] !== "Yes") return;
+        const pdfY   = pageHeight - yTop - h;
+        const isChecked = fieldMap[name] === "Yes";
+        const pad    = 1.0;
 
-        // Convert top-left coords to PDF bottom-left coords
-        const pdfY = pageHeight - yTop - h;
-        const pad  = 1.2;
-
-        // Filled blue square background
+        // 1. White rectangle to fully erase whatever AcroForm baked in
         page.drawRectangle({
-          x,
-          y:      pdfY,
-          width:  w,
-          height: h,
-          color:  rgb(0.11, 0.31, 0.85),
+          x: x - 0.5, y: pdfY - 0.5,
+          width: w + 1, height: h + 1,
+          color: rgb(1, 1, 1),
         });
 
-        // Checkmark: two lines forming a tick
-        // Point A (left): bottom-left area
-        // Point B (mid):  bottom-center (the dip of the tick)
-        // Point C (right): top-right
-        const ax = x + pad;
-        const ay = pdfY + h * 0.45;          // left arm — middle height
-
-        const bx = x + w * 0.38;
-        const by = pdfY + pad;               // bottom of tick dip
-
-        const cx2 = x + w - pad;
-        const cy2 = pdfY + h - pad;          // top-right of tick
-
-        // Line A→B (short left stroke going down)
-        page.drawLine({
-          start:     { x: ax,  y: ay  },
-          end:       { x: bx,  y: by  },
-          thickness: 1.3,
-          color:     rgb(1, 1, 1),
+        // 2. Box border (black, 0.8pt)
+        page.drawRectangle({
+          x, y: pdfY, width: w, height: h,
+          borderColor: rgb(0, 0, 0),
+          borderWidth: 0.8,
+          color: isChecked ? rgb(0.11, 0.31, 0.85) : rgb(1, 1, 1),
         });
 
-        // Line B→C (long right stroke going up)
-        page.drawLine({
-          start:     { x: bx,  y: by  },
-          end:       { x: cx2, y: cy2 },
-          thickness: 1.3,
-          color:     rgb(1, 1, 1),
-        });
+        // 3. If checked — draw white tick lines inside the blue box
+        if (isChecked) {
+          // Short left stroke: left-middle → bottom-centre
+          page.drawLine({
+            start: { x: x + pad,        y: pdfY + h * 0.48 },
+            end:   { x: x + w * 0.38,   y: pdfY + pad      },
+            thickness: 1.2, color: rgb(1, 1, 1),
+          });
+          // Long right stroke: bottom-centre → top-right
+          page.drawLine({
+            start: { x: x + w * 0.38,   y: pdfY + pad      },
+            end:   { x: x + w - pad,     y: pdfY + h - pad  },
+            thickness: 1.2, color: rgb(1, 1, 1),
+          });
+        }
       });
 
       const bytes = await pdfDoc.save({ updateFieldAppearances: false });
