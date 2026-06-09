@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useIsMobile } from "../utils/useIsMobile";
 import { NavBar, Btn } from "../components/UI";
 import { useTheme } from "../ThemeContext";
+import { useModal } from "../components/Modal";
 
 const EMPTY_FORM = {
   name: "",
@@ -32,6 +33,7 @@ const DEF_FIELDS = [
 export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
   const isMobile      = useIsMobile();
   const { dark, toggle, t } = useTheme();
+  const { show }      = useModal();
   const canvasRef     = useRef(null);
   const pdfDocRef     = useRef(null);
   const pdfBytesRef   = useRef(null);
@@ -43,13 +45,13 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
   const [pdfError,    setPdfError]    = useState(false);
   const [rendering,   setRendering]   = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloaded,  setDownloaded]  = useState(false);
   const [highlighted, setHighlighted] = useState(null);
   const [zoom, setZoom] = useState(1.0);
 
   const [form, setForm] = useState({ ...EMPTY_FORM, idNo: prefillId || "", name: prefillName || "" });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // Fetch fresh from backend on mount
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -66,7 +68,6 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       .catch(() => {});
   }, []);
 
-  // Load pdf.js + PDF
   useEffect(() => {
     const load = async () => {
       try {
@@ -91,7 +92,6 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
     load();
   }, []);
 
-  // Canvas click → focus matching input
   const handleCanvasClick = useCallback((e) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -116,7 +116,6 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
     }
   }, []);
 
-  // Draw overlay on canvas — auto-shrinks font to fit field width
   const drawOverlay = useCallback((ctx, f, hl, s) => {
     const fm = buildFieldMap(f);
     DEF_FIELDS.forEach(({ name, x, y, w, h }) => {
@@ -146,7 +145,6 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
     });
   }, []);
 
-  // Composite: copy offscreen PDF + overlay
   const composite = useCallback((f, hl) => {
     const canvas = canvasRef.current;
     const offscreen = offscreenRef.current;
@@ -157,7 +155,6 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
     drawOverlay(ctx, f, hl, scaleRef.current);
   }, [drawOverlay]);
 
-  // Full render: PDF to offscreen, then composite
   const renderPreview = useCallback(async (f, hl) => {
     const zoomLevel = zoom;
     if (!pdfDocRef.current || !canvasRef.current) return;
@@ -175,7 +172,6 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       const fitScale = fitWidth / pdfNatural.width;
       const renderScale = fitScale * Math.max(dpr, 2);
       scaleRef.current = renderScale;
-
       const viewport = page.getViewport({ scale: renderScale });
       canvas.width  = viewport.width;
       canvas.height = viewport.height;
@@ -184,13 +180,11 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       canvas.style.display = "block";
       canvas.style.margin  = zoomLevel <= 1 ? "0 auto" : "0";
       canvas.style.cursor  = "pointer";
-
       const off = document.createElement("canvas");
       off.width  = viewport.width;
       off.height = viewport.height;
       offscreenRef.current = off;
       await page.render({ canvasContext: off.getContext("2d"), viewport }).promise;
-
       composite(f, hl);
     } catch (e) { console.error("Render error:", e); }
     setRendering(false);
@@ -244,15 +238,23 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
     return () => window.removeEventListener("resize", onResize);
   }, [pdfReady, form, renderPreview, zoom]);
 
-  // Highlight change — composite only, no flash
   useEffect(() => {
     if (!pdfReady) return;
     composite(form, highlighted);
   }, [highlighted, pdfReady, composite, form]);
 
-  // Download — black text, font-size 0 = auto-fit to field
   const handleDownload = async () => {
     if (!pdfBytesRef.current) return;
+
+    // Validate
+    const missing = [];
+    if (!form.name)  missing.push("Full name");
+    if (!form.idNo)  missing.push("ID number");
+    if (missing.length > 0) {
+      show({ type: "error", title: "Incomplete form", message: `Please fill in: ${missing.join(", ")}.` });
+      return;
+    }
+
     setDownloading(true);
     try {
       if (!window.PDFLib) {
@@ -263,26 +265,40 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
           document.head.appendChild(s);
         });
       }
-      const { PDFDocument, rgb } = window.PDFLib;
+      const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
       const pdfDoc  = await PDFDocument.load(pdfBytesRef.current.slice(0), { ignoreEncryption: true });
       const pdfForm = pdfDoc.getForm();
+
       for (const [name, value] of Object.entries(buildFieldMap(form))) {
-        try {
-          const tf = pdfForm.getTextField(name);
-          tf.setText(value || "");
-          tf.setFontSize(0); // 0 = auto-fit to field bounds per PDF spec
-          tf.acroField.setDefaultAppearance("/Helvetica 0 Tf 0 0 0 rg"); // black
-          tf.enableReadOnly();
-        } catch (_) {}
+        try { pdfForm.getTextField(name).setText(value || ""); } catch (_) {}
       }
       try { pdfForm.flatten(); } catch (_) {}
+
+      const font  = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const pages = pdfDoc.getPages();
+      const page  = pages[0];
+      const { height: pageHeight } = page.getSize();
+
+      const DEF_TEXT_FIELDS = [
+        { x: 59, yTop: 107, w: 95, h: 15, value: form.name },
+        { x: 61, yTop: 123, w: 95, h: 15, value: form.idNo },
+      ];
+
+      DEF_TEXT_FIELDS.forEach(({ x, yTop, w, h, value }) => {
+        const pdfY = pageHeight - yTop - h;
+        page.drawRectangle({ x: x - 1, y: pdfY - 1, width: w + 2, height: h + 2, color: rgb(1, 1, 1), opacity: 1, borderWidth: 0, borderColor: rgb(1, 1, 1) });
+        if (value) {
+          page.drawText(String(value), { x: x + 1.5, y: pdfY + 3, size: 8, font, color: rgb(0, 0, 0), maxWidth: w - 3 });
+        }
+      });
+
       const bytes = await pdfDoc.save({ updateFieldAppearances: false });
       const blob  = new Blob([bytes], { type: "application/pdf" });
       const url   = URL.createObjectURL(blob);
       const a     = document.createElement("a");
       a.href = url; a.download = `DEF_${form.idNo || "student"}.pdf`;
       a.click(); URL.revokeObjectURL(url);
-      onSuccess();
+      setDownloaded(true);
     } catch (e) { alert("Download failed: " + e.message); }
     setDownloading(false);
   };
@@ -303,27 +319,11 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
         <div style={c2}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <label style={lbl}>Full name</label>
-            <input
-              id="def-name"
-              style={inp()}
-              placeholder="Juan A. Dela Cruz"
-              value={form.name}
-              onChange={e => set("name", e.target.value)}
-              onFocus={() => setHighlighted("Name")}
-              onBlur={() => setHighlighted(null)}
-            />
+            <input id="def-name" style={inp()} placeholder="Juan A. Dela Cruz" value={form.name} onChange={e => set("name", e.target.value)} onFocus={() => setHighlighted("Name")} onBlur={() => setHighlighted(null)} />
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <label style={lbl}>ID number</label>
-            <input
-              id="def-idNo"
-              style={inp()}
-              placeholder="12512345"
-              value={form.idNo}
-              onChange={e => set("idNo", e.target.value)}
-              onFocus={() => setHighlighted("ID No")}
-              onBlur={() => setHighlighted(null)}
-            />
+            <input id="def-idNo" style={inp()} placeholder="12512345" value={form.idNo} onChange={e => set("idNo", e.target.value)} onFocus={() => setHighlighted("ID No")} onBlur={() => setHighlighted(null)} />
           </div>
         </div>
       </div>
@@ -350,8 +350,15 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       </div>
 
       <Btn variant="primary" onClick={handleDownload} style={{ opacity: downloading ? 0.7 : 1 }}>
-        {downloading ? "Generating PDF…" : "Generate & download DEF PDF →"}
+        {downloading ? "Generating PDF…" : downloaded ? "Re-download DEF PDF" : "Generate & download DEF PDF →"}
       </Btn>
+
+      {downloaded && (
+        <button onClick={onSuccess} style={{ width: "100%", marginTop: 10, padding: "13px", background: t.green, color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Mark DEF as complete
+        </button>
+      )}
       <div style={{ height: 20 }} />
     </div>
   );
@@ -366,7 +373,6 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
           {pdfError    && <span style={{ fontSize: 11, color: "#fca5a5" }}>PDF not found</span>}
           {pdfReady && !rendering && !highlighted && <span style={{ fontSize: 11, color: "#6ee7b7" }}>Click a field to jump →</span>}
         </div>
-        {/* Zoom controls — centered */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, position: "absolute", left: "50%", transform: "translateX(-50%)" }}>
           <button onClick={() => setZoom(z => Math.max(0.5, parseFloat((z - 0.25).toFixed(2))))}
             title="Zoom out" disabled={zoom <= 0.5}

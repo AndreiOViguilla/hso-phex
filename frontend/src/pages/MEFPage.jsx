@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useIsMobile } from "../utils/useIsMobile";
 import { NavBar, Btn } from "../components/UI";
 import { useTheme } from "../ThemeContext";
+import { useModal } from "../components/Modal";
 
 const EMPTY_FORM = {
   idNumber:        "",
@@ -68,6 +69,7 @@ const INPUT_ID_TO_FIELD = Object.fromEntries(
 export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, prefillMI, prefillGender, onBack, onSuccess }) {
   const isMobile    = useIsMobile();
   const { dark, toggle, t } = useTheme();
+  const { show }    = useModal();
   const canvasRef   = useRef(null);
   const pdfDocRef   = useRef(null);
   const pdfBytesRef = useRef(null);
@@ -78,6 +80,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
   const [pdfError,    setPdfError]    = useState(false);
   const [rendering,   setRendering]   = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloaded,  setDownloaded]  = useState(false);
   const [highlighted, setHighlighted] = useState(null);
   const [zoom, setZoom] = useState(1.0);
 
@@ -237,7 +240,6 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       ctx.lineWidth = isHl ? 2 * s : 1.2 * s;
       ctx.strokeRect(x * s, y * s, w * s, h * s);
       if (checked) {
-        // Two-line checkmark: bottom-left → mid-bottom → top-right
         const pad = 1.5;
         const midX  = (x + w * 0.35) * s;
         const midY  = (y + h - pad)   * s;
@@ -358,9 +360,29 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     composite(form, highlighted);
   }, [highlighted, pdfReady, composite, form]);
 
-  // ── Download — draws real line checkmarks into the PDF ───────────────────
   const handleDownload = async () => {
     if (!pdfBytesRef.current) return;
+
+    // Validate required fields
+    const missing = [];
+    if (!form.idNumber)         missing.push("ID number");
+    if (!form.lastName)         missing.push("Last name");
+    if (!form.firstName)        missing.push("First name");
+    if (!form.gender)           missing.push("Gender");
+    if (!form.birthday)         missing.push("Birthday");
+    if (!form.contact)          missing.push("Contact number");
+    if (!form.college)          missing.push("College / Section");
+    if (!form.emergencyName)    missing.push("Emergency contact name");
+    if (!form.emergencyRel)     missing.push("Emergency relationship");
+    if (!form.emergencyContact) missing.push("Emergency contact number");
+    if (!form.studentNameAuth)  missing.push("Authority full name");
+    if (!form.studentAge)       missing.push("Age");
+
+    if (missing.length > 0) {
+      show({ type: "error", title: "Incomplete form", message: `Please fill in: ${missing.join(", ")}.` });
+      return;
+    }
+
     setDownloading(true);
     try {
       if (!window.PDFLib) {
@@ -376,7 +398,6 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       const pdfForm = pdfDoc.getForm();
       const fieldMap = buildFieldMap(form);
 
-      // Fill text fields only — skip checkboxes
       for (const [name, value] of Object.entries(fieldMap)) {
         if (value === "Yes" || value === "Off") continue;
         try {
@@ -386,65 +407,36 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         } catch (_) {}
       }
 
-      // Flatten text fields only.
-      // We do NOT touch the checkbox fields at all — instead we paint over
-      // their widget area with a white rectangle AFTER flatten to erase
-      // whatever glyph the AcroForm renderer baked in, then draw our lines.
       try { pdfForm.flatten(); } catch (_) {}
 
-      // Draw line checkmarks manually — NO emoji, NO special chars
       const pages = pdfDoc.getPages();
       const page  = pages[0];
       const { height: pageHeight } = page.getSize();
 
-      // PDF coordinate system: origin is bottom-left, y increases upward
-      // Our positions are top-left origin, y increases downward
-      // So: pdfY = pageHeight - yTop - boxHeight
       const CHECK_POSITIONS = [
         { name: "Gender Female", x: 89,  yTop: 134, w: 8, h: 8 },
         { name: "Gender Male",   x: 141, yTop: 134, w: 8, h: 7 },
       ];
 
-      // Draw both checkboxes from scratch.
-      // Oversized white eraser first, then clean black-bordered box, then tick.
       CHECK_POSITIONS.forEach(({ name, x, yTop, w, h }) => {
         const pdfY      = pageHeight - yTop - h;
         const isChecked = fieldMap[name] === "Yes";
         const pad       = 1.2;
 
-        // 1. Big white eraser — covers AcroForm glyph AND any border bleed
         page.drawRectangle({
           x: x - 2, y: pdfY - 2,
           width: w + 4, height: h + 4,
-          color: rgb(1, 1, 1),
-          opacity: 1,
-          borderColor: rgb(1, 1, 1),
-          borderOpacity: 1,
-          borderWidth: 0,
+          color: rgb(1, 1, 1), opacity: 1,
+          borderColor: rgb(1, 1, 1), borderOpacity: 1, borderWidth: 0,
         });
-
-        // 2. Clean white box with black border
         page.drawRectangle({
           x, y: pdfY, width: w, height: h,
-          color: rgb(1, 1, 1),
-          opacity: 1,
-          borderColor: rgb(0, 0, 0),
-          borderOpacity: 1,
-          borderWidth: 0.75,
+          color: rgb(1, 1, 1), opacity: 1,
+          borderColor: rgb(0, 0, 0), borderOpacity: 1, borderWidth: 0.75,
         });
-
-        // 3. Black tick lines if checked
         if (isChecked) {
-          page.drawLine({
-            start: { x: x + pad,       y: pdfY + h * 0.48 },
-            end:   { x: x + w * 0.38,  y: pdfY + pad      },
-            thickness: 1.1, color: rgb(0, 0, 0),
-          });
-          page.drawLine({
-            start: { x: x + w * 0.38,  y: pdfY + pad      },
-            end:   { x: x + w - pad,    y: pdfY + h - pad  },
-            thickness: 1.1, color: rgb(0, 0, 0),
-          });
+          page.drawLine({ start: { x: x + pad, y: pdfY + h * 0.48 }, end: { x: x + w * 0.38, y: pdfY + pad }, thickness: 1.1, color: rgb(0, 0, 0) });
+          page.drawLine({ start: { x: x + w * 0.38, y: pdfY + pad }, end: { x: x + w - pad, y: pdfY + h - pad }, thickness: 1.1, color: rgb(0, 0, 0) });
         }
       });
 
@@ -454,7 +446,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       const a     = document.createElement("a");
       a.href = url; a.download = `MEF_${form.idNumber || "student"}.pdf`;
       a.click(); URL.revokeObjectURL(url);
-      onSuccess();
+      setDownloaded(true);
     } catch (e) { alert("Download failed: " + e.message); }
     setDownloading(false);
   };
@@ -464,7 +456,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     fontSize: 13, fontFamily: "inherit", outline: "none",
     width: "100%", boxSizing: "border-box",
     background: t.input, color: t.text,
-    colorScheme: dark ? "dark" : "light",   // ← add this
+    colorScheme: dark ? "dark" : "light",
     ...extra,
   });
   const lbl = { fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 4 };
@@ -564,8 +556,15 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       </div>
 
       <Btn variant="primary" onClick={handleDownload} style={{ opacity: downloading ? 0.7 : 1 }}>
-        {downloading ? "Generating PDF…" : "Generate & download MEF PDF →"}
+        {downloading ? "Generating PDF…" : downloaded ? "Re-download MEF PDF" : "Generate & download MEF PDF →"}
       </Btn>
+
+      {downloaded && (
+        <button onClick={onSuccess} style={{ width: "100%", marginTop: 10, padding: "13px", background: t.green, color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Mark MEF as complete
+        </button>
+      )}
       <div style={{ height: 20 }} />
     </div>
   );
@@ -608,11 +607,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
             in your <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>public/</code> folder.
           </div>
         ) : (
-          <canvas
-            ref={canvasRef}
-            onClick={handleCanvasClick}
-            style={{ borderRadius: 4, display: "block", cursor: "pointer" }}
-          />
+          <canvas ref={canvasRef} onClick={handleCanvasClick} style={{ borderRadius: 4, display: "block", cursor: "pointer" }} />
         )}
       </div>
     </div>
