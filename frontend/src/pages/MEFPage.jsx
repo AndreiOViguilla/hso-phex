@@ -247,9 +247,23 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       ctx.lineWidth = isHl ? 2 * s : 1.2 * s;
       ctx.strokeRect(x * s, y * s, w * s, h * s);
       if (checked) {
-        ctx.fillStyle = "#1d4ed8";
-        ctx.font = `bold ${8 * s}px Arial`;
-        ctx.fillText("✓", (x + 0.5) * s, (y + h - 0.5) * s);
+        // Draw checkmark using two lines — no emoji
+        const pad = 1.5;
+        const midX = (x + w * 0.35) * s;
+        const midY = (y + h - pad) * s;
+        const startX = (x + pad) * s;
+        const startY = (y + h * 0.55) * s;
+        const endX = (x + w - pad) * s;
+        const endY = (y + pad) * s;
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 1.5 * s;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(midX, midY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
       }
     });
   }, []);
