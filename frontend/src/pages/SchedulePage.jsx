@@ -337,12 +337,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
             })}
           </div>
         )}
-        {allDone && (
-          <div style={{ background: t.greenBg, border: `1px solid ${t.green}44`, borderRadius: 10, padding: "10px 14px", marginTop: 8, fontSize: 12, color: t.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            All {label} items checked — you're ready!
-          </div>
-        )}
+
       </div>
     );
   };
