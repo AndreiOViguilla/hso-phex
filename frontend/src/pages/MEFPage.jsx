@@ -380,7 +380,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
           document.head.appendChild(s);
         });
       }
-      const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
+      const { PDFDocument, rgb } = window.PDFLib;
       const pdfDoc  = await PDFDocument.load(pdfBytesRef.current.slice(0), { ignoreEncryption: true });
       const pdfForm = pdfDoc.getForm();
       const fieldMap = buildFieldMap(form);
@@ -398,41 +398,46 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       // Flatten text fields first
       try { pdfForm.flatten(); } catch (_) {}
 
-      // Draw checkmarks manually on the page (reliable across all PDF readers)
+      // Draw checkmarks manually using lines (no special characters needed)
       const pages = pdfDoc.getPages();
       const page  = pages[0];
       const { height } = page.getSize();
-      const helvetica = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-      // AcroForm checkbox positions (x, y at 1x PDF units, origin bottom-left)
-      // PDF coordinate system: y=0 is bottom, so convert from top-left coords
       const CHECK_POSITIONS = [
-        { name: "Gender Female", x: 89,  yTop: 134, w: 8, h: 8  },
-        { name: "Gender Male",   x: 141, yTop: 134, w: 8, h: 7  },
+        { name: "Gender Female", x: 89,  yTop: 134, w: 8, h: 8 },
+        { name: "Gender Male",   x: 141, yTop: 134, w: 8, h: 7 },
       ];
 
       CHECK_POSITIONS.forEach(({ name, x, yTop, w, h }) => {
         const isChecked = fieldMap[name] === "Yes";
         if (!isChecked) return;
-        // Convert top-left PDF units → bottom-left (pdf-lib uses bottom-left origin)
-        // The PDF natural size matches the coords used in the canvas overlay
-        // Get PDF page dimensions to scale
-        const pdfPageHeight = height; // pdf-lib page height in points
-        // The coords in TEXT_FIELDS/CHECK_FIELDS are in PDF units at 1x scale
-        // pdf-lib works in points — these coords match directly
-        const yBottom = pdfPageHeight - yTop - h;
-        // Draw a filled blue square background
+        const yBottom = height - yTop - h;
+
+        // Filled blue background
         page.drawRectangle({
           x, y: yBottom, width: w, height: h,
           color: rgb(0.11, 0.30, 0.85),
-          opacity: 0.9,
         });
-        // Draw white checkmark text
-        page.drawText("✓", {
-          x: x + 0.5,
-          y: yBottom + 0.5,
-          size: h * 0.85,
-          font: helvetica,
+
+        // Draw checkmark using two lines: bottom-left to middle, then middle to top-right
+        const pad = 1.5;
+        const midX = x + w * 0.35;
+        const midY = yBottom + pad;
+        const startX = x + pad;
+        const startY = yBottom + h * 0.45;
+        const endX = x + w - pad;
+        const endY = yBottom + h - pad;
+
+        page.drawLine({
+          start: { x: startX, y: startY },
+          end:   { x: midX,   y: midY   },
+          thickness: 1.2,
+          color: rgb(1, 1, 1),
+        });
+        page.drawLine({
+          start: { x: midX, y: midY },
+          end:   { x: endX, y: endY },
+          thickness: 1.2,
           color: rgb(1, 1, 1),
         });
       });
