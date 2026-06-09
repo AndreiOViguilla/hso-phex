@@ -10,6 +10,8 @@ const appointmentRoutes = require("./routes/appointments");
 const formRoutes        = require("./routes/forms");
 const hsoRoutes         = require("./routes/hso");
 
+const { startAutoCancel } = require("./services/autoCancel");
+
 const app  = express();
 const PORT = process.env.PORT || 5000;
 
@@ -36,9 +38,9 @@ async function start() {
   app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
   // Start auto-cancel scheduler
-startAutoCancel();
+  startAutoCancel();
 
-app.listen(PORT, () => console.log(`HSO PHEx backend running on port ${PORT}`));
+  app.listen(PORT, () => console.log(`HSO PHEx backend running on port ${PORT}`));
 }
 
 start().catch(console.error);
