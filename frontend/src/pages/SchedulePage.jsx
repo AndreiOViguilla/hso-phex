@@ -281,7 +281,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
             <div style={{ fontSize: 17, fontWeight: 800, color: t.text, marginBottom: 8 }}>Change {rescheduleFor === "phex" ? "PHEx" : "Drug Test"} Appointment</div>
             <div style={{ fontSize: 14, color: t.textSub, lineHeight: 1.65, marginBottom: 20 }}>Enter your personal booking code to verify before rescheduling.</div>
             <input placeholder="e.g. pikachu" value={rescheduleCode} onChange={e => setRescheduleCode(e.target.value)}
-              style={{ width: "100%", padding: "11px 14px", border: `1.5px solid ${t.inputBorder}`, borderRadius: 10, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", marginBottom: 20, textAlign: "center", background: t.input, color: t.text }}
+              style={{ width: "100%", padding: "11px 14px", border: `1.5px solid ${t.inputBorder}`, borderRadius: 10, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", marginBottom: 10, textAlign: "center", background: t.input, color: t.text }}
               autoFocus
             />
             {/* Forgot booking code */}
@@ -300,7 +300,6 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
                   onChange={e => setForgotCodeEmail(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleForgotCode()}
                   style={{ width: "100%", padding: "9px 12px", border: `1.5px solid ${t.inputBorder}`, borderRadius: 8, fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box", background: t.input, color: t.text, marginBottom: 8 }}
-                  autoFocus
                 />
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => { setShowForgotCode(false); setForgotCodeEmail(""); }} style={{ flex: 1, padding: "8px", border: `1px solid ${t.cardBorder}`, borderRadius: 8, background: t.card, color: t.textSub, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
@@ -383,14 +382,21 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
 
           {/* Step 2 */}
           <StepRow n={2} t={t} active={currentStep === 2} done={filledMEF && filledDEF} lineColor={filledMEF && filledDEF ? t.stepLineDone : t.stepLine} isLast={false}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginBottom: 8, paddingTop: 6 }}>Step 2 — Fill your forms</div>
-            {bookedPHEx && bookedDT && (
-              <div style={{ background: t.blueBg, border: `1px solid ${t.blue}44`, borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 12, color: t.blueText, lineHeight: 1.7 }}>
-                <strong>PHEx:</strong> {formatBookingDate(bookedPHEx.date)} at {bookedPHEx.time}<br />
-                <strong>Drug Test:</strong> {formatBookingDate(bookedDT.date)} at {bookedDT.time}
+            <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 2 ? t.text : t.textMuted, marginBottom: 8, paddingTop: 6 }}>Step 2 — Fill your forms</div>
+            {currentStep < 2 ? (
+              <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: t.textMuted, display: "flex", alignItems: "center", gap: 8 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Book both PHEx and Drug Test appointments first.
               </div>
-            )}
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+            ) : (
+              <>
+                {bookedPHEx && bookedDT && (
+                  <div style={{ background: t.blueBg, border: `1px solid ${t.blue}44`, borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 12, color: t.blueText, lineHeight: 1.7 }}>
+                    <strong>PHEx:</strong> {formatBookingDate(bookedPHEx.date)} at {bookedPHEx.time}<br />
+                    <strong>Drug Test:</strong> {formatBookingDate(bookedDT.date)} at {bookedDT.time}
+                  </div>
+                )}
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
               {[
                 { key: "mef", label: "Medical Examination Form", desc: "Fill in your student details, print, and bring to your PHEx appointment.", filled: filledMEF, color: dark ? "#a78bfa" : "#7c3aed", onFill: () => { setFilledMEF(true); saveProgress({ filledMEF: true }); onMEF(); } },
                 { key: "def", label: "Dental Examination Form",   desc: "Fill in your name and ID. The dentist completes the rest during examination.", filled: filledDEF, color: dark ? "#fb923c" : "#b45309", onFill: () => { setFilledDEF(true); saveProgress({ filledDEF: true }); onDEF(); } },
@@ -407,13 +413,21 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
                   </button>
                 </div>
               ))}
-            </div>
+                </div>
+              </>
+            )}
           </StepRow>
 
           {/* Step 3 — Collapsible Checklist */}
           <StepRow n={3} t={t} active={currentStep === 3} done={checklistDone} lineColor={checklistDone ? t.stepLineDone : t.stepLine} isLast={false}>
             <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 3 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 3 — Preparation Checklist</div>
-            <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 10 }}>Complete all items before attending your appointments.</div>
+            {currentStep < 3 ? (
+              <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: t.textMuted, display: "flex", alignItems: "center", gap: 8 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Fill both MEF and DEF forms first.
+              </div>
+            ) : (
+            <><div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 10 }}>Complete all items before attending your appointments.</div>
 
             {/* Overall progress */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
@@ -474,12 +488,19 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
                 All items checked — you're ready to attend!
               </div>
             )}
+            </>)}
           </StepRow>
 
           {/* Step 4 — Attend */}
           <StepRow n={4} t={t} active={currentStep === 4} done={false} lineColor={t.stepLine} isLast={true}>
             <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 4 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 4 — Attend PHEx & Drug Test</div>
-            <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 10 }}>Attend both on your scheduled dates. Order is interchangeable — show your confirmation email to the guard at each station.</div>
+            {currentStep < 4 ? (
+              <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: t.textMuted, display: "flex", alignItems: "center", gap: 8 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Complete all checklist items first.
+              </div>
+            ) : (
+            <><div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 10 }}>Attend both on your scheduled dates. Order is interchangeable — show your confirmation email to the guard at each station.</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {bookedPHEx && (() => {
                 const isPast = new Date(bookedPHEx.date + "T23:59:59") < new Date();
@@ -506,6 +527,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
                 );
               })()}
             </div>
+            </>)}
           </StepRow>
         </div>
 
