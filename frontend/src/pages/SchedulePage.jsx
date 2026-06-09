@@ -521,7 +521,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
           </StepRow>
 
           {/* Step 3 — Collapsible Checklist */}
-          <StepRow n={3} t={t} active={currentStep === 3} done={checklistDone} lineColor={checklistDone ? t.stepLineDone : t.stepLine} isLast={false}>
+          <StepRow n={3} t={t} active={currentStep === 3} done={firstCheckedDone && secondCheckedDone} lineColor={firstCheckedDone && secondCheckedDone ? t.stepLineDone : t.stepLine} isLast={false}>
             <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 3 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 3 — Preparation Checklist</div>
             {currentStep < 3 ? (
               <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: t.textMuted, display: "flex", alignItems: "center", gap: 8 }}>
@@ -534,9 +534,9 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
             {/* Overall progress */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
               <div style={{ flex: 1, height: 6, background: t.cardBorder, borderRadius: 99, overflow: "hidden" }}>
-                <div style={{ height: "100%", borderRadius: 99, background: checklistDone ? t.green : t.accent, width: `${Math.round((checked.length / allItems.length) * 100)}%`, transition: "width 0.4s ease" }} />
+                <div style={{ height: "100%", borderRadius: 99, background: firstCheckedDone && secondCheckedDone ? t.green : t.accent, width: `${Math.round((checked.length / allItems.length) * 100)}%`, transition: "width 0.4s ease" }} />
               </div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: checklistDone ? t.green : t.accent, whiteSpace: "nowrap" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: firstCheckedDone && secondCheckedDone ? t.green : t.accent, whiteSpace: "nowrap" }}>
                 {checked.length}/{allItems.length}
               </span>
             </div>
@@ -584,7 +584,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
               );
             })}
 
-            {checklistDone && (
+            {firstCheckedDone && secondCheckedDone && (
               <div style={{ background: t.greenBg, border: `1px solid ${t.green}44`, borderRadius: 10, padding: "10px 14px", marginTop: 8, fontSize: 12, color: t.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                 All items checked — you're ready to attend!
