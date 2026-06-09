@@ -19,8 +19,9 @@ router.get("/me", authMiddleware, async (req, res) => {
 
     const isPast = (appt) => appt && new Date(appt.appointmentDate + "T23:59:59") < now;
 
-    // Reset progress if either appointment is missing or past
-    const needsReset = !phex || !dt || isPast(phex) || isPast(dt);
+    // Reset progress only if appointments are missing (dropped/auto-cancelled)
+    // Do NOT reset when appointments are past — that means student attended
+    const needsReset = !phex || !dt;
     if (needsReset && (user.filledMEF || user.filledDEF || user.checklist?.length > 0)) {
       user.filledMEF       = false;
       user.filledDEF       = false;
