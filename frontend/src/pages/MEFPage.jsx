@@ -231,9 +231,9 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     CHECK_FIELDS.forEach(({ name, x, y, w, h }) => {
       const checked = name === "Gender Female" ? f.gender === "Female" : f.gender === "Male";
       const isHl = hl === name;
-      ctx.fillStyle = isHl ? "rgba(59,130,246,0.3)" : checked ? "rgba(29,78,216,0.85)" : "rgba(59,130,246,0.05)";
+      ctx.fillStyle = isHl ? "rgb(255, 255, 255)" : checked ? "rgba(255, 255, 255, 0.85)" : "rgb(255, 255, 255)";
       ctx.fillRect(x * s, y * s, w * s, h * s);
-      ctx.strokeStyle = isHl ? "#1d4ed8" : "#3b82f6";
+      ctx.strokeStyle = isHl ? "#ffffff" : "#ffffff";
       ctx.lineWidth = isHl ? 2 * s : 1.2 * s;
       ctx.strokeRect(x * s, y * s, w * s, h * s);
       if (checked) {
@@ -246,7 +246,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         const endX   = (x + w - pad)  * s;
         const endY   = (y + pad)       * s;
         ctx.save();
-        ctx.strokeStyle = "#ffffff";
+        ctx.strokeStyle = "#000000";
         ctx.lineWidth   = 1.5 * s;
         ctx.lineCap     = "round";
         ctx.lineJoin    = "round";
