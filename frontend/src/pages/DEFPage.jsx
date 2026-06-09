@@ -116,7 +116,7 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
     }
   }, []);
 
-  // Draw overlay on canvas
+  // Draw overlay on canvas — BLUE text (preview only)
   const drawOverlay = useCallback((ctx, f, hl, s) => {
     const fm = buildFieldMap(f);
     DEF_FIELDS.forEach(({ name, x, y, w, h }) => {
@@ -128,6 +128,7 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       ctx.lineWidth = isHl ? 2 * s : value ? 1.2 * s : 0.7 * s;
       ctx.strokeRect(x * s, y * s, w * s, h * s);
       if (value) {
+        // Blue text in preview
         ctx.fillStyle = "#1d4ed8";
         ctx.font = `${7 * s}px Arial`;
         ctx.save();
@@ -169,7 +170,6 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       const fitScale = fitWidth / pdfNatural.width;
       const renderScale = fitScale * Math.max(dpr, 2);
       scaleRef.current = renderScale;
-
       const viewport = page.getViewport({ scale: renderScale });
       canvas.width  = viewport.width;
       canvas.height = viewport.height;
@@ -178,13 +178,11 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       canvas.style.display = "block";
       canvas.style.margin  = zoomLevel <= 1 ? "0 auto" : "0";
       canvas.style.cursor  = "pointer";
-
       const off = document.createElement("canvas");
       off.width  = viewport.width;
       off.height = viewport.height;
       offscreenRef.current = off;
       await page.render({ canvasContext: off.getContext("2d"), viewport }).promise;
-
       composite(f, hl);
     } catch (e) { console.error("Render error:", e); }
     setRendering(false);
@@ -238,13 +236,12 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
     return () => window.removeEventListener("resize", onResize);
   }, [pdfReady, form, renderPreview, zoom]);
 
-  // Highlight change — composite only, no flash
   useEffect(() => {
     if (!pdfReady) return;
     composite(form, highlighted);
   }, [highlighted, pdfReady, composite, form]);
 
-  // Download
+  // ── Download — BLACK text in actual PDF ──────────────────────────────────
   const handleDownload = async () => {
     if (!pdfBytesRef.current) return;
     setDownloading(true);
@@ -257,13 +254,22 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
           document.head.appendChild(s);
         });
       }
-      const { PDFDocument } = window.PDFLib;
+      const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
       const pdfDoc  = await PDFDocument.load(pdfBytesRef.current.slice(0), { ignoreEncryption: true });
       const pdfForm = pdfDoc.getForm();
+
+      // Fill fields with black text
       for (const [name, value] of Object.entries(buildFieldMap(form))) {
-        try { pdfForm.getTextField(name).setText(value || ""); } catch (_) {}
+        try {
+          const field = pdfForm.getTextField(name);
+          field.setFontSize(9);
+          field.defaultUpdateAppearances();
+          field.setText(value || "");
+        } catch (_) {}
       }
+
       try { pdfForm.flatten(); } catch (_) {}
+
       const bytes = await pdfDoc.save({ updateFieldAppearances: false });
       const blob  = new Blob([bytes], { type: "application/pdf" });
       const url   = URL.createObjectURL(blob);
@@ -354,7 +360,6 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
           {pdfError    && <span style={{ fontSize: 11, color: "#fca5a5" }}>PDF not found</span>}
           {pdfReady && !rendering && !highlighted && <span style={{ fontSize: 11, color: "#6ee7b7" }}>Click a field to jump →</span>}
         </div>
-        {/* Zoom controls — centered */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, position: "absolute", left: "50%", transform: "translateX(-50%)" }}>
           <button onClick={() => setZoom(z => Math.max(0.5, parseFloat((z - 0.25).toFixed(2))))}
             title="Zoom out" disabled={zoom <= 0.5}
@@ -396,7 +401,10 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
           <div style={{ fontSize: 12, opacity: 0.7 }}>Click a field in the preview to jump to it</div>
         </div>
         <button onClick={toggle} title={dark ? "Light mode" : "Dark mode"} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 34, height: 34, borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {dark ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>}
+          {dark
+            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          }
         </button>
       </div>
       <div style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", minHeight: 0, overflow: "hidden" }}>
