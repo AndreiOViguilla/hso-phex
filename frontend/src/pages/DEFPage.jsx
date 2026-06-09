@@ -257,45 +257,61 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
           document.head.appendChild(s);
         });
       }
-      const { PDFDocument, rgb, StandardFonts, PDFName, PDFDict } = window.PDFLib;
+      const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
+      const pdfDoc  = await PDFDocument.load(pdfBytesRef.current.slice(0), { ignoreEncryption: true });
+      const pdfForm = pdfDoc.getForm();
 
-      // Load a fresh copy
-      const pdfDoc = await PDFDocument.load(pdfBytesRef.current.slice(0), { ignoreEncryption: true });
-      const font   = await pdfDoc.embedFont(StandardFonts.Helvetica);
-      const pages  = pdfDoc.getPages();
-      const page   = pages[0];
-      const { height } = page.getSize();
+      // Fill AcroForm text fields
+      for (const [name, value] of Object.entries(buildFieldMap(form))) {
+        try {
+          const tf = pdfForm.getTextField(name);
+          tf.setText(value || "");
+          tf.enableReadOnly();
+        } catch (_) {}
+      }
 
-      // Nuke the AcroForm entirely so no field appearances remain
-      try {
-        pdfDoc.catalog.delete(PDFName.of("AcroForm"));
-      } catch (_) {}
+      // Flatten — bakes in the (possibly blue) AcroForm text
+      try { pdfForm.flatten(); } catch (_) {}
 
-      // Also remove widget annotations from the page (the actual field boxes)
-      try {
-        const annots = page.node.get(PDFName.of("Annots"));
-        if (annots) page.node.delete(PDFName.of("Annots"));
-      } catch (_) {}
+      // Now paint white erasers over every text field, then redraw black text on top
+      const font  = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const pages = pdfDoc.getPages();
+      const page  = pages[0];
+      const { height: pageHeight } = page.getSize();
 
-      // Draw text directly onto the page — pure black
-      const DEF_DRAW = [
-        { x: 60.5, yTop: 109, value: form.name },
-        { x: 62.5, yTop: 125, value: form.idNo },
+      // DEF field positions (x, yTop, w, h at 1x PDF units, top-left origin)
+      const DEF_TEXT_FIELDS = [
+        { key: "name", x: 59, yTop: 107, w: 95, h: 15, value: form.name },
+        { key: "idNo", x: 61, yTop: 123, w: 95, h: 15, value: form.idNo },
       ];
 
-      DEF_DRAW.forEach(({ x, yTop, value }) => {
-        if (!value) return;
-        page.drawText(String(value), {
-          x,
-          y: height - yTop,
-          size: 9,
-          font,
-          color: rgb(0, 0, 0),
-          maxWidth: 90,
+      DEF_TEXT_FIELDS.forEach(({ x, yTop, w, h, value }) => {
+        const pdfY = pageHeight - yTop - h;
+
+        // 1. White eraser — covers any blue AcroForm text
+        page.drawRectangle({
+          x: x - 1, y: pdfY - 1,
+          width: w + 2, height: h + 2,
+          color: rgb(1, 1, 1),
+          opacity: 1,
+          borderWidth: 0,
+          borderColor: rgb(1, 1, 1),
         });
+
+        // 2. Redraw black text on top
+        if (value) {
+          page.drawText(String(value), {
+            x: x + 1.5,
+            y: pdfY + 3,
+            size: 8,
+            font,
+            color: rgb(0, 0, 0),
+            maxWidth: w - 3,
+          });
+        }
       });
 
-      const bytes = await pdfDoc.save();
+      const bytes = await pdfDoc.save({ updateFieldAppearances: false });
       const blob  = new Blob([bytes], { type: "application/pdf" });
       const url   = URL.createObjectURL(blob);
       const a     = document.createElement("a");
