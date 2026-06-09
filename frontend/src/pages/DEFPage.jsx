@@ -258,22 +258,36 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
         });
       }
       const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
-      const pdfDoc  = await PDFDocument.load(pdfBytesRef.current.slice(0), { ignoreEncryption: true });
+      const pdfDoc = await PDFDocument.load(pdfBytesRef.current.slice(0), { ignoreEncryption: true });
+      const font   = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const pages  = pdfDoc.getPages();
+      const page   = pages[0];
+      const { height } = page.getSize();
+
+      // Remove AcroForm fields entirely and draw text directly — guaranteed black
       const pdfForm = pdfDoc.getForm();
-
-      // Embed a standard font so text renders in black
-      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-
-      for (const [name, value] of Object.entries(buildFieldMap(form))) {
-        try {
-          const tf = pdfForm.getTextField(name);
-          tf.setText(value || "");
-          tf.updateAppearances(font);
-          tf.enableReadOnly();
-        } catch (_) {}
-      }
       try { pdfForm.flatten(); } catch (_) {}
-      const bytes = await pdfDoc.save({ updateFieldAppearances: true });
+
+      // DEF field positions (x, yTop from top-left at 1x PDF scale)
+      const DEF_DRAW = [
+        { key: "name", x: 60.5, yTop: 107, value: form.name },
+        { key: "idNo", x: 62.5, yTop: 123, value: form.idNo },
+      ];
+
+      DEF_DRAW.forEach(({ x, yTop, value }) => {
+        if (!value) return;
+        const yBottom = height - yTop - 8; // 8pt from top of field
+        page.drawText(String(value), {
+          x,
+          y: yBottom,
+          size: 9,
+          font,
+          color: rgb(0, 0, 0),
+          maxWidth: 90,
+        });
+      });
+
+      const bytes = await pdfDoc.save();
       const blob  = new Blob([bytes], { type: "application/pdf" });
       const url   = URL.createObjectURL(blob);
       const a     = document.createElement("a");
