@@ -386,7 +386,13 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         } catch (_) {}
       }
 
-      // Flatten text fields
+      // Force both checkboxes UNCHECKED before flatten — prevents the ZapfDingbats glyph from rendering.
+      // We draw our own line checkmark on top after flatten.
+      ["Gender Female", "Gender Male"].forEach(name => {
+        try { pdfForm.getCheckBox(name).uncheck(); } catch (_) {}
+      });
+
+      // Flatten everything — checkboxes blank, text fields baked in
       try { pdfForm.flatten(); } catch (_) {}
 
       // Draw line checkmarks manually — NO emoji, NO special chars
