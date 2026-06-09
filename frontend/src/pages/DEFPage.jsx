@@ -257,29 +257,37 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
           document.head.appendChild(s);
         });
       }
-      const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
+      const { PDFDocument, rgb, StandardFonts, PDFName, PDFDict } = window.PDFLib;
+
+      // Load a fresh copy
       const pdfDoc = await PDFDocument.load(pdfBytesRef.current.slice(0), { ignoreEncryption: true });
       const font   = await pdfDoc.embedFont(StandardFonts.Helvetica);
       const pages  = pdfDoc.getPages();
       const page   = pages[0];
       const { height } = page.getSize();
 
-      // Remove AcroForm fields entirely and draw text directly — guaranteed black
-      const pdfForm = pdfDoc.getForm();
-      try { pdfForm.flatten(); } catch (_) {}
+      // Nuke the AcroForm entirely so no field appearances remain
+      try {
+        pdfDoc.catalog.delete(PDFName.of("AcroForm"));
+      } catch (_) {}
 
-      // DEF field positions (x, yTop from top-left at 1x PDF scale)
+      // Also remove widget annotations from the page (the actual field boxes)
+      try {
+        const annots = page.node.get(PDFName.of("Annots"));
+        if (annots) page.node.delete(PDFName.of("Annots"));
+      } catch (_) {}
+
+      // Draw text directly onto the page — pure black
       const DEF_DRAW = [
-        { key: "name", x: 60.5, yTop: 107, value: form.name },
-        { key: "idNo", x: 62.5, yTop: 123, value: form.idNo },
+        { x: 60.5, yTop: 109, value: form.name },
+        { x: 62.5, yTop: 125, value: form.idNo },
       ];
 
       DEF_DRAW.forEach(({ x, yTop, value }) => {
         if (!value) return;
-        const yBottom = height - yTop - 8; // 8pt from top of field
         page.drawText(String(value), {
           x,
-          y: yBottom,
+          y: height - yTop,
           size: 9,
           font,
           color: rgb(0, 0, 0),
