@@ -560,12 +560,35 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         {downloading ? "Generating PDF…" : downloaded ? "Re-download MEF PDF" : "Generate & download MEF PDF →"}
       </Btn>
 
-      {downloaded && (
-        <button onClick={onSuccess} style={{ width: "100%", marginTop: 10, padding: "13px", background: t.green, color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          Mark MEF as complete
-        </button>
-      )}
+      <button onClick={() => {
+        // Validate before marking complete
+        const missing = [];
+        if (!form.idNumber)         missing.push("ID number");
+        if (!form.lastName)         missing.push("Last name");
+        if (!form.firstName)        missing.push("First name");
+        if (!form.gender)           missing.push("Gender");
+        if (!form.birthday)         missing.push("Birthday");
+        if (!form.contact)          missing.push("Contact number");
+        if (!form.college)          missing.push("College / Section");
+        if (!form.academicYear)     missing.push("Academic year");
+        if (!form.emergencyName)    missing.push("Emergency contact name");
+        if (!form.emergencyRel)     missing.push("Relationship");
+        if (!form.emergencyContact) missing.push("Emergency contact number");
+        if (!form.studentNameAuth)  missing.push("Authority full name");
+        if (!form.studentAge)       missing.push("Age");
+        if (missing.length > 0) {
+          show({ type: "error", title: "Incomplete form", message: `Please fill in all required fields: ${missing.join(", ")}.` });
+          return;
+        }
+        if (!downloaded) {
+          show({ type: "error", title: "Download required", message: "Please generate and download the MEF PDF first before marking it as complete." });
+          return;
+        }
+        onSuccess();
+      }} style={{ width: "100%", marginTop: 10, padding: "13px", background: t.green, color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Mark MEF as complete
+      </button>
       <div style={{ height: 20 }} />
     </div>
   );

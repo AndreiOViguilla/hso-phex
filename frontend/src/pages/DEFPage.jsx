@@ -353,12 +353,23 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
         {downloading ? "Generating PDF…" : downloaded ? "Re-download DEF PDF" : "Generate & download DEF PDF →"}
       </Btn>
 
-      {downloaded && (
-        <button onClick={onSuccess} style={{ width: "100%", marginTop: 10, padding: "13px", background: t.green, color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          Mark DEF as complete
-        </button>
-      )}
+      <button onClick={() => {
+        const missing = [];
+        if (!form.name)  missing.push("Full name");
+        if (!form.idNo)  missing.push("ID number");
+        if (missing.length > 0) {
+          show({ type: "error", title: "Incomplete form", message: `Please fill in: ${missing.join(", ")}.` });
+          return;
+        }
+        if (!downloaded) {
+          show({ type: "error", title: "Download required", message: "Please generate and download the DEF PDF first before marking it as complete." });
+          return;
+        }
+        onSuccess();
+      }} style={{ width: "100%", marginTop: 10, padding: "13px", background: t.green, color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Mark DEF as complete
+      </button>
       <div style={{ height: 20 }} />
     </div>
   );
