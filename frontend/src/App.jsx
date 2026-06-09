@@ -30,7 +30,7 @@ function RequireAuth({ userData, authLoading, children }) {
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
-  const hasToken = !!localStorage.getItem("token");
+const hasToken = !!localStorage.getItem("token");
   if (!userData) return hasToken ? null : <Navigate to="/unauthorized" replace />;
   return children;
 }
@@ -108,12 +108,12 @@ function AppInner() {
   };
 
   const handleLogout = () => {
-    // Navigate first so RequireAuth never sees null userData on protected route
-    navigate("/", { replace: true });
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    navigate("/", { replace: true });
     setStudentId(""); setSched(null);
-    setPhexBooking(null); setDtBooking(null); setUserData(null);
+    setPhexBooking(null); setDtBooking(null);
+    setTimeout(() => setUserData(null), 100);
   };
 
   const openBooking = (activity) => { setBookActivity(activity); navigate("/booking"); };
