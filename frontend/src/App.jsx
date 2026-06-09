@@ -30,7 +30,8 @@ function RequireAuth({ userData, authLoading, children }) {
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
-  if (!userData) return <Navigate to="/" replace />;
+  const hasToken = !!localStorage.getItem("token");
+  if (!userData) return hasToken ? null : <Navigate to="/unauthorized" replace />;
   return children;
 }
 
@@ -108,9 +109,11 @@ function AppInner() {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
     setStudentId(""); setSched(null);
     setPhexBooking(null); setDtBooking(null); setUserData(null);
-    navigate("/");
+    navigate("/", { replace: true });
   };
 
   const openBooking = (activity) => { setBookActivity(activity); navigate("/booking"); };
