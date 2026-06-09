@@ -108,12 +108,12 @@ function AppInner() {
   };
 
   const handleLogout = () => {
+    // Navigate first so RequireAuth never sees null userData on protected route
+    navigate("/", { replace: true });
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    localStorage.removeItem("token");
     setStudentId(""); setSched(null);
     setPhexBooking(null); setDtBooking(null); setUserData(null);
-    navigate("/", { replace: true });
   };
 
   const openBooking = (activity) => { setBookActivity(activity); navigate("/booking"); };
