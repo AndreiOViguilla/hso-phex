@@ -478,7 +478,11 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
       {showCongrats && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16 }}>
           <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 20, padding: "40px 32px", maxWidth: 400, width: "100%", textAlign: "center", boxShadow: "0 24px 80px rgba(0,0,0,0.25)" }}>
-            <div style={{ fontSize: 52, marginBottom: 16 }}>🎉</div>
+            <div style={{ width: 72, height: 72, borderRadius: "50%", background: t.greenBg, border: `3px solid ${t.green}44`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke={t.green} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
             <div style={{ fontSize: 22, fontWeight: 800, color: t.text, marginBottom: 10 }}>Congratulations!</div>
             <div style={{ fontSize: 14, color: t.textSub, lineHeight: 1.7, marginBottom: 24 }}>
               You have completed both your <strong style={{ color: t.text }}>PHEx</strong> and <strong style={{ color: t.text }}>Drug Test</strong> appointments. Your results will be available from HSO after processing.
