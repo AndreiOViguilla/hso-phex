@@ -116,7 +116,7 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
     }
   }, []);
 
-  // Draw overlay on canvas
+  // Draw overlay on canvas — auto-shrinks font to fit field width
   const drawOverlay = useCallback((ctx, f, hl, s) => {
     const fm = buildFieldMap(f);
     DEF_FIELDS.forEach(({ name, x, y, w, h }) => {
@@ -129,7 +129,13 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       ctx.strokeRect(x * s, y * s, w * s, h * s);
       if (value) {
         ctx.fillStyle = "#1d4ed8";
-        ctx.font = `${7 * s}px Arial`;
+        const maxW = (w - 3) * s;
+        let fontSize = 7 * s;
+        ctx.font = `${fontSize}px Arial`;
+        while (ctx.measureText(String(value)).width > maxW && fontSize > 3 * s) {
+          fontSize -= 0.5 * s;
+          ctx.font = `${fontSize}px Arial`;
+        }
         ctx.save();
         ctx.beginPath();
         ctx.rect(x * s, y * s, w * s, h * s);
@@ -244,7 +250,7 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
     composite(form, highlighted);
   }, [highlighted, pdfReady, composite, form]);
 
-  // Download
+  // Download — black text, font-size 0 = auto-fit to field
   const handleDownload = async () => {
     if (!pdfBytesRef.current) return;
     setDownloading(true);
@@ -264,7 +270,8 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
         try {
           const tf = pdfForm.getTextField(name);
           tf.setText(value || "");
-          tf.acroField.setDefaultAppearance("/Helvetica 8 Tf 0 0 0 rg");
+          tf.setFontSize(0); // 0 = auto-fit to field bounds per PDF spec
+          tf.acroField.setDefaultAppearance("/Helvetica 0 Tf 0 0 0 rg"); // black
           tf.enableReadOnly();
         } catch (_) {}
       }
