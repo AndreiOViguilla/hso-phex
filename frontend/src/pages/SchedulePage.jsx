@@ -390,12 +390,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
               </div>
             ) : (
               <>
-                {bookedPHEx && bookedDT && (
-                  <div style={{ background: t.blueBg, border: `1px solid ${t.blue}44`, borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 12, color: t.blueText, lineHeight: 1.7 }}>
-                    <strong>PHEx:</strong> {formatBookingDate(bookedPHEx.date)} at {bookedPHEx.time}<br />
-                    <strong>Drug Test:</strong> {formatBookingDate(bookedDT.date)} at {bookedDT.time}
-                  </div>
-                )}
+
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
               {[
                 { key: "mef", label: "Medical Examination Form", desc: "Fill in your student details, print, and bring to your PHEx appointment.", filled: filledMEF, color: dark ? "#a78bfa" : "#7c3aed", onFill: () => { setFilledMEF(true); saveProgress({ filledMEF: true }); onMEF(); } },
