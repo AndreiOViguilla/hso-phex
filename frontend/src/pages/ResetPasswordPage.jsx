@@ -1,21 +1,22 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTheme } from "../ThemeContext";
 import { useModal } from "../components/Modal";
 
 export default function ResetPasswordPage({ onBack }) {
   const { t } = useTheme();
   const { show } = useModal();
-  const [token,    setToken]    = useState("");
+  const [searchParams] = useSearchParams();
+  const [token,    setToken]    = useState(searchParams.get("token") || "");
   const [password, setPassword] = useState("");
   const [confirm,  setConfirm]  = useState("");
   const [loading,  setLoading]  = useState(false);
   const [done,     setDone]     = useState(false);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const t = params.get("token");
-    if (t) setToken(t);
-    else show({ type: "error", message: "Invalid or missing reset token. Please request a new reset link." });
+    if (!token) {
+      show({ type: "error", message: "Invalid or missing reset token. Please request a new reset link." });
+    }
   }, []);
 
   const handleReset = async () => {
