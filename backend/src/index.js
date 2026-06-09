@@ -35,7 +35,10 @@ async function start() {
 
   app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
-  app.listen(PORT, () => console.log(`HSO PHEx backend running on port ${PORT}`));
+  // Start auto-cancel scheduler
+startAutoCancel();
+
+app.listen(PORT, () => console.log(`HSO PHEx backend running on port ${PORT}`));
 }
 
 start().catch(console.error);

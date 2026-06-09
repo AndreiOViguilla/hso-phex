@@ -84,4 +84,12 @@ router.get("/stats", async (req, res) => {
   }
 });
 
+// POST /api/hso/auto-cancel — manually trigger auto-cancel (admin only)
+router.post("/auto-cancel", authMiddleware, async (req, res) => {
+  if (req.user.role !== "hso") return res.status(403).json({ error: "HSO only" });
+  const { runAutoCancel } = require("../services/autoCancel");
+  await runAutoCancel();
+  res.json({ message: "Auto-cancel completed" });
+});
+
 module.exports = router;
