@@ -25,6 +25,8 @@ const userSchema = new mongoose.Schema({
   filledMEF:    { type: Boolean, default: false },
   filledDEF:    { type: Boolean, default: false },
   currentStep:  { type: Number, default: 1, min: 1, max: 6 },
+  attendedFirst:  { type: Boolean, default: false },
+  attendedSecond: { type: Boolean, default: false },
 }, { timestamps: true });
 
 userSchema.methods.comparePassword = function(password) {

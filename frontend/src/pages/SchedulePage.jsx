@@ -124,9 +124,11 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
 
   const [bookedPHEx,    setBookedPHEx]    = useState(initPhex || null);
   const [bookedDT,      setBookedDT]      = useState(initDT   || null);
-  const [filledMEF,     setFilledMEF]     = useState(false);
-  const [filledDEF,     setFilledDEF]     = useState(false);
-  const [checked,       setChecked]       = useState([]);
+  const [filledMEF,      setFilledMEF]     = useState(false);
+  const [filledDEF,      setFilledDEF]     = useState(false);
+  const [checked,        setChecked]       = useState([]);
+  const [attendedFirst,  setAttendedFirst]  = useState(false);
+  const [attendedSecond, setAttendedSecond] = useState(false);
   const [rescheduleFor,    setRescheduleFor]    = useState(null);
   const [expandedSections, setExpandedSections] = useState({ phex: false, dt: false });
   const [rescheduleCode,setRescheduleCode]= useState("");
@@ -158,6 +160,8 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
       setFilledMEF(false);
       setFilledDEF(false);
       setChecked([]);
+      setAttendedFirst(false);
+      setAttendedSecond(false);
       fetch("/api/students/me/progress", {
         method: "PUT",
         headers: { "Content-Type": "application/json", ...getAuthHeader() },
@@ -202,9 +206,11 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
       .then(r => r.ok ? r.json() : null)
       .then(user => {
         if (!user) return;
-        if (user.checklist) setChecked(user.checklist);
-        if (user.filledMEF) setFilledMEF(user.filledMEF);
-        if (user.filledDEF) setFilledDEF(user.filledDEF);
+        if (user.checklist)      setChecked(user.checklist);
+        if (user.filledMEF)      setFilledMEF(user.filledMEF);
+        if (user.filledDEF)      setFilledDEF(user.filledDEF);
+        if (user.attendedFirst)  setAttendedFirst(user.attendedFirst);
+        if (user.attendedSecond) setAttendedSecond(user.attendedSecond);
       })
       .catch(() => {});
   }, []);
@@ -236,10 +242,10 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
   const currentStep = (() => {
     if (!bookedPHEx || !bookedDT || phexPast || dtPast || phexNow || dtNow) return 1;
     if (!filledMEF || !filledDEF) return 2;
-    if (!firstCheckedDone) return 3;   // checklist for first appointment
-    if (!firstPast) return 4;          // attend first appointment
-    if (!secondCheckedDone) return 5;  // checklist for second appointment
-    return 6;                          // attend second appointment
+    if (!firstCheckedDone)  return 3;
+    if (!attendedFirst)     return 4;
+    if (!secondCheckedDone) return 5;
+    return 6;
   })();
 
   let bookBadge, bookingOpen = false;
@@ -334,16 +340,39 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
   };
 
   // Reusable attend renderer
-  const renderAttend = (booking, label, color, countdown) => {
+  const renderAttend = (booking, label, color, countdown, isFirst) => {
     const isPast = new Date(booking.date + "T23:59:59") < new Date();
     const isNow  = countdown === "Now!";
     const accent = isPast || isNow ? t.orangeText : color;
+    const attended = isFirst ? attendedFirst : attendedSecond;
+    const setAttended = () => {
+      if (isFirst) {
+        setAttendedFirst(true);
+        saveProgress({ attendedFirst: true });
+      } else {
+        setAttendedSecond(true);
+        saveProgress({ attendedSecond: true });
+      }
+    };
     return (
-      <div style={{ fontSize: 12, color: t.text, fontWeight: 600, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
-        <IconTimer color={accent} />
-        <span style={{ color: t.textSub, marginRight: 4 }}>{label}:</span>
-        {formatBookingDate(booking.date)} at {booking.time}
-        {countdown && <span style={{ color: accent }}>({countdown} {isPast ? "ago" : "away"})</span>}
+      <div>
+        <div style={{ fontSize: 12, color: t.text, fontWeight: 600, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 4, marginBottom: 12 }}>
+          <IconTimer color={accent} />
+          <span style={{ color: t.textSub, marginRight: 4 }}>{label}:</span>
+          {formatBookingDate(booking.date)} at {booking.time}
+          {countdown && !attended && <span style={{ color: accent }}>({countdown} away)</span>}
+        </div>
+        {attended ? (
+          <div style={{ background: t.greenBg, border: `1px solid ${t.green}44`, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: t.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            {label} attendance confirmed!
+          </div>
+        ) : (
+          <button onClick={setAttended} style={{ width: "100%", padding: "13px", background: t.green, color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Mark {label} as done
+          </button>
+        )}
       </div>
     );
   };
@@ -533,7 +562,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
           </StepRow>
 
           {/* Step 4 — Attend FIRST appointment */}
-          <StepRow n={4} t={t} active={currentStep === 4} done={firstPast} lineColor={firstPast ? t.stepLineDone : t.stepLine} isLast={false}>
+          <StepRow n={4} t={t} active={currentStep === 4} done={attendedFirst} lineColor={attendedFirst ? t.stepLineDone : t.stepLine} isLast={false}>
             <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 4 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 4 — Attend {firstLabel}</div>
             <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 4 }}>Show your confirmation email at the {firstLabel} station.</div>
             {currentStep < 4 ? (
@@ -541,7 +570,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                 Complete the {firstLabel} checklist first.
               </div>
-            ) : firstBooking && renderAttend(firstBooking, firstLabel, firstColor, first === "phex" ? phexCountdown : dtCountdown)}
+            ) : firstBooking && renderAttend(firstBooking, firstLabel, firstColor, first === "phex" ? phexCountdown : dtCountdown, true)}
           </StepRow>
 
           {/* Step 5 — Checklist for SECOND appointment */}
@@ -557,7 +586,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
           </StepRow>
 
           {/* Step 6 — Attend SECOND appointment */}
-          <StepRow n={6} t={t} active={currentStep === 6} done={secondPast} lineColor={t.stepLine} isLast={true}>
+          <StepRow n={6} t={t} active={currentStep === 6} done={attendedSecond} lineColor={attendedSecond ? t.stepLineDone : t.stepLine} isLast={true}>
             <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 6 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 6 — Attend {secondLabel}</div>
             <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 4 }}>Show your confirmation email at the {secondLabel} station.</div>
             {currentStep < 6 ? (
@@ -565,7 +594,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                 Complete the {secondLabel} checklist first.
               </div>
-            ) : secondBooking && renderAttend(secondBooking, secondLabel, secondColor, second === "phex" ? phexCountdown : dtCountdown)}
+            ) : secondBooking && renderAttend(secondBooking, secondLabel, secondColor, second === "phex" ? phexCountdown : dtCountdown, false)}
           </StepRow>
         </div>
 

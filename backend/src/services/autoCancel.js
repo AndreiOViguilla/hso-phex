@@ -70,7 +70,7 @@ async function runAutoCancel() {
             await releaseSlot(appt);
             await Appointment.deleteOne({ _id: appt._id });
           }
-          await User.findByIdAndUpdate(userId, { filledMEF: false, filledDEF: false, checklist: [] });
+          await User.findByIdAndUpdate(userId, { filledMEF: false, filledDEF: false, checklist: [], attendedFirst: false, attendedSecond: false });
           cancelled += 2;
           console.log(`[AutoCancel] Dropped both appointments for user ${userId} — same-day gap < 1 hour`);
         }
@@ -95,9 +95,11 @@ async function runAutoCancel() {
 
         // 3. Reset student's form/checklist progress in DB
         await User.findByIdAndUpdate(appt.userId, {
-          filledMEF: false,
-          filledDEF: false,
-          checklist: [],
+          filledMEF:      false,
+          filledDEF:      false,
+          checklist:      [],
+          attendedFirst:  false,
+          attendedSecond: false,
         });
 
         cancelled++;

@@ -22,9 +22,11 @@ router.get("/me", authMiddleware, async (req, res) => {
     // Reset progress if either appointment is missing or past
     const needsReset = !phex || !dt || isPast(phex) || isPast(dt);
     if (needsReset && (user.filledMEF || user.filledDEF || user.checklist?.length > 0)) {
-      user.filledMEF = false;
-      user.filledDEF = false;
-      user.checklist = [];
+      user.filledMEF       = false;
+      user.filledDEF       = false;
+      user.checklist       = [];
+      user.attendedFirst   = false;
+      user.attendedSecond  = false;
     }
 
     // ── Calculate currentStep server-side ────────────────────────────────
@@ -61,10 +63,12 @@ router.get("/me", authMiddleware, async (req, res) => {
         calculatedStep = 2;
       } else if (!firstCheckedDone) {
         calculatedStep = 3;
-      } else if (!firstPast) {
+      } else if (!user.attendedFirst) {
         calculatedStep = 4;
       } else if (!secondCheckedDone) {
         calculatedStep = 5;
+      } else if (!user.attendedSecond) {
+        calculatedStep = 6;
       } else {
         calculatedStep = 6;
       }
@@ -72,10 +76,12 @@ router.get("/me", authMiddleware, async (req, res) => {
 
     // Save calculated step + any resets to DB
     await User.findByIdAndUpdate(user._id, {
-      filledMEF:   user.filledMEF,
-      filledDEF:   user.filledDEF,
-      checklist:   user.checklist,
-      currentStep: calculatedStep,
+      filledMEF:      user.filledMEF,
+      filledDEF:      user.filledDEF,
+      checklist:      user.checklist,
+      attendedFirst:  user.attendedFirst,
+      attendedSecond: user.attendedSecond,
+      currentStep:    calculatedStep,
     });
 
     user.currentStep = calculatedStep;
