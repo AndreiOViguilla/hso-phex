@@ -231,9 +231,9 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     CHECK_FIELDS.forEach(({ name, x, y, w, h }) => {
       const checked = name === "Gender Female" ? f.gender === "Female" : f.gender === "Male";
       const isHl = hl === name;
-      ctx.fillStyle = isHl ? "rgb(255, 255, 255)" : checked ? "rgba(255, 255, 255, 0.85)" : "rgb(255, 255, 255)";
+      ctx.fillStyle = isHl ? "rgba(59,130,246,0.3)" : checked ? "rgba(29,78,216,0.85)" : "rgba(59,130,246,0.05)";
       ctx.fillRect(x * s, y * s, w * s, h * s);
-      ctx.strokeStyle = isHl ? "#ffffff" : "#ffffff";
+      ctx.strokeStyle = isHl ? "#1d4ed8" : "#3b82f6";
       ctx.lineWidth = isHl ? 2 * s : 1.2 * s;
       ctx.strokeRect(x * s, y * s, w * s, h * s);
       if (checked) {
@@ -246,7 +246,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         const endX   = (x + w - pad)  * s;
         const endY   = (y + pad)       * s;
         ctx.save();
-        ctx.strokeStyle = "#000000";
+        ctx.strokeStyle = "#ffffff";
         ctx.lineWidth   = 1.5 * s;
         ctx.lineCap     = "round";
         ctx.lineJoin    = "round";
@@ -405,41 +405,45 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         { name: "Gender Male",   x: 141, yTop: 134, w: 8, h: 7 },
       ];
 
-      // Draw both checkboxes from scratch — white eraser, then border, then
-      // blue fill + tick if checked. Completely bypasses AcroForm rendering.
+      // Draw both checkboxes from scratch.
+      // Oversized white eraser first, then clean black-bordered box, then tick.
       CHECK_POSITIONS.forEach(({ name, x, yTop, w, h }) => {
-        const pdfY   = pageHeight - yTop - h;
+        const pdfY      = pageHeight - yTop - h;
         const isChecked = fieldMap[name] === "Yes";
-        const pad    = 1.0;
+        const pad       = 1.2;
 
-        // 1. White rectangle to fully erase whatever AcroForm baked in
+        // 1. Big white eraser — covers AcroForm glyph AND any border bleed
         page.drawRectangle({
-          x: x - 0.5, y: pdfY - 0.5,
-          width: w + 1, height: h + 1,
+          x: x - 2, y: pdfY - 2,
+          width: w + 4, height: h + 4,
           color: rgb(1, 1, 1),
+          opacity: 1,
+          borderColor: rgb(1, 1, 1),
+          borderOpacity: 1,
+          borderWidth: 0,
         });
 
-        // 2. Box border (black, 0.8pt)
+        // 2. Clean white box with black border
         page.drawRectangle({
           x, y: pdfY, width: w, height: h,
+          color: rgb(1, 1, 1),
+          opacity: 1,
           borderColor: rgb(0, 0, 0),
-          borderWidth: 0.8,
-          color: isChecked ? rgb(0.11, 0.31, 0.85) : rgb(1, 1, 1),
+          borderOpacity: 1,
+          borderWidth: 0.75,
         });
 
-        // 3. If checked — draw white tick lines inside the blue box
+        // 3. Black tick lines if checked
         if (isChecked) {
-          // Short left stroke: left-middle → bottom-centre
           page.drawLine({
-            start: { x: x + pad,        y: pdfY + h * 0.48 },
-            end:   { x: x + w * 0.38,   y: pdfY + pad      },
-            thickness: 1.2, color: rgb(1, 1, 1),
+            start: { x: x + pad,       y: pdfY + h * 0.48 },
+            end:   { x: x + w * 0.38,  y: pdfY + pad      },
+            thickness: 1.1, color: rgb(0, 0, 0),
           });
-          // Long right stroke: bottom-centre → top-right
           page.drawLine({
-            start: { x: x + w * 0.38,   y: pdfY + pad      },
-            end:   { x: x + w - pad,     y: pdfY + h - pad  },
-            thickness: 1.2, color: rgb(1, 1, 1),
+            start: { x: x + w * 0.38,  y: pdfY + pad      },
+            end:   { x: x + w - pad,    y: pdfY + h - pad  },
+            thickness: 1.1, color: rgb(0, 0, 0),
           });
         }
       });
