@@ -42,7 +42,6 @@ function buildFieldMap(f) {
   };
 }
 
-// Maps AcroForm field name → form input element ID
 const FIELD_TO_INPUT_ID = {
   "ID Number":         "mef-idNumber",
   "Date":              "mef-date",
@@ -62,7 +61,6 @@ const FIELD_TO_INPUT_ID = {
   "Gender Male":       "mef-gender-Male",
 };
 
-// Reverse: input id → AcroForm field name
 const INPUT_ID_TO_FIELD = Object.fromEntries(
   Object.entries(FIELD_TO_INPUT_ID).map(([k, v]) => [v, k])
 );
@@ -74,14 +72,14 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
   const pdfDocRef   = useRef(null);
   const pdfBytesRef = useRef(null);
   const renderTimeout = useRef(null);
-  const scaleRef    = useRef(1); // current render scale for click mapping
+  const scaleRef    = useRef(1);
 
   const [pdfReady,    setPdfReady]    = useState(false);
   const [pdfError,    setPdfError]    = useState(false);
   const [rendering,   setRendering]   = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [highlighted, setHighlighted] = useState(null);
-  const [zoom, setZoom] = useState(1.0); // 1.0 = 100% // field name currently highlighted
+  const [zoom, setZoom] = useState(1.0);
 
   const buildAuth = (fn, mi, ln) =>
     fn && ln ? `${fn}${mi ? " " + mi : ""} ${ln}` : "";
@@ -95,7 +93,6 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     studentNameAuth: buildAuth(prefillFirstName, prefillMI, prefillLastName),
   });
 
-  // Fetch fresh user data from backend on mount
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -131,7 +128,6 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // ── AcroForm field positions (at 1x PDF scale) ───────────────────────────
   const TEXT_FIELDS = [
     { name: "ID Number",          x: 88,  y: 103, w: 125, h: 11 },
     { name: "Date",               x: 458, y: 104, w: 90,  h: 11 },
@@ -154,15 +150,12 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
   ];
   const ALL_FIELDS = [...TEXT_FIELDS, ...CHECK_FIELDS];
 
-  // ── Canvas click → focus matching input ──────────────────────────────────
   const handleCanvasClick = useCallback((e) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    // Click position relative to canvas in CSS pixels
     const cx = e.clientX - rect.left;
     const cy = e.clientY - rect.top;
-    // Convert to PDF units (1x scale)
     const cssW = parseFloat(canvas.style.width) || rect.width;
     const cssH = parseFloat(canvas.style.height) || rect.height;
     const pdfW = canvas.width / scaleRef.current;
@@ -170,7 +163,6 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     const px = (cx / cssW) * pdfW;
     const py = (cy / cssH) * pdfH;
 
-    // Find which field was clicked
     const hit = ALL_FIELDS.find(f =>
       px >= f.x && px <= f.x + f.w &&
       py >= f.y && py <= f.y + f.h
@@ -189,7 +181,6 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     }
   }, [ALL_FIELDS]);
 
-  // ── Load pdf.js + PDF bytes ──────────────────────────────────────────────
   useEffect(() => {
     const load = async () => {
       try {
@@ -214,7 +205,6 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     load();
   }, []);
 
-  // Offscreen canvas holds the pure PDF render — never redrawn unless form/size changes
   const offscreenRef = useRef(null);
 
   const drawOverlay = useCallback((ctx, f, hl, s) => {
@@ -241,47 +231,45 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     CHECK_FIELDS.forEach(({ name, x, y, w, h }) => {
       const checked = name === "Gender Female" ? f.gender === "Female" : f.gender === "Male";
       const isHl = hl === name;
-      ctx.fillStyle = isHl ? "rgba(59,130,246,0.3)" : checked ? "rgba(59,130,246,0.18)" : "rgba(59,130,246,0.05)";
+      ctx.fillStyle = isHl ? "rgba(59,130,246,0.3)" : checked ? "rgba(29,78,216,0.85)" : "rgba(59,130,246,0.05)";
       ctx.fillRect(x * s, y * s, w * s, h * s);
       ctx.strokeStyle = isHl ? "#1d4ed8" : "#3b82f6";
       ctx.lineWidth = isHl ? 2 * s : 1.2 * s;
       ctx.strokeRect(x * s, y * s, w * s, h * s);
       if (checked) {
-        // Draw checkmark using two lines — no emoji
+        // Two-line checkmark: bottom-left → mid-bottom → top-right
         const pad = 1.5;
-        const midX = (x + w * 0.35) * s;
-        const midY = (y + h - pad) * s;
-        const startX = (x + pad) * s;
+        const midX  = (x + w * 0.35) * s;
+        const midY  = (y + h - pad)   * s;
+        const startX = (x + pad)      * s;
         const startY = (y + h * 0.55) * s;
-        const endX = (x + w - pad) * s;
-        const endY = (y + pad) * s;
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 1.5 * s;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
+        const endX   = (x + w - pad)  * s;
+        const endY   = (y + pad)       * s;
+        ctx.save();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth   = 1.5 * s;
+        ctx.lineCap     = "round";
+        ctx.lineJoin    = "round";
         ctx.beginPath();
         ctx.moveTo(startX, startY);
-        ctx.lineTo(midX, midY);
-        ctx.lineTo(endX, endY);
+        ctx.lineTo(midX,   midY);
+        ctx.lineTo(endX,   endY);
         ctx.stroke();
+        ctx.restore();
       }
     });
   }, []);
 
-  // Composite: copy offscreen PDF + draw overlay — NO re-render of PDF
   const composite = useCallback((f, hl) => {
     const canvas = canvasRef.current;
     const offscreen = offscreenRef.current;
     if (!canvas || !offscreen) return;
     const ctx = canvas.getContext("2d");
-    // Paste the frozen PDF render
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(offscreen, 0, 0);
-    // Draw overlay on top
     drawOverlay(ctx, f, hl, scaleRef.current);
   }, [drawOverlay]);
 
-  // Full render: render PDF to offscreen, then composite
   const renderPreview = useCallback(async (f, hl) => {
     const zoomLevel = zoom;
     if (!pdfDocRef.current || !canvasRef.current) return;
@@ -299,32 +287,24 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       const fitScale = fitWidth / pdfNatural.width;
       const renderScale = fitScale * Math.max(dpr, 2);
       scaleRef.current = renderScale;
-
       const viewport = page.getViewport({ scale: renderScale });
-
-      // Size the visible canvas
       canvas.width  = viewport.width;
       canvas.height = viewport.height;
       canvas.style.width   = `${fitWidth}px`;
       canvas.style.height  = `${pdfNatural.height * fitScale}px`;
       canvas.style.display = "block";
-      canvas.style.margin  = currentZoom <= 1 ? "0 auto" : "0";  // center when small, align left when zoomed
+      canvas.style.margin  = zoomLevel <= 1 ? "0 auto" : "0";
       canvas.style.cursor  = "pointer";
-
-      // Render PDF to offscreen canvas
       const off = document.createElement("canvas");
       off.width  = viewport.width;
       off.height = viewport.height;
       offscreenRef.current = off;
       await page.render({ canvasContext: off.getContext("2d"), viewport }).promise;
-
-      // Composite onto visible canvas
       composite(f, hl);
     } catch (e) { console.error("Render error:", e); }
     setRendering(false);
   }, [composite, zoom]);
 
-  // Re-render PDF only when form data or size changes
   useEffect(() => {
     if (!pdfReady) return;
     clearTimeout(renderTimeout.current);
@@ -332,7 +312,6 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     const currentHighlighted = highlighted;
     const currentZoom = zoom;
     renderTimeout.current = setTimeout(async () => {
-      // Inline render so zoom is captured in this closure
       const page = await pdfDocRef.current?.getPage(1);
       const canvas = canvasRef.current;
       if (!page || !canvas) return;
@@ -342,7 +321,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       const panelW = (previewPanel ? previewPanel.clientWidth : 700) - 24;
       const pdfNatural = page.getViewport({ scale: 1 });
       const baseWidth = Math.max(panelW, 280);
-      const fitWidth = baseWidth * currentZoom;  // canvas grows with zoom
+      const fitWidth = baseWidth * currentZoom;
       const fitScale = fitWidth / pdfNatural.width;
       const renderScale = fitScale * Math.max(dpr, 2);
       scaleRef.current = renderScale;
@@ -352,7 +331,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       canvas.style.width   = `${fitWidth}px`;
       canvas.style.height  = `${pdfNatural.height * fitScale}px`;
       canvas.style.display = "block";
-      canvas.style.margin  = currentZoom <= 1 ? "0 auto" : "0";  // center when small, align left when zoomed
+      canvas.style.margin  = currentZoom <= 1 ? "0 auto" : "0";
       canvas.style.cursor  = "pointer";
       const off = document.createElement("canvas");
       off.width  = viewport.width;
@@ -364,7 +343,6 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     return () => clearTimeout(renderTimeout.current);
   }, [form, pdfReady, zoom, composite, highlighted]);
 
-  // Resize — full re-render needed
   useEffect(() => {
     if (!pdfReady) return;
     const onResize = () => {
@@ -375,13 +353,12 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     return () => window.removeEventListener("resize", onResize);
   }, [pdfReady, form, renderPreview, zoom]);
 
-  // Highlight change — composite only, no PDF re-render = no flash
   useEffect(() => {
     if (!pdfReady) return;
     composite(form, highlighted);
   }, [highlighted, pdfReady, composite, form]);
 
-  // ── Download ─────────────────────────────────────────────────────────────
+  // ── Download — draws real line checkmarks into the PDF ───────────────────
   const handleDownload = async () => {
     if (!pdfBytesRef.current) return;
     setDownloading(true);
@@ -401,7 +378,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
 
       // Fill text fields
       for (const [name, value] of Object.entries(fieldMap)) {
-        if (value === "Yes" || value === "Off") continue; // handle checkboxes separately
+        if (value === "Yes" || value === "Off") continue;
         try {
           const tf = pdfForm.getTextField(name);
           tf.setText(value || "");
@@ -409,52 +386,68 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
         } catch (_) {}
       }
 
-      // Flatten text fields first
+      // Flatten text fields
       try { pdfForm.flatten(); } catch (_) {}
 
-      // Draw checkmarks manually using lines (no special characters needed)
+      // Draw line checkmarks manually — NO emoji, NO special chars
       const pages = pdfDoc.getPages();
       const page  = pages[0];
-      const { height } = page.getSize();
+      const { height: pageHeight } = page.getSize();
 
+      // PDF coordinate system: origin is bottom-left, y increases upward
+      // Our positions are top-left origin, y increases downward
+      // So: pdfY = pageHeight - yTop - boxHeight
       const CHECK_POSITIONS = [
         { name: "Gender Female", x: 89,  yTop: 134, w: 8, h: 8 },
         { name: "Gender Male",   x: 141, yTop: 134, w: 8, h: 7 },
       ];
 
       CHECK_POSITIONS.forEach(({ name, x, yTop, w, h }) => {
-        const isChecked = fieldMap[name] === "Yes";
-        if (!isChecked) return;
-        const yBottom = height - yTop - h;
+        if (fieldMap[name] !== "Yes") return;
 
-        // Filled blue background
+        // Convert top-left coords to PDF bottom-left coords
+        const pdfY = pageHeight - yTop - h;
+        const pad  = 1.2;
+
+        // Filled blue square background
         page.drawRectangle({
-          x, y: yBottom, width: w, height: h,
-          color: rgb(0.11, 0.30, 0.85),
+          x,
+          y:      pdfY,
+          width:  w,
+          height: h,
+          color:  rgb(0.11, 0.31, 0.85),
         });
 
-        // Draw checkmark using two lines: bottom-left to middle, then middle to top-right
-        const pad = 1.5;
-        const midX = x + w * 0.35;
-        const midY = yBottom + pad;
-        const startX = x + pad;
-        const startY = yBottom + h * 0.45;
-        const endX = x + w - pad;
-        const endY = yBottom + h - pad;
+        // Checkmark: two lines forming a tick
+        // Point A (left): bottom-left area
+        // Point B (mid):  bottom-center (the dip of the tick)
+        // Point C (right): top-right
+        const ax = x + pad;
+        const ay = pdfY + h * 0.45;          // left arm — middle height
 
+        const bx = x + w * 0.38;
+        const by = pdfY + pad;               // bottom of tick dip
+
+        const cx2 = x + w - pad;
+        const cy2 = pdfY + h - pad;          // top-right of tick
+
+        // Line A→B (short left stroke going down)
         page.drawLine({
-          start: { x: startX, y: startY },
-          end:   { x: midX,   y: midY   },
-          thickness: 1.2,
-          color: rgb(1, 1, 1),
+          start:     { x: ax,  y: ay  },
+          end:       { x: bx,  y: by  },
+          thickness: 1.3,
+          color:     rgb(1, 1, 1),
         });
+
+        // Line B→C (long right stroke going up)
         page.drawLine({
-          start: { x: midX, y: midY },
-          end:   { x: endX, y: endY },
-          thickness: 1.2,
-          color: rgb(1, 1, 1),
+          start:     { x: bx,  y: by  },
+          end:       { x: cx2, y: cy2 },
+          thickness: 1.3,
+          color:     rgb(1, 1, 1),
         });
       });
+
       const bytes = await pdfDoc.save({ updateFieldAppearances: false });
       const blob  = new Blob([bytes], { type: "application/pdf" });
       const url   = URL.createObjectURL(blob);
@@ -466,7 +459,6 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     setDownloading(false);
   };
 
-  // ── Styles ────────────────────────────────────────────────────────────────
   const inp = (extra) => ({
     padding: "9px 12px", border: `1px solid ${t.inputBorder}`, borderRadius: 8,
     fontSize: 13, fontFamily: "inherit", outline: "none",
@@ -587,7 +579,6 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
           {pdfError    && <span style={{ fontSize: 11, color: "#fca5a5" }}>PDF not found</span>}
           {pdfReady && !rendering && !highlighted && <span style={{ fontSize: 11, color: "#6ee7b7" }}>Click a field to jump →</span>}
         </div>
-        {/* Zoom controls — centered */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, position: "absolute", left: "50%", transform: "translateX(-50%)" }}>
           <button onClick={() => setZoom(z => Math.max(0.5, parseFloat((z - 0.25).toFixed(2))))}
             title="Zoom out" disabled={zoom <= 0.5}
@@ -635,7 +626,10 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
           <div style={{ fontSize: 12, opacity: 0.7 }}>Click a field in the preview to jump to it</div>
         </div>
         <button onClick={toggle} title={dark ? "Light mode" : "Dark mode"} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 34, height: 34, borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {dark ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>}
+          {dark
+            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          }
         </button>
       </div>
       <div style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", minHeight: 0, overflow: "hidden" }}>
