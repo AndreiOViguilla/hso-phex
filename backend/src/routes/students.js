@@ -100,15 +100,17 @@ router.put("/me", authMiddleware, async (req, res) => {
   }
 });
 
-// PUT /api/students/me/progress — save checklist + step + form progress
+// PUT /api/students/me/progress — save checklist + step + form progress + attendance
 router.put("/me/progress", authMiddleware, async (req, res) => {
-  const { checklist, filledMEF, filledDEF, currentStep } = req.body;
+  const { checklist, filledMEF, filledDEF, currentStep, attendedFirst, attendedSecond } = req.body;
   try {
     const update = {};
-    if (checklist   !== undefined) update.checklist   = checklist;
-    if (filledMEF   !== undefined) update.filledMEF   = filledMEF;
-    if (filledDEF   !== undefined) update.filledDEF   = filledDEF;
-    if (currentStep !== undefined) update.currentStep = currentStep;
+    if (checklist       !== undefined) update.checklist       = checklist;
+    if (filledMEF       !== undefined) update.filledMEF       = filledMEF;
+    if (filledDEF       !== undefined) update.filledDEF       = filledDEF;
+    if (currentStep     !== undefined) update.currentStep     = currentStep;
+    if (attendedFirst   !== undefined) update.attendedFirst   = attendedFirst;
+    if (attendedSecond  !== undefined) update.attendedSecond  = attendedSecond;
     const user = await User.findByIdAndUpdate(req.user.id, update, { new: true }).select("-passwordHash");
     res.json(user);
   } catch (err) {
