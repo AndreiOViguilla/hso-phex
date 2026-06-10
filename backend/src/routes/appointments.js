@@ -200,4 +200,18 @@ router.delete("/:id", authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/appointments/history — past appointments for the logged-in student
+router.get("/history", authMiddleware, async (req, res) => {
+  try {
+    const now = new Date().toISOString().split("T")[0];
+    const past = await Appointment.find({
+      userId: req.user.id,
+      appointmentDate: { $lt: now },
+    }).sort({ appointmentDate: -1 }).limit(20);
+    res.json(past);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch history" });
+  }
+});
+
 module.exports = router;

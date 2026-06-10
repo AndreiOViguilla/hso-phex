@@ -9,6 +9,7 @@ const cron        = require("node-cron");
 const Appointment = require("../models/Appointment");
 const User        = require("../models/User");
 const { getModel } = require("../models/Slot");
+const { sendAppointmentReminder } = require("./email");
 
 const BOOKING_PERIODS = [
   { prefix: "125", bookStart: new Date("2026-06-05"), bookEnd: new Date("2026-06-19") },
@@ -112,6 +113,35 @@ async function runAutoCancel() {
 
     if (cancelled > 0) {
       console.log(`[AutoCancel] Cancelled ${cancelled} appointment(s)`);
+    }
+
+    // ── 24-hour reminder emails ───────────────────────────────────────────
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split("T")[0];
+
+    const tomorrowAppts = await Appointment.find({ status: "confirmed", appointmentDate: tomorrowStr });
+    for (const appt of tomorrowAppts) {
+      if (appt.reminderSent) continue;
+      try {
+        const user = await User.findById(appt.userId).select("email firstName lastName").lean();
+        if (!user) continue;
+        const venue = appt.appointmentType === "phex"
+          ? "Waldo Perfecto Seminar Room, Ground floor, Br. Connon Hall"
+          : "2nd Floor, Enrique Razon Sports Center (ERSC)";
+        await sendAppointmentReminder(
+          user.email,
+          `${user.firstName} ${user.lastName}`,
+          appt.appointmentType,
+          appt.appointmentDate,
+          appt.timeSlot,
+          venue
+        );
+        await Appointment.findByIdAndUpdate(appt._id, { reminderSent: true });
+        console.log(`[Reminder] Sent to ${user.email} for ${appt.appointmentType} on ${appt.appointmentDate}`);
+      } catch (err) {
+        console.error(`[Reminder] Failed for appt ${appt._id}:`, err.message);
+      }
     }
   } catch (err) {
     console.error("[AutoCancel] Error:", err.message);

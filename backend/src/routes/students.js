@@ -126,4 +126,23 @@ router.put("/me/progress", authMiddleware, async (req, res) => {
   }
 });
 
+// PUT /api/students/me/password
+router.put("/me/password", authMiddleware, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: "Both current and new password are required." });
+  if (newPassword.length < 6) return res.status(400).json({ error: "New password must be at least 6 characters." });
+  try {
+    const user = await User.findById(req.user.id);
+    const isValid = await user.comparePassword(currentPassword);
+    if (!isValid) return res.status(401).json({ error: "Current password is incorrect." });
+    const bcrypt = require("bcryptjs");
+    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    await user.save();
+    res.json({ message: "Password updated successfully." });
+  } catch (err) {
+    console.error("Change password error:", err.message);
+    res.status(500).json({ error: "Failed to change password." });
+  }
+});
+
 module.exports = router;

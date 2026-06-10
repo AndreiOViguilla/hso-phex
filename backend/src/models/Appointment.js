@@ -9,6 +9,7 @@ const appointmentSchema = new mongoose.Schema({
   bookingCode:     { type: String },
   status:          { type: String, enum: ["confirmed", "attended", "cleared", "cancelled"], default: "confirmed" },
   hsoNotes:        { type: String },
+  reminderSent:    { type: Boolean, default: false },
   attendedAt:      { type: Date },
   clearedAt:       { type: Date },
 }, { timestamps: true });

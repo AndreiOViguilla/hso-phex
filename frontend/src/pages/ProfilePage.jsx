@@ -58,18 +58,38 @@ export default function ProfilePage({ userData, onBack, onSaved }) {
 
 
   const [loading, setLoading] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: "", newPw: "", confirm: "" });
+  const [pwLoading, setPwLoading] = useState(false);
+  const setPw = (k, v) => setPwForm(f => ({ ...f, [k]: v }));
+
+  const handleChangePassword = async () => {
+    if (!pwForm.current || !pwForm.newPw || !pwForm.confirm) { show({ type: "error", message: "Please fill in all password fields." }); return; }
+    if (pwForm.newPw.length < 6) { show({ type: "error", message: "New password must be at least 6 characters." }); return; }
+    if (pwForm.newPw !== pwForm.confirm) { show({ type: "error", message: "New passwords do not match." }); return; }
+    setPwLoading(true);
+    try {
+      const resp = await fetch("/api/students/me/password", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        body: JSON.stringify({ currentPassword: pwForm.current, newPassword: pwForm.newPw }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) { show({ type: "error", message: data.error || "Failed to change password." }); }
+      else { show({ type: "success", title: "Password changed!", message: "Your password has been updated." }); setPwForm({ current: "", newPw: "", confirm: "" }); }
+    } catch { show({ type: "error", message: "Could not connect to server." }); }
+    setPwLoading(false);
+  };
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const inp = {
-  width: "100%", padding: "10px 12px",
-  border: `1.5px solid ${t.inputBorder}`,
-  borderRadius: 8, fontSize: 14,
-  fontFamily: "inherit", outline: "none",
-  boxSizing: "border-box",
-  background: t.input, color: t.text,
-  colorScheme: dark ? "dark" : "light",   // ← add this
-};
+    width: "100%", padding: "10px 12px",
+    border: `1.5px solid ${t.inputBorder}`,
+    borderRadius: 8, fontSize: 14,
+    fontFamily: "inherit", outline: "none",
+    boxSizing: "border-box",
+    background: t.input, color: t.text,
+  };
 
   const lbl = {
     fontSize: 12, fontWeight: 600,
@@ -173,6 +193,27 @@ export default function ProfilePage({ userData, onBack, onSaved }) {
         <button onClick={handleSave} disabled={loading} style={{ width: "100%", padding: "13px", background: loading ? (dark ? "#1e3a5f" : "#93c5fd") : t.accentBtn, color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: loading ? "default" : "pointer", fontFamily: "inherit" }}>
           {loading ? "Saving…" : "Save changes"}
         </button>
+
+        {/* Change Password */}
+        <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: "18px", marginTop: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 14 }}>Change Password</div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={lbl}>Current password</label>
+            <input type="password" style={inp} value={pwForm.current} onChange={e => setPw("current", e.target.value)} placeholder="Enter current password" />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={lbl}>New password</label>
+            <input type="password" style={inp} value={pwForm.newPw} onChange={e => setPw("newPw", e.target.value)} placeholder="At least 6 characters" />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={lbl}>Confirm new password</label>
+            <input type="password" style={inp} value={pwForm.confirm} onChange={e => setPw("confirm", e.target.value)} placeholder="Repeat new password" />
+          </div>
+          <button onClick={handleChangePassword} disabled={pwLoading} style={{ width: "100%", padding: "12px", background: pwLoading ? t.cardBorder : t.card, color: t.text, border: `1.5px solid ${t.cardBorder}`, borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: pwLoading ? "default" : "pointer", fontFamily: "inherit" }}>
+            {pwLoading ? "Updating…" : "Update password"}
+          </button>
+        </div>
+
       </div>
     </div>
   );

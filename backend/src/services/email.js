@@ -65,4 +65,30 @@ async function sendBookingCode(toEmail, studentName, bookingCode, appointmentTyp
   });
 }
 
-module.exports = { sendPasswordReset, sendBookingCode };
+async function sendAppointmentReminder(email, name, appointmentType, appointmentDate, timeSlot, venue) {
+  const label = appointmentType === "phex" ? "PHEx (Physical Examination)" : "Drug Test";
+  const d = new Date(appointmentDate + "T00:00:00");
+  const dateStr = d.toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+
+  await resend.emails.send({
+    from: FROM_EMAIL,
+    to: email,
+    subject: `Reminder: Your ${label} appointment is tomorrow`,
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+        <h2 style="color:#1e3a8a">Appointment Reminder</h2>
+        <p>Hi ${name},</p>
+        <p>This is a reminder that your <strong>${label}</strong> appointment is <strong>tomorrow</strong>.</p>
+        <div style="background:#f0f9ff;border-radius:10px;padding:16px;margin:20px 0">
+          <p style="margin:4px 0"><strong>Date:</strong> ${dateStr}</p>
+          <p style="margin:4px 0"><strong>Time:</strong> ${timeSlot}</p>
+          <p style="margin:4px 0"><strong>Venue:</strong> ${venue}</p>
+        </div>
+        <p>Please bring your printed form and DLSU ID. Show your confirmation email to the guard.</p>
+        <p style="color:#6b7280;font-size:12px">DLSU Health Services Office</p>
+      </div>
+    `,
+  });
+}
+
+module.exports = { sendPasswordReset, sendBookingCode, sendAppointmentReminder };

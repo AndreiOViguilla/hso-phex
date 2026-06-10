@@ -116,6 +116,43 @@ function StepRow({ n, active, done, lineColor, isLast, children, t }) {
   );
 }
 
+function AppointmentHistory({ t }) {
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/appointments/history", { headers: getAuthHeader() })
+      .then(r => r.ok ? r.json() : [])
+      .then(data => { setHistory(data); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (loading || history.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: 28 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: t.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Past Appointments</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {history.map((appt, i) => {
+          const d = new Date(appt.appointmentDate + "T00:00:00");
+          const dateStr = d.toLocaleDateString("en-PH", { weekday: "short", month: "long", day: "numeric", year: "numeric" });
+          const isPhex = appt.appointmentType === "phex";
+          return (
+            <div key={i} style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: isPhex ? t.blue : t.teal, flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{isPhex ? "PHEx" : "Drug Test"}</div>
+                <div style={{ fontSize: 12, color: t.textSub }}>{dateStr} at {appt.timeSlot}</div>
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: t.card, border: `1px solid ${t.cardBorder}`, color: t.textMuted }}>Past</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF, onBookPHEx, onBookDT, onDEF, phexBooking: initPhex, dtBooking: initDT, onLogout, onProfile }) {
   const isMobile = useIsMobile();
   const now = new Date();
@@ -659,6 +696,9 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
             </div>
           </div>
         )}
+
+        {/* Appointment History */}
+        <AppointmentHistory t={t} />
 
         <div style={{ marginTop: 20 }}>
           <button onClick={onGuide} style={{ padding: "11px 20px", border: `1.5px solid ${t.cardBorder}`, borderRadius: 10, background: t.card, color: t.text, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>

@@ -81,7 +81,6 @@ function StepPicker({ activity, onSelect }) {
   const act = ACTIVITIES[activity];
   const { dark, t } = useTheme();
 
-  // Theme-aware accent colors — readable in both light and dark mode
   const accentColor  = activity === "dt"
     ? (dark ? t.tealText  : act.color)
     : (dark ? t.blueText  : act.color);
@@ -484,6 +483,25 @@ function StepConfirmed({ activity, booking, onDone }) {
 
   const d = new Date(booking.date + "T00:00:00");
   const dateStr = `${booking.time} – ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+
+  const buildGCalUrl = () => {
+    const parseMin = (t) => {
+      const [tp, ap] = [t.slice(0,-2), t.slice(-2)];
+      let [h, m] = tp.split(":").map(Number);
+      if (ap === "pm" && h !== 12) h += 12;
+      if (ap === "am" && h === 12) h = 0;
+      return { h, m };
+    };
+    const { h, m } = parseMin(booking.time);
+    const pad = (n) => String(n).padStart(2, "0");
+    const startDt = `${booking.date.replace(/-/g,"")}T${pad(h)}${pad(m)}00`;
+    const endDt   = `${booking.date.replace(/-/g,"")}T${pad(h+1)}${pad(m)}00`;
+    const title    = encodeURIComponent(`${act.label} Appointment — DLSU HSO`);
+    const details  = encodeURIComponent(`Your ${act.label} appointment at ${act.venue}. Show your confirmation email to the guard.`);
+    const location = encodeURIComponent(act.venue);
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDt}/${endDt}&details=${details}&location=${location}&ctz=Asia/Manila`;
+  };
+
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", textAlign: "center", background: t.bg }}>
       <div style={{ width: 56, height: 56, borderRadius: "50%", background: t.greenBg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
@@ -506,7 +524,16 @@ function StepConfirmed({ activity, booking, onDone }) {
         Show this confirmation email to the guard at the {act.label} station on your appointment day.
       </div>
 
-      <button onClick={onDone} style={{ background: accentSolid, color: "#fff", border: "none", borderRadius: 10, padding: "13px 32px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+      {/* Add to Google Calendar */}
+      <a href={buildGCalUrl()} target="_blank" rel="noopener noreferrer"
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", maxWidth: 300, padding: "12px", background: t.card, border: `1.5px solid ${t.cardBorder}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: t.text, textDecoration: "none", marginBottom: 12, boxSizing: "border-box" }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        Add to Google Calendar
+      </a>
+
+      <button onClick={onDone} style={{ background: accentSolid, color: "#fff", border: "none", borderRadius: 10, padding: "13px 32px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", maxWidth: 300, width: "100%" }}>
         Back to Schedule
       </button>
     </div>
