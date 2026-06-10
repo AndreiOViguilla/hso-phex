@@ -214,8 +214,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
       setFilledMEF(false);
       setFilledDEF(false);
       setChecked([]);
-      setAttendedFirst(false);
-      setAttendedSecond(false);
+      // Never reset attendedFirst/attendedSecond here — backend handles that via autoCancel
       fetch("/api/students/me/progress", {
         method: "PUT",
         headers: { "Content-Type": "application/json", ...getAuthHeader() },
