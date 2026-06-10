@@ -106,6 +106,21 @@ router.get("/students/:id/appointments", authMiddleware, requireRole("admin", "m
   }
 });
 
+// ── MASTER ONLY: Delete student account ─────────────────────────────────────
+router.delete("/students/:id", authMiddleware, requireRole("master"), async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: "User not found." });
+    if (user.role !== "student") return res.status(400).json({ error: "This route is for student accounts only." });
+    // Also delete their appointments
+    await Appointment.deleteMany({ userId: req.params.id });
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ message: "Student account and appointments deleted." });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── MASTER ONLY: User management ─────────────────────────────────────────────
 
 // GET /api/hso/users — all non-student accounts

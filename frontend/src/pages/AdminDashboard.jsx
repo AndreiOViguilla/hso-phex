@@ -197,17 +197,30 @@ function VenuesTab({ t }) {
 }
 
 // ── Students Tab ─────────────────────────────────────────────────────────────
-function StudentsTab({ t }) {
+function StudentsTab({ t, isMaster }) {
+  const { show } = useModal();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
+  const load = () => {
     fetch("/api/hso/students", { headers: getAuthHeader() })
       .then(r => r.ok ? r.json() : [])
       .then(data => { setStudents(data); setLoading(false); })
       .catch(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleDelete = async (id, name) => {
+    if (!window.confirm(`Delete account for ${name}? This will also delete all their appointments.`)) return;
+    try {
+      const r = await fetch(`/api/hso/students/${id}`, { method: "DELETE", headers: getAuthHeader() });
+      const d = await r.json();
+      if (!r.ok) show({ type: "error", message: d.error });
+      else { show({ type: "success", message: `${name}'s account deleted.` }); load(); }
+    } catch (_) { show({ type: "error", message: "Server error." }); }
+  };
 
   const filtered = students.filter(s =>
     s.studentId?.includes(search) ||
@@ -237,6 +250,12 @@ function StudentsTab({ t }) {
               <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: s.currentStep >= 7 ? t.greenBg : t.blueBg, color: s.currentStep >= 7 ? t.green : t.blue }}>
                 {stepLabel(s.currentStep || 1)}
               </span>
+              {isMaster && (
+                <button onClick={() => handleDelete(s._id, `${s.firstName} ${s.lastName}`)}
+                  style={{ background: "none", border: `1px solid ${t.cardBorder}`, borderRadius: 8, padding: "5px 10px", color: t.red || "#ef4444", fontSize: 12, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+                  Delete
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -412,7 +431,7 @@ export default function AdminDashboard({ userData, onLogout, onBack }) {
         <div style={{ maxWidth: 800, margin: "0 auto" }}>
           {activeTab === "Slots"    && <SlotsTab t={t} dark={dark} />}
           {activeTab === "Venues"   && <VenuesTab t={t} />}
-          {activeTab === "Students" && <StudentsTab t={t} />}
+          {activeTab === "Students" && <StudentsTab t={t} isMaster={isMaster} />}
           {activeTab === "Users"    && isMaster && <UsersTab t={t} />}
         </div>
       </div>
