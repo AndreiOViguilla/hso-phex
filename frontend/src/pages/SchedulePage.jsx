@@ -161,6 +161,19 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
 
   const [bookedPHEx,    setBookedPHEx]    = useState(initPhex || null);
   const [bookedDT,      setBookedDT]      = useState(initDT   || null);
+
+  // Track when bookings have been loaded from App.jsx (they arrive async)
+  useEffect(() => {
+    // Once App.jsx has finished loading session, initPhex/initDT are definitive
+    // We know they're loaded when authLoading is done (userData is set)
+    if (initPhex !== undefined) {
+      setBookedPHEx(initPhex || null);
+    }
+    if (initDT !== undefined) {
+      setBookedDT(initDT || null);
+    }
+    setBookingsLoaded(true);
+  }, [initPhex, initDT]);
   const [filledMEF,      setFilledMEF]     = useState(false);
   const [filledDEF,      setFilledDEF]     = useState(false);
   const [checked,        setChecked]       = useState([]);
@@ -175,6 +188,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
   const [showForgotCode, setShowForgotCode] = useState(false);
   const [forgotCodeEmail, setForgotCodeEmail] = useState("");
   const [progressLoaded, setProgressLoaded] = useState(false);
+  const [bookingsLoaded, setBookingsLoaded] = useState(false);
 
   const handleForgotCode = async () => {
     if (!forgotCodeEmail.includes("@")) { show({ type: "error", message: "Enter your email address." }); return; }
@@ -194,7 +208,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
 
   // Reset Steps 2-4 progress when either booking is dropped or appointment is past
   useEffect(() => {
-    if (!progressLoaded) return; // wait until backend data is loaded
+    if (!progressLoaded || !bookingsLoaded) return; // wait until both are loaded
     const needsReset = !bookedPHEx || !bookedDT;
     if (needsReset && (filledMEF || filledDEF || checked.length > 0)) {
       setFilledMEF(false);
@@ -208,7 +222,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
         body: JSON.stringify({ filledMEF: false, filledDEF: false, checklist: [] }),
       }).catch(() => {});
     }
-  }, [bookedPHEx, bookedDT, progressLoaded]);
+  }, [bookedPHEx, bookedDT, progressLoaded, bookingsLoaded]);
 
   // Show congratulations modal when both appointments are attended
   useEffect(() => {
