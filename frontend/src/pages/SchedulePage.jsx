@@ -162,18 +162,12 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
   const [bookedPHEx,    setBookedPHEx]    = useState(initPhex || null);
   const [bookedDT,      setBookedDT]      = useState(initDT   || null);
 
-  // Track when bookings have been loaded from App.jsx (they arrive async)
   useEffect(() => {
-    // Once App.jsx has finished loading session, initPhex/initDT are definitive
-    // We know they're loaded when authLoading is done (userData is set)
-    if (initPhex !== undefined) {
-      setBookedPHEx(initPhex || null);
-    }
-    if (initDT !== undefined) {
-      setBookedDT(initDT || null);
-    }
+    if (initPhex !== undefined) setBookedPHEx(initPhex || null);
+    if (initDT   !== undefined) setBookedDT(initDT     || null);
     setBookingsLoaded(true);
   }, [initPhex, initDT]);
+
   const [filledMEF,      setFilledMEF]     = useState(false);
   const [filledDEF,      setFilledDEF]     = useState(false);
   const [checked,        setChecked]       = useState([]);
@@ -182,9 +176,8 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
   const [showCongrats,   setShowCongrats]   = useState(false);
   const [rescheduleFor,    setRescheduleFor]    = useState(null);
   const [expandedSections, setExpandedSections] = useState({ phex: false, dt: false });
-  const [rescheduleCode,setRescheduleCode]= useState("");
+  const [rescheduleCode, setRescheduleCode] = useState("");
   const [forgotCodeLoading, setForgotCodeLoading] = useState(false);
-
   const [showForgotCode, setShowForgotCode] = useState(false);
   const [forgotCodeEmail, setForgotCodeEmail] = useState("");
   const [progressLoaded, setProgressLoaded] = useState(false);
@@ -208,14 +201,10 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
 
   // Progress reset is handled by autoCancel on the backend only
 
-  // Show congratulations modal when both appointments are attended
   useEffect(() => {
-    if (attendedFirst && attendedSecond) {
-      setShowCongrats(true);
-    }
+    if (attendedFirst && attendedSecond) setShowCongrats(true);
   }, [attendedFirst, attendedSecond]);
 
-  // Determine which appointment comes first
   const getApptMinutes = (booking) => {
     if (!booking) return Infinity;
     const d = new Date(booking.date + "T00:00:00");
@@ -226,7 +215,6 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
     return d.getTime() + h * 3600000 + m * 60000;
   };
 
-  // first = whichever appointment date/time is earlier
   const phexFirst = !bookedDT || getApptMinutes(bookedPHEx) <= getApptMinutes(bookedDT);
   const first  = phexFirst ? "phex" : "dt";
   const second = phexFirst ? "dt"   : "phex";
@@ -263,7 +251,6 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
 
   useEffect(() => {
     fetchProgress();
-    // Re-fetch when tab becomes visible (user returns from MEF/DEF page)
     const onVisible = () => { if (document.visibilityState === "visible") fetchProgress(); };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
@@ -318,7 +305,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
     ? { label: `In ${d2} day${d2 !== 1 ? "s" : ""}`, type: "blue" }
     : { label: "Active", type: "green" };
 
-  const BookedCard = ({ label, color, bgColor, booking, countdown, onReschedule }) => {
+  const BookedCard = ({ label, color, bgColor, booking, countdown, onReschedule, gCalUrl }) => {
     const isPast      = new Date(booking.date + "T23:59:59") < new Date();
     const isNow       = countdown === "Now!";
     const isNowOrPast = isPast || isNow;
@@ -344,6 +331,15 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
           <div style={{ background: t.orangeBg, border: `1px solid ${t.orange}44`, borderRadius: 8, padding: "8px 10px", fontSize: 11, color: t.orangeText, marginBottom: 10, lineHeight: 1.5 }}>
             {isPast ? "Your appointment date has passed." : "Your appointment time has already passed."} Please find another appointment.
           </div>
+        )}
+        {!isNowOrPast && gCalUrl && (
+          <a href={gCalUrl} target="_blank" rel="noopener noreferrer"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", padding: "8px", marginBottom: 8, background: t.card, border: `1.5px solid ${t.cardBorder}`, borderRadius: 8, fontSize: 12, fontWeight: 600, color: t.textSub, textDecoration: "none", boxSizing: "border-box" }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            Add to Google Calendar
+          </a>
         )}
         <button onClick={onReschedule} style={{ width: "100%", padding: "8px", borderRadius: 8, border: `1.5px solid ${isNowOrPast ? t.orange : t.cardBorder}`, background: isNowOrPast ? t.orangeBg : t.card, color: isNowOrPast ? t.orangeText : t.textSub, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
           Change appointment
@@ -384,7 +380,6 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
             })}
           </div>
         )}
-
       </div>
     );
   };
@@ -521,9 +516,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16 }}>
           <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 20, padding: "40px 32px", maxWidth: 400, width: "100%", textAlign: "center", boxShadow: "0 24px 80px rgba(0,0,0,0.25)" }}>
             <div style={{ width: 72, height: 72, borderRadius: "50%", background: t.greenBg, border: `3px solid ${t.green}44`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke={t.green} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke={t.green} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
             <div style={{ fontSize: 22, fontWeight: 800, color: t.text, marginBottom: 10 }}>Congratulations!</div>
             <div style={{ fontSize: 14, color: t.textSub, lineHeight: 1.7, marginBottom: 24 }}>
@@ -587,7 +580,9 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
             <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 12 }}>Book your PHEx and Drug Test appointments separately. Space at least 1 hour apart if on the same day.</div>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
               {bookedPHEx ? (
-                <BookedCard label="PHEx" color={t.blue} bgColor={t.blueBg} booking={bookedPHEx} countdown={phexCountdown} onReschedule={() => { setRescheduleCode(""); setRescheduleFor("phex"); }} />
+                <BookedCard label="PHEx" color={t.blue} bgColor={t.blueBg} booking={bookedPHEx} countdown={phexCountdown}
+                  gCalUrl={userData?.phexGCalUrl}
+                  onReschedule={() => { setRescheduleCode(""); setRescheduleFor("phex"); }} />
               ) : (
                 <div style={{ background: t.card, border: `1.5px solid ${t.cardBorder}`, borderRadius: 14, padding: "14px 16px" }}>
                   <div style={{ marginBottom: 8 }}><span style={{ background: t.blueBg, color: t.blue, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>PHEx</span></div>
@@ -599,7 +594,9 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
                 </div>
               )}
               {bookedDT ? (
-                <BookedCard label="Drug Test" color={t.teal} bgColor={t.tealBg} booking={bookedDT} countdown={dtCountdown} onReschedule={() => { setRescheduleCode(""); setRescheduleFor("dt"); }} />
+                <BookedCard label="Drug Test" color={t.teal} bgColor={t.tealBg} booking={bookedDT} countdown={dtCountdown}
+                  gCalUrl={userData?.dtGCalUrl}
+                  onReschedule={() => { setRescheduleCode(""); setRescheduleFor("dt"); }} />
               ) : (
                 <div style={{ background: t.card, border: `1.5px solid ${t.cardBorder}`, borderRadius: 14, padding: "14px 16px" }}>
                   <div style={{ marginBottom: 8 }}><span style={{ background: t.tealBg, color: t.teal, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>Drug Test</span></div>
@@ -624,24 +621,23 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
               </div>
             ) : (
               <>
-
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
-              {[
-                { key: "mef", label: "Medical Examination Form", desc: "Fill in your student details, print, and bring to your PHEx appointment.", filled: filledMEF, color: dark ? "#a78bfa" : "#7c3aed", onFill: () => { onMEF(); } },
-                { key: "def", label: "Dental Examination Form",   desc: "Fill in your name and ID. The dentist completes the rest during examination.", filled: filledDEF, color: dark ? "#fb923c" : "#b45309", onFill: () => { onDEF(); } },
-              ].map(({ key, label, desc, filled, color, onFill }) => (
-                <div key={key} style={{ background: t.card, border: `1.5px solid ${filled ? t.green : t.cardBorder}`, borderRadius: 14, padding: "14px 16px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                    <div style={{ color }}><IconFile color={color} /></div>
-                    {filled && <span style={{ fontSize: 11, color: t.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}><IconCheck color={t.green} /> Filled</span>}
-                  </div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 4 }}>{label}</div>
-                  <div style={{ fontSize: 11, color: t.textSub, lineHeight: 1.5, marginBottom: 12 }}>{desc}</div>
-                  <button onClick={onFill} style={{ width: "100%", padding: "9px", borderRadius: 8, border: `1.5px solid ${filled ? t.green : color}`, background: filled ? t.greenBg : t.card, color: filled ? t.green : color, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                    {filled ? `✓ ${key.toUpperCase()} Filled — Fill again` : `Fill ${key.toUpperCase()} form →`}
-                  </button>
-                </div>
-              ))}
+                  {[
+                    { key: "mef", label: "Medical Examination Form", desc: "Fill in your student details, print, and bring to your PHEx appointment.", filled: filledMEF, color: dark ? "#a78bfa" : "#7c3aed", onFill: () => { onMEF(); } },
+                    { key: "def", label: "Dental Examination Form",   desc: "Fill in your name and ID. The dentist completes the rest during examination.", filled: filledDEF, color: dark ? "#fb923c" : "#b45309", onFill: () => { onDEF(); } },
+                  ].map(({ key, label, desc, filled, color, onFill }) => (
+                    <div key={key} style={{ background: t.card, border: `1.5px solid ${filled ? t.green : t.cardBorder}`, borderRadius: 14, padding: "14px 16px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                        <div style={{ color }}><IconFile color={color} /></div>
+                        {filled && <span style={{ fontSize: 11, color: t.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}><IconCheck color={t.green} /> Filled</span>}
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 4 }}>{label}</div>
+                      <div style={{ fontSize: 11, color: t.textSub, lineHeight: 1.5, marginBottom: 12 }}>{desc}</div>
+                      <button onClick={onFill} style={{ width: "100%", padding: "9px", borderRadius: 8, border: `1.5px solid ${filled ? t.green : color}`, background: filled ? t.greenBg : t.card, color: filled ? t.green : color, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                        {filled ? `✓ ${key.toUpperCase()} Filled — Fill again` : `Fill ${key.toUpperCase()} form →`}
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </>
             )}
