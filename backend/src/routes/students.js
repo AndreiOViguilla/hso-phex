@@ -23,11 +23,12 @@ router.get("/me", authMiddleware, async (req, res) => {
     // Do NOT reset when appointments are past — that means student attended
     const needsReset = !phex || !dt;
     if (needsReset && (user.filledMEF || user.filledDEF || user.checklist?.length > 0)) {
-      user.filledMEF       = false;
-      user.filledDEF       = false;
-      user.checklist       = [];
-      user.attendedFirst   = false;
-      user.attendedSecond  = false;
+      user.filledMEF  = false;
+      user.filledDEF  = false;
+      user.checklist  = [];
+      // Only reset attendance if student hasn't attended yet
+      if (!user.attendedFirst)  user.attendedFirst  = false;
+      if (!user.attendedSecond) user.attendedSecond = false;
     }
 
     // ── Calculate currentStep server-side ────────────────────────────────
@@ -44,7 +45,7 @@ router.get("/me", authMiddleware, async (req, res) => {
 
     let calculatedStep = 1;
 
-    if (phex && dt && !isPast(phex) && !isPast(dt)) {
+    if (phex && dt) {
       // Determine which appointment comes first
       const phexMs = new Date(phex.appointmentDate + "T00:00:00").getTime() + parseMin(phex.timeSlot) * 60000;
       const dtMs   = new Date(dt.appointmentDate   + "T00:00:00").getTime() + parseMin(dt.timeSlot)   * 60000;
@@ -71,7 +72,7 @@ router.get("/me", authMiddleware, async (req, res) => {
       } else if (!user.attendedSecond) {
         calculatedStep = 6;
       } else {
-        calculatedStep = 6;
+        calculatedStep = 7;
       }
     }
 

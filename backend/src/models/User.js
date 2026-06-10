@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema({
   // Progress tracking
   filledMEF:    { type: Boolean, default: false },
   filledDEF:    { type: Boolean, default: false },
-  currentStep:  { type: Number, default: 1, min: 1, max: 6 },
+  currentStep:  { type: Number, default: 1, min: 1, max: 7 },
   attendedFirst:  { type: Boolean, default: false },
   attendedSecond: { type: Boolean, default: false },
 }, { timestamps: true });

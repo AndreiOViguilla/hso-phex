@@ -174,6 +174,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
 
   const [showForgotCode, setShowForgotCode] = useState(false);
   const [forgotCodeEmail, setForgotCodeEmail] = useState("");
+  const [progressLoaded, setProgressLoaded] = useState(false);
 
   const handleForgotCode = async () => {
     if (!forgotCodeEmail.includes("@")) { show({ type: "error", message: "Enter your email address." }); return; }
@@ -193,6 +194,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
 
   // Reset Steps 2-4 progress when either booking is dropped or appointment is past
   useEffect(() => {
+    if (!progressLoaded) return; // wait until backend data is loaded
     const needsReset = !bookedPHEx || !bookedDT;
     if (needsReset && (filledMEF || filledDEF || checked.length > 0)) {
       setFilledMEF(false);
@@ -206,7 +208,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
         body: JSON.stringify({ filledMEF: false, filledDEF: false, checklist: [] }),
       }).catch(() => {});
     }
-  }, [bookedPHEx, bookedDT]);
+  }, [bookedPHEx, bookedDT, progressLoaded]);
 
   // Show congratulations modal when both appointments are attended
   useEffect(() => {
@@ -251,13 +253,14 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
       .then(r => r.ok ? r.json() : null)
       .then(user => {
         if (!user) return;
-        if (user.checklist !== undefined)     setChecked(user.checklist);
+        if (user.checklist !== undefined)      setChecked(user.checklist);
         setFilledMEF(!!user.filledMEF);
         setFilledDEF(!!user.filledDEF);
         if (user.attendedFirst  !== undefined) setAttendedFirst(user.attendedFirst);
         if (user.attendedSecond !== undefined) setAttendedSecond(user.attendedSecond);
+        setProgressLoaded(true);
       })
-      .catch(() => {});
+      .catch(() => { setProgressLoaded(true); });
   };
 
   useEffect(() => {
@@ -298,7 +301,8 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
     if (!firstCheckedDone)  return 3;
     if (!attendedFirst)     return 4;
     if (!secondCheckedDone) return 5;
-    return 6;
+    if (!attendedSecond)    return 6;
+    return 7;
   })();
 
   let bookBadge, bookingOpen = false;
@@ -682,7 +686,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
           </StepRow>
 
           {/* Step 6 — Attend SECOND appointment */}
-          <StepRow n={6} t={t} active={currentStep === 6} done={attendedSecond} lineColor={attendedSecond ? t.stepLineDone : t.stepLine} isLast={true}>
+          <StepRow n={6} t={t} active={currentStep === 6} done={attendedSecond} lineColor={attendedSecond ? t.stepLineDone : t.stepLine} isLast={false}>
             <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 6 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 6 — Attend {secondLabel}</div>
             <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 4 }}>Show your confirmation email at the {secondLabel} station.</div>
             {currentStep < 6 ? (
@@ -692,35 +696,38 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
               </div>
             ) : secondBooking && renderAttend(secondBooking, secondLabel, secondColor, second === "phex" ? phexCountdown : dtCountdown, false)}
           </StepRow>
-        </div>
 
-        {/* Results */}
-        {(bookedPHEx || bookedDT) && (
-          <div style={{ marginTop: 28 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: t.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Results</div>
-            <div style={{ background: t.orangeBg, border: `1px solid ${t.orange}44`, borderRadius: 12, padding: "12px 16px", marginBottom: 12, fontSize: 12, color: t.orangeText, lineHeight: 1.7 }}>
-              Results are released by HSO staff after processing. Just wait and claim them on time.
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
-              <div style={{ background: t.card, border: `1.5px solid ${t.cardBorder}`, borderRadius: 14, padding: "14px 16px" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: t.blue, background: t.blueBg, padding: "3px 10px", borderRadius: 20, display: "inline-block", marginBottom: 10 }}>PHEx / X-Ray Results</div>
-                <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 8 }}>Available at <strong style={{ color: t.text }}>Waldo Perfecto Seminar Room</strong> — 10 days after procedure.</div>
-                <div style={{ fontSize: 11, color: t.orangeText, fontWeight: 600, background: t.orangeBg, border: `1px solid ${t.orange}44`, borderRadius: 8, padding: "6px 10px", display: "flex", alignItems: "center", gap: 6 }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={t.orangeText} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  Unclaimed by Aug 31 will be forwarded to provider.
+          {/* Step 7 — Results */}
+          <StepRow n={7} t={t} active={currentStep === 7} done={false} lineColor={t.stepLine} isLast={true}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: attendedSecond ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 7 — Claim your results</div>
+            <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 10 }}>Results are released by HSO staff after processing. Claim them at the respective venues.</div>
+            {!attendedSecond ? (
+              <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: t.textMuted, display: "flex", alignItems: "center", gap: 8 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Attend both appointments first.
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+                <div style={{ background: t.card, border: `1.5px solid ${t.cardBorder}`, borderRadius: 14, padding: "14px 16px" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: t.blue, background: t.blueBg, padding: "3px 10px", borderRadius: 20, display: "inline-block", marginBottom: 10 }}>PHEx / X-Ray Results</div>
+                  <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 8 }}>Available at <strong style={{ color: t.text }}>Waldo Perfecto Seminar Room</strong> — 10 days after procedure.</div>
+                  <div style={{ fontSize: 11, color: t.orangeText, fontWeight: 600, background: t.orangeBg, border: `1px solid ${t.orange}44`, borderRadius: 8, padding: "6px 10px", display: "flex", alignItems: "center", gap: 6 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={t.orangeText} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Unclaimed by Aug 31 will be forwarded to provider.
+                  </div>
+                </div>
+                <div style={{ background: t.card, border: `1.5px solid ${t.cardBorder}`, borderRadius: 14, padding: "14px 16px" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: t.teal, background: t.tealBg, padding: "3px 10px", borderRadius: 20, display: "inline-block", marginBottom: 10 }}>Drug Test Results</div>
+                  <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 8 }}>Available at <strong style={{ color: t.text }}>ERSC 2nd floor</strong> starting June 30.</div>
+                  <div style={{ fontSize: 11, color: t.textSub, fontWeight: 600, background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 8, padding: "6px 10px", display: "flex", alignItems: "center", gap: 6 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={t.textSub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                    Bring your ID when claiming results.
+                  </div>
                 </div>
               </div>
-              <div style={{ background: t.card, border: `1.5px solid ${t.cardBorder}`, borderRadius: 14, padding: "14px 16px" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: t.teal, background: t.tealBg, padding: "3px 10px", borderRadius: 20, display: "inline-block", marginBottom: 10 }}>Drug Test Results</div>
-                <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 8 }}>Available at <strong style={{ color: t.text }}>ERSC 2nd floor</strong> starting June 30.</div>
-                <div style={{ fontSize: 11, color: t.textSub, fontWeight: 600, background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 8, padding: "6px 10px", display: "flex", alignItems: "center", gap: 6 }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={t.textSub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-                  Bring your ID when claiming results.
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+            )}
+          </StepRow>
+        </div>
 
         {/* Appointment History */}
         <AppointmentHistory t={t} />
