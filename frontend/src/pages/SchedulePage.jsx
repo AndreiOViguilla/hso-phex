@@ -206,22 +206,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
     setForgotCodeLoading(false);
   };
 
-  // Reset Steps 2-4 progress when either booking is dropped or appointment is past
-  useEffect(() => {
-    if (!progressLoaded || !bookingsLoaded) return; // wait until both are loaded
-    const needsReset = !bookedPHEx || !bookedDT;
-    if (needsReset && (filledMEF || filledDEF || checked.length > 0)) {
-      setFilledMEF(false);
-      setFilledDEF(false);
-      setChecked([]);
-      // Never reset attendedFirst/attendedSecond here — backend handles that via autoCancel
-      fetch("/api/students/me/progress", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", ...getAuthHeader() },
-        body: JSON.stringify({ filledMEF: false, filledDEF: false, checklist: [] }),
-      }).catch(() => {});
-    }
-  }, [bookedPHEx, bookedDT, progressLoaded, bookingsLoaded]);
+  // Progress reset is handled by autoCancel on the backend only
 
   // Show congratulations modal when both appointments are attended
   useEffect(() => {
