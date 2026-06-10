@@ -191,7 +191,6 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
     setForgotCodeLoading(false);
   };
 
-  // Reset Steps 2-4 progress when either booking is dropped or appointment is past
   useEffect(() => {
     const needsReset = !bookedPHEx || !bookedDT;
     if (needsReset && (filledMEF || filledDEF || checked.length > 0)) {
@@ -208,14 +207,12 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
     }
   }, [bookedPHEx, bookedDT]);
 
-  // Show congratulations modal when both appointments are attended
   useEffect(() => {
     if (attendedFirst && attendedSecond) {
       setShowCongrats(true);
     }
   }, [attendedFirst, attendedSecond]);
 
-  // Determine which appointment comes first
   const getApptMinutes = (booking) => {
     if (!booking) return Infinity;
     const d = new Date(booking.date + "T00:00:00");
@@ -226,7 +223,6 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
     return d.getTime() + h * 3600000 + m * 60000;
   };
 
-  // first = whichever appointment date/time is earlier
   const phexFirst = !bookedDT || getApptMinutes(bookedPHEx) <= getApptMinutes(bookedDT);
   const first  = phexFirst ? "phex" : "dt";
   const second = phexFirst ? "dt"   : "phex";
@@ -315,6 +311,23 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
     const borderCol   = isNowOrPast ? t.orange : t.green;
     const countBg     = isNowOrPast ? t.orangeBg : t.blueBg;
     const countCol    = isNowOrPast ? t.orangeText : t.blueText;
+
+    const buildGCalUrl = () => {
+      const [tp, ap] = [booking.time.slice(0,-2), booking.time.slice(-2)];
+      let [h, m] = tp.split(":").map(Number);
+      if (ap === "pm" && h !== 12) h += 12;
+      if (ap === "am" && h === 12) h = 0;
+      const pad = (n) => String(n).padStart(2, "0");
+      const startDt  = `${booking.date.replace(/-/g,"")}T${pad(h)}${pad(m)}00`;
+      const endDt    = `${booking.date.replace(/-/g,"")}T${pad(h+1)}${pad(m)}00`;
+      const venueMap = { "PHEx": "Waldo Perfecto Seminar Room", "Drug Test": "2nd Floor, Enrique Razon Sports Center (ERSC)" };
+      const venue    = venueMap[label] || "";
+      const title    = encodeURIComponent(`${label} Appointment — DLSU HSO`);
+      const details  = encodeURIComponent(`Your ${label} appointment at ${venue}. Show your confirmation email to the guard.`);
+      const location = encodeURIComponent(venue);
+      return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDt}/${endDt}&details=${details}&location=${location}&ctz=Asia/Manila`;
+    };
+
     return (
       <div style={{ background: t.card, border: `1.5px solid ${borderCol}`, borderRadius: 14, padding: "14px 16px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -335,6 +348,15 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
             {isPast ? "Your appointment date has passed." : "Your appointment time has already passed."} Please find another appointment.
           </div>
         )}
+        {!isNowOrPast && (
+          <a href={buildGCalUrl()} target="_blank" rel="noopener noreferrer"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", padding: "8px", marginBottom: 8, background: t.card, border: `1.5px solid ${t.cardBorder}`, borderRadius: 8, fontSize: 12, fontWeight: 600, color: t.textSub, textDecoration: "none", boxSizing: "border-box" }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            Add to Google Calendar
+          </a>
+        )}
         <button onClick={onReschedule} style={{ width: "100%", padding: "8px", borderRadius: 8, border: `1.5px solid ${isNowOrPast ? t.orange : t.cardBorder}`, background: isNowOrPast ? t.orangeBg : t.card, color: isNowOrPast ? t.orangeText : t.textSub, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
           Change appointment
         </button>
@@ -342,7 +364,6 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
     );
   };
 
-  // Reusable checklist renderer
   const renderChecklist = (items, color, label) => {
     const sectionKey = label === "PHEx" ? "phex" : "dt";
     const sectionDone = items.filter(i => checked.includes(i.id)).length;
@@ -374,12 +395,10 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
             })}
           </div>
         )}
-
       </div>
     );
   };
 
-  // Reusable attend renderer
   const renderAttend = (booking, label, color, countdown, isFirst) => {
     const isPast = new Date(booking.date + "T23:59:59") < new Date();
     const isNow  = countdown === "Now!";
@@ -466,7 +485,6 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
               style={{ width: "100%", padding: "11px 14px", border: `1.5px solid ${t.inputBorder}`, borderRadius: 10, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", marginBottom: 10, textAlign: "center", background: t.input, color: t.text }}
               autoFocus
             />
-            {/* Forgot booking code */}
             {!showForgotCode ? (
               <div style={{ textAlign: "center", marginBottom: 16 }}>
                 <button onClick={() => setShowForgotCode(true)} style={{ background: "none", border: "none", color: t.accent, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
@@ -596,31 +614,28 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
                 Book both PHEx and Drug Test appointments first.
               </div>
             ) : (
-              <>
-
-                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
-              {[
-                { key: "mef", label: "Medical Examination Form", desc: "Fill in your student details, print, and bring to your PHEx appointment.", filled: filledMEF, color: dark ? "#a78bfa" : "#7c3aed", onFill: () => { setFilledMEF(true); saveProgress({ filledMEF: true }); onMEF(); } },
-                { key: "def", label: "Dental Examination Form",   desc: "Fill in your name and ID. The dentist completes the rest during examination.", filled: filledDEF, color: dark ? "#fb923c" : "#b45309", onFill: () => { setFilledDEF(true); saveProgress({ filledDEF: true }); onDEF(); } },
-              ].map(({ key, label, desc, filled, color, onFill }) => (
-                <div key={key} style={{ background: t.card, border: `1.5px solid ${filled ? t.green : t.cardBorder}`, borderRadius: 14, padding: "14px 16px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                    <div style={{ color }}><IconFile color={color} /></div>
-                    {filled && <span style={{ fontSize: 11, color: t.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}><IconCheck color={t.green} /> Filled</span>}
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+                {[
+                  { key: "mef", label: "Medical Examination Form", desc: "Fill in your student details, print, and bring to your PHEx appointment.", filled: filledMEF, color: dark ? "#a78bfa" : "#7c3aed", onFill: () => { setFilledMEF(true); saveProgress({ filledMEF: true }); onMEF(); } },
+                  { key: "def", label: "Dental Examination Form",   desc: "Fill in your name and ID. The dentist completes the rest during examination.", filled: filledDEF, color: dark ? "#fb923c" : "#b45309", onFill: () => { setFilledDEF(true); saveProgress({ filledDEF: true }); onDEF(); } },
+                ].map(({ key, label, desc, filled, color, onFill }) => (
+                  <div key={key} style={{ background: t.card, border: `1.5px solid ${filled ? t.green : t.cardBorder}`, borderRadius: 14, padding: "14px 16px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <div style={{ color }}><IconFile color={color} /></div>
+                      {filled && <span style={{ fontSize: 11, color: t.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}><IconCheck color={t.green} /> Filled</span>}
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 4 }}>{label}</div>
+                    <div style={{ fontSize: 11, color: t.textSub, lineHeight: 1.5, marginBottom: 12 }}>{desc}</div>
+                    <button onClick={onFill} style={{ width: "100%", padding: "9px", borderRadius: 8, border: `1.5px solid ${filled ? t.green : color}`, background: filled ? t.greenBg : t.card, color: filled ? t.green : color, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                      {filled ? `✓ ${key.toUpperCase()} Filled — Fill again` : `Fill ${key.toUpperCase()} form →`}
+                    </button>
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 4 }}>{label}</div>
-                  <div style={{ fontSize: 11, color: t.textSub, lineHeight: 1.5, marginBottom: 12 }}>{desc}</div>
-                  <button onClick={onFill} style={{ width: "100%", padding: "9px", borderRadius: 8, border: `1.5px solid ${filled ? t.green : color}`, background: filled ? t.greenBg : t.card, color: filled ? t.green : color, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                    {filled ? `✓ ${key.toUpperCase()} Filled — Fill again` : `Fill ${key.toUpperCase()} form →`}
-                  </button>
-                </div>
-              ))}
-                </div>
-              </>
+                ))}
+              </div>
             )}
           </StepRow>
 
-          {/* Step 3 — Checklist for FIRST appointment */}
+          {/* Step 3 */}
           <StepRow n={3} t={t} active={currentStep === 3} done={firstCheckedDone} lineColor={firstCheckedDone ? t.stepLineDone : t.stepLine} isLast={false}>
             <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 3 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 3 — Preparation Checklist for {firstLabel}</div>
             <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 10 }}>Complete before attending your {firstLabel} appointment.</div>
@@ -632,7 +647,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
             ) : renderChecklist(firstChecklist, firstColor, firstLabel)}
           </StepRow>
 
-          {/* Step 4 — Attend FIRST appointment */}
+          {/* Step 4 */}
           <StepRow n={4} t={t} active={currentStep === 4} done={attendedFirst} lineColor={attendedFirst ? t.stepLineDone : t.stepLine} isLast={false}>
             <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 4 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 4 — Attend {firstLabel}</div>
             <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 4 }}>Show your confirmation email at the {firstLabel} station.</div>
@@ -644,7 +659,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
             ) : firstBooking && renderAttend(firstBooking, firstLabel, firstColor, first === "phex" ? phexCountdown : dtCountdown, true)}
           </StepRow>
 
-          {/* Step 5 — Checklist for SECOND appointment */}
+          {/* Step 5 */}
           <StepRow n={5} t={t} active={currentStep === 5} done={secondCheckedDone} lineColor={secondCheckedDone ? t.stepLineDone : t.stepLine} isLast={false}>
             <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 5 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 5 — Preparation Checklist for {secondLabel}</div>
             <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 10 }}>Complete before attending your {secondLabel} appointment.</div>
@@ -656,7 +671,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
             ) : renderChecklist(secondChecklist, secondColor, secondLabel)}
           </StepRow>
 
-          {/* Step 6 — Attend SECOND appointment */}
+          {/* Step 6 */}
           <StepRow n={6} t={t} active={currentStep === 6} done={attendedSecond} lineColor={attendedSecond ? t.stepLineDone : t.stepLine} isLast={true}>
             <div style={{ fontSize: 15, fontWeight: 700, color: currentStep >= 6 ? t.text : t.textMuted, marginBottom: 4, paddingTop: 6 }}>Step 6 — Attend {secondLabel}</div>
             <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 4 }}>Show your confirmation email at the {secondLabel} station.</div>
@@ -697,7 +712,6 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
           </div>
         )}
 
-        {/* Appointment History */}
         <AppointmentHistory t={t} />
 
         <div style={{ marginTop: 20 }}>
