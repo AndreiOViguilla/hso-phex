@@ -13,7 +13,7 @@ router.get("/me", authMiddleware, async (req, res) => {
     const user = await User.findById(req.user.id).select("-passwordHash");
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    const appointments = await Appointment.find({ userId: user._id, status: "confirmed" });
+    const appointments = await Appointment.find({ userId: user._id, status: { $in: ["confirmed", "attended"] } });
     const phex = appointments.find(a => a.appointmentType === "phex");
     const dt   = appointments.find(a => a.appointmentType === "dt");
 
