@@ -91,6 +91,10 @@ function AppInner() {
     if (token) localStorage.setItem("token", token);
     setUserData(user);
     setStudentId(id);
+    if (user.role === "admin" || user.role === "master" || user.role === "nurse") {
+      navigate("/admin");
+      return;
+    }
     setPhexBooking(null);
     setDtBooking(null);
     try {
@@ -147,6 +151,14 @@ function AppInner() {
           <ResetPasswordPage onBack={() => navigate("/login")} />
         } />
         <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/admin" element={
+            <RequireAuth userData={userData} authLoading={authLoading}>
+              {userData?.role === "student"
+                ? <Navigate to="/schedule" replace />
+                : <AdminDashboard userData={userData} onLogout={handleLogout} onBack={() => navigate("/")} />
+              }
+            </RequireAuth>
+          } />
       </Routes>
     </div>
   );

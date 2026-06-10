@@ -13,7 +13,7 @@ const userSchema = new mongoose.Schema({
   birthday:     { type: String, default: "" }, // stored as "YYYY-MM-DD"
   contact:      { type: String, default: "" },
   course:       { type: String, default: "" },
-  role:         { type: String, enum: ["student", "hso"], default: "student" },
+  role:         { type: String, enum: ["student", "admin", "master", "nurse"], default: "student" },
   lastLoginAt:  { type: Date },
   resetToken:   { type: String },
   resetExpires: { type: Number },
