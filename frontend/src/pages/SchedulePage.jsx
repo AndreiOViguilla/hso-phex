@@ -532,23 +532,20 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
       <div style={{ maxWidth: 800, margin: "0 auto", padding: isMobile ? "16px" : "32px 40px", width: "100%", boxSizing: "border-box" }}>
 
         {/* Welcome banner */}
-        <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: t.text }}>
-              Welcome back, {userData?.firstName || "Student"}!
-            </div>
-            <div style={{ fontSize: 12, color: t.textSub, marginTop: 2 }}>Student ID: {studentId}</div>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: t.text }}>
+            Welcome back, {userData?.firstName || "Student"}!
           </div>
-          {userData?.lastLoginAt && (() => {
-            const d = new Date(userData.lastLoginAt);
-            const str = d.toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) + " at " + d.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit", hour12: true });
-            return (
-              <div style={{ fontSize: 11, color: t.textMuted, display: "flex", alignItems: "center", gap: 5 }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                Last login: {str}
-              </div>
-            );
-          })()}
+          <div style={{ fontSize: 12, color: t.textSub, marginTop: 2 }}>Student ID: {studentId}</div>
+          {userData?.lastLoginAt && (
+            <div style={{ fontSize: 12, color: t.textMuted, marginTop: 6, display: "flex", alignItems: "center", gap: 5 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Last login: {(() => {
+                const d = new Date(userData.lastLoginAt);
+                return d.toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) + " at " + d.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit", hour12: true });
+              })()}
+            </div>
+          )}
         </div>
 
         {/* Period cards */}
