@@ -34,10 +34,11 @@ router.post("/slots", authMiddleware, requireRole("admin", "master"), async (req
     const existing = await SlotModel.findOne({ date });
     if (existing) {
       existing.slots = slots;
+      existing.type = appointmentType;
       await existing.save();
       return res.json(existing);
     }
-    const newSlot = await SlotModel.create({ date, slots });
+    const newSlot = await SlotModel.create({ date, type: appointmentType, slots });
     res.json(newSlot);
   } catch (err) {
     res.status(500).json({ error: err.message });
