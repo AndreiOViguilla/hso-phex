@@ -47,7 +47,11 @@ router.post("/login", [
     const isValid = await user.comparePassword(password);
     if (!isValid) return res.status(401).json({ error: "Incorrect password" });
     const token = jwt.sign({ id: user._id, studentId: user.studentId, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
-    res.json({ token, user: { id: user._id, studentId: user.studentId, email: user.email, firstName: user.firstName, middleInitial: user.middleInitial, lastName: user.lastName, gender: user.gender, college: user.college, role: user.role } });
+    // Save last login timestamp
+    const prevLogin = user.lastLoginAt;
+    user.lastLoginAt = new Date();
+    await user.save();
+    res.json({ token, user: { id: user._id, studentId: user.studentId, email: user.email, firstName: user.firstName, middleInitial: user.middleInitial, lastName: user.lastName, gender: user.gender, college: user.college, role: user.role, lastLoginAt: prevLogin || null } });
   } catch (err) {
     console.error(err); res.status(500).json({ error: "Login failed" });
   }
