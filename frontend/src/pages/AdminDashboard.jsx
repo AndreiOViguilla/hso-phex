@@ -26,13 +26,21 @@ function SlotsTab({ t, dark }) {
   const [capacity, setCapacity] = useState(5);
   const [saving, setSaving] = useState(false);
 
-  const DEFAULT_TIMES = [
+    const DEFAULT_TIMES = [
     "8:00am","8:15am","8:30am","8:45am","9:00am","9:15am","9:30am","9:45am",
     "10:00am","10:15am","10:30am","10:45am","11:00am","11:15am","11:30am","11:45am",
     "1:00pm","1:15pm","1:30pm","1:45pm","2:00pm","2:15pm","2:30pm","2:45pm",
     "3:00pm","3:15pm","3:30pm","3:45pm","4:00pm","4:15pm","4:30pm","4:45pm",
     "5:00pm","5:15pm","5:30pm","5:45pm",
   ];
+
+  const MNAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const DNAMES = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+  const [calYear,  setCalYear]  = useState(new Date().getFullYear());
+  const [calMonth, setCalMonth] = useState(new Date().getMonth());
+
+  const getDaysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
+  const getFirstDay    = (y, m) => new Date(y, m, 1).getDay();
 
   const load = async () => {
     setLoading(true);
@@ -45,8 +53,15 @@ function SlotsTab({ t, dark }) {
 
   useEffect(() => { load(); }, [type]);
 
+  const getSlotForDate = (dateStr) => slots.find(s => s.date === dateStr);
+
+  const handleCalendarClick = (dateStr, isSunday) => {
+    if (isSunday) return;
+    setNewDate(prev => prev === dateStr ? "" : dateStr);
+  };
+
   const handleAdd = async () => {
-    if (!newDate) { show({ type: "error", message: "Please select a date." }); return; }
+    if (!newDate) { show({ type: "error", message: "Please select a date on the calendar." }); return; }
     setSaving(true);
     try {
       const slotsPayload = DEFAULT_TIMES.map(time => ({ time, capacity, booked: 0 }));
@@ -55,86 +70,169 @@ function SlotsTab({ t, dark }) {
         headers: { "Content-Type": "application/json", ...getAuthHeader() },
         body: JSON.stringify({ appointmentType: type, date: newDate, slots: slotsPayload }),
       });
-      if (r.ok) { show({ type: "success", message: "Slots added!" }); setShowAdd(false); setNewDate(""); load(); }
+      if (r.ok) { show({ type: "success", message: "Slots added for " + formatDate(newDate) + "!" }); setNewDate(""); load(); }
       else { const d = await r.json(); show({ type: "error", message: d.error }); }
     } catch (_) { show({ type: "error", message: "Server error." }); }
     setSaving(false);
   };
 
   const handleDelete = async (date) => {
-    if (!window.confirm(`Delete all slots for ${formatDate(date)}?`)) return;
+    if (!window.confirm("Delete all slots for " + formatDate(date) + "?")) return;
     try {
-      await fetch(`/api/hso/slots/${type}/${date}`, { method: "DELETE", headers: getAuthHeader() });
+      await fetch("/api/hso/slots/" + type + "/" + date, { method: "DELETE", headers: getAuthHeader() });
+      if (newDate === date) setNewDate("");
       load();
     } catch (_) {}
   };
 
+  const accentColor = type === "phex" ? t.blue : t.teal;
+  const accentBg    = type === "phex" ? t.blueBg : t.tealBg;
+  const accentSolid = type === "phex" ? (dark ? "#2563eb" : "#1e3a8a") : (dark ? "#0d9488" : "#0f766e");
+
+  const daysInMonth = getDaysInMonth(calYear, calMonth);
+  const firstDay    = getFirstDay(calYear, calMonth);
+  const prevMonth   = () => { if (calMonth === 0) { setCalYear(y => y-1); setCalMonth(11); } else setCalMonth(m => m-1); };
+  const nextMonth   = () => { if (calMonth === 11) { setCalYear(y => y+1); setCalMonth(0); } else setCalMonth(m => m+1); };
+
+  const selectedDaySlot = newDate ? getSlotForDate(newDate) : null;
+
   return (
     <div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
+      {/* Type switcher */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         {["phex","dt"].map(t2 => (
-          <button key={t2} onClick={() => setType(t2)}
-            style={{ padding: "7px 16px", borderRadius: 8, border: `1.5px solid ${type === t2 ? t.accent : t.cardBorder}`, background: type === t2 ? t.accentBg : t.card, color: type === t2 ? t.accent : t.textSub, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+          <button key={t2} onClick={() => { setType(t2); setNewDate(""); }}
+            style={{ padding: "7px 16px", borderRadius: 8, border: "1.5px solid " + (type === t2 ? t.accent : t.cardBorder), background: type === t2 ? t.accentBg : t.card, color: type === t2 ? t.accent : t.textSub, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
             {t2 === "phex" ? "PHEx" : "Drug Test"}
           </button>
         ))}
-        <button onClick={() => setShowAdd(true)}
-          style={{ marginLeft: "auto", padding: "7px 16px", borderRadius: 8, border: "none", background: t.accentBtn, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Add date
-        </button>
       </div>
 
-      {showAdd && (
-        <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: "16px", marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>Add slots for {type === "phex" ? "PHEx" : "Drug Test"}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 4 }}>Date</label>
-              <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)}
-                style={{ width: "100%", padding: "9px 12px", border: `1px solid ${t.inputBorder}`, borderRadius: 8, fontSize: 13, fontFamily: "inherit", background: t.input, color: t.text, boxSizing: "border-box" }} />
-            </div>
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 4 }}>Capacity per slot</label>
-              <input type="number" min="1" max="50" value={capacity} onChange={e => setCapacity(Number(e.target.value))}
-                style={{ width: "100%", padding: "9px 12px", border: `1px solid ${t.inputBorder}`, borderRadius: 8, fontSize: 13, fontFamily: "inherit", background: t.input, color: t.text, boxSizing: "border-box" }} />
-            </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {/* Calendar */}
+        <div style={{ background: t.card, border: "1px solid " + t.cardBorder, borderRadius: 14, padding: "20px", display: "flex", flexDirection: "column", gap: 0 }}>
+          {/* Month nav */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <button onClick={prevMonth} style={{ background: "none", border: "none", cursor: "pointer", color: t.textSub, padding: "4px 8px", fontSize: 18, display: "flex", alignItems: "center" }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <span style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{MNAMES[calMonth]} {calYear}</span>
+            <button onClick={nextMonth} style={{ background: "none", border: "none", cursor: "pointer", color: t.textSub, padding: "4px 8px", fontSize: 18, display: "flex", alignItems: "center" }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
           </div>
-          <div style={{ fontSize: 11, color: t.textSub, marginBottom: 12 }}>Will generate {DEFAULT_TIMES.length} time slots (8am–12nn, 1pm–6pm) with {capacity} spots each.</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setShowAdd(false)} style={{ flex: 1, padding: "9px", border: `1px solid ${t.cardBorder}`, borderRadius: 8, background: t.card, color: t.textSub, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
-            <button onClick={handleAdd} disabled={saving} style={{ flex: 1, padding: "9px", border: "none", borderRadius: 8, background: t.accentBtn, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: saving ? 0.7 : 1 }}>{saving ? "Saving…" : "Add slots"}</button>
+
+          {/* Day headers */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 6 }}>
+            {DNAMES.map(d => (
+              <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: d === "SUN" ? "#ef4444" : t.textMuted, padding: "4px 0" }}>{d}</div>
+            ))}
+          </div>
+
+          {/* Calendar grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }}>
+            {Array.from({ length: firstDay }).map((_, i) => <div key={"e"+i} />)}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const d = i + 1;
+              const isSunday = new Date(calYear, calMonth, d).getDay() === 0;
+              const dateStr = calYear + "-" + String(calMonth+1).padStart(2,"0") + "-" + String(d).padStart(2,"0");
+              const existingSlot = getSlotForDate(dateStr);
+              const isSelected = newDate === dateStr;
+              const totalCap = existingSlot?.slots?.reduce((a, s) => a + s.capacity, 0) || 0;
+              const totalBooked = existingSlot?.slots?.reduce((a, s) => a + s.booked, 0) || 0;
+              const isFull = existingSlot && totalBooked >= totalCap;
+
+              return (
+                <div key={d} style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 0" }}>
+                  <button
+                    onClick={() => handleCalendarClick(dateStr, isSunday)}
+                    disabled={isSunday}
+                    title={existingSlot ? (totalBooked + "/" + totalCap + " booked") : (isSunday ? "Closed" : "Click to add slots")}
+                    style={{
+                      width: 36, height: 36, borderRadius: "50%", border: "none",
+                      cursor: isSunday ? "not-allowed" : "pointer",
+                      background: isSelected ? accentSolid
+                        : existingSlot ? (isFull ? "#fee2e2" : accentBg)
+                        : "transparent",
+                      color: isSelected ? "#fff"
+                        : existingSlot ? (isFull ? "#ef4444" : accentColor)
+                        : isSunday ? (dark ? "#374151" : "#d1d5db")
+                        : t.text,
+                      fontWeight: existingSlot || isSelected ? 700 : 400,
+                      fontSize: 13,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      position: "relative",
+                      transition: "all 0.15s",
+                    }}>
+                    {d}
+                    {existingSlot && !isSelected && (
+                      <div style={{ position: "absolute", bottom: 3, left: "50%", transform: "translateX(-50%)", width: 4, height: 4, borderRadius: "50%", background: isFull ? "#ef4444" : accentColor }} />
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Legend */}
+          <div style={{ display: "flex", gap: 14, marginTop: 14, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: t.textSub }}>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: accentBg, border: "1.5px solid " + accentColor }} />
+              Has slots
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: t.textSub }}>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#fee2e2", border: "1.5px solid #ef4444" }} />
+              Full
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: t.textSub }}>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: accentSolid }} />
+              Selected
+            </div>
           </div>
         </div>
-      )}
 
-      {loading ? (
-        <div style={{ fontSize: 13, color: t.textMuted, padding: "20px 0", textAlign: "center" }}>Loading…</div>
-      ) : slots.length === 0 ? (
-        <div style={{ fontSize: 13, color: t.textMuted, padding: "20px 0", textAlign: "center" }}>No slots found for {type === "phex" ? "PHEx" : "Drug Test"}.</div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {slots.map((day, i) => {
-            const totalCap = day.slots?.reduce((a, s) => a + s.capacity, 0) || 0;
-            const totalBooked = day.slots?.reduce((a, s) => a + s.booked, 0) || 0;
-            return (
-              <div key={i} style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{formatDate(day.date)}</div>
-                  <div style={{ fontSize: 12, color: t.textSub, marginTop: 2 }}>{day.slots?.length || 0} time slots · {totalBooked}/{totalCap} booked</div>
+        {/* Action panel — shown when a date is selected */}
+        {newDate && (
+          <div style={{ background: t.card, border: "1.5px solid " + accentColor, borderRadius: 14, padding: "16px" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 4 }}>{formatDate(newDate)}</div>
+            {selectedDaySlot ? (
+              <div>
+                <div style={{ fontSize: 12, color: t.textSub, marginBottom: 12 }}>
+                  {selectedDaySlot.slots?.length || 0} time slots · {selectedDaySlot.slots?.reduce((a,s)=>a+s.booked,0)||0}/{selectedDaySlot.slots?.reduce((a,s)=>a+s.capacity,0)||0} booked
                 </div>
-                <div style={{ width: 80, height: 6, borderRadius: 3, background: t.bg, overflow: "hidden" }}>
-                  <div style={{ width: `${totalCap ? (totalBooked/totalCap)*100 : 0}%`, height: "100%", background: totalBooked >= totalCap ? t.orange : t.accent, borderRadius: 3, transition: "width 0.3s" }} />
+                <div style={{ width: "100%", height: 6, borderRadius: 3, background: t.bg, overflow: "hidden", marginBottom: 12 }}>
+                  <div style={{ width: ((selectedDaySlot.slots?.reduce((a,s)=>a+s.booked,0)||0) / (selectedDaySlot.slots?.reduce((a,s)=>a+s.capacity,0)||1) * 100) + "%", height: "100%", background: accentColor, borderRadius: 3 }} />
                 </div>
-                <button onClick={() => handleDelete(day.date)}
-                  style={{ background: "none", border: `1px solid ${t.cardBorder}`, borderRadius: 8, padding: "6px 10px", color: t.red || "#ef4444", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
-                  Delete
+                <button onClick={() => handleDelete(newDate)}
+                  style={{ width: "100%", padding: "9px", border: "1px solid #fca5a5", borderRadius: 8, background: "#fee2e2", color: "#ef4444", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                  Delete all slots for this day
                 </button>
               </div>
-            );
-          })}
-        </div>
-      )}
+            ) : (
+              <div>
+                <div style={{ fontSize: 12, color: t.textSub, marginBottom: 12 }}>No slots yet. Set a capacity and add slots.</div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 4 }}>Capacity per time slot</label>
+                  <input type="number" min="1" max="50" value={capacity} onChange={e => setCapacity(Number(e.target.value))}
+                    style={{ width: "100%", padding: "9px 12px", border: "1px solid " + t.inputBorder, borderRadius: 8, fontSize: 13, fontFamily: "inherit", background: t.input, color: t.text, boxSizing: "border-box", outline: "none" }} />
+                  <div style={{ fontSize: 11, color: t.textSub, marginTop: 4 }}>Will generate {DEFAULT_TIMES.length} slots (8am–12nn, 1pm–6pm) with {capacity} spots each.</div>
+                </div>
+                <button onClick={handleAdd} disabled={saving}
+                  style={{ width: "100%", padding: "10px", border: "none", borderRadius: 8, background: accentSolid, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: saving ? 0.7 : 1 }}>
+                  {saving ? "Adding…" : "Add " + DEFAULT_TIMES.length + " slots →"}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* No date selected hint */}
+        {!newDate && !loading && (
+          <div style={{ fontSize: 12, color: t.textMuted, textAlign: "center", padding: "8px 0" }}>
+            Click a date on the calendar to add or manage slots.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
