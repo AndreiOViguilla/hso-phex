@@ -246,18 +246,26 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
 
   const allItems = [...CHECKLIST_PHEX, ...CHECKLIST_DT];
 
-  useEffect(() => {
+  const fetchProgress = () => {
     fetch("/api/students/me", { headers: getAuthHeader() })
       .then(r => r.ok ? r.json() : null)
       .then(user => {
         if (!user) return;
-        if (user.checklist)      setChecked(user.checklist);
-        if (user.filledMEF)      setFilledMEF(user.filledMEF);
-        if (user.filledDEF)      setFilledDEF(user.filledDEF);
-        if (user.attendedFirst)  setAttendedFirst(user.attendedFirst);
-        if (user.attendedSecond) setAttendedSecond(user.attendedSecond);
+        if (user.checklist !== undefined)     setChecked(user.checklist);
+        setFilledMEF(!!user.filledMEF);
+        setFilledDEF(!!user.filledDEF);
+        if (user.attendedFirst  !== undefined) setAttendedFirst(user.attendedFirst);
+        if (user.attendedSecond !== undefined) setAttendedSecond(user.attendedSecond);
       })
       .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchProgress();
+    // Re-fetch when tab becomes visible (user returns from MEF/DEF page)
+    const onVisible = () => { if (document.visibilityState === "visible") fetchProgress(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
   const saveProgress = (updates) => {
@@ -617,8 +625,8 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
 
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
               {[
-                { key: "mef", label: "Medical Examination Form", desc: "Fill in your student details, print, and bring to your PHEx appointment.", filled: filledMEF, color: dark ? "#a78bfa" : "#7c3aed", onFill: () => { setFilledMEF(true); saveProgress({ filledMEF: true }); onMEF(); } },
-                { key: "def", label: "Dental Examination Form",   desc: "Fill in your name and ID. The dentist completes the rest during examination.", filled: filledDEF, color: dark ? "#fb923c" : "#b45309", onFill: () => { setFilledDEF(true); saveProgress({ filledDEF: true }); onDEF(); } },
+                { key: "mef", label: "Medical Examination Form", desc: "Fill in your student details, print, and bring to your PHEx appointment.", filled: filledMEF, color: dark ? "#a78bfa" : "#7c3aed", onFill: () => { onMEF(); } },
+                { key: "def", label: "Dental Examination Form",   desc: "Fill in your name and ID. The dentist completes the rest during examination.", filled: filledDEF, color: dark ? "#fb923c" : "#b45309", onFill: () => { onDEF(); } },
               ].map(({ key, label, desc, filled, color, onFill }) => (
                 <div key={key} style={{ background: t.card, border: `1.5px solid ${filled ? t.green : t.cardBorder}`, borderRadius: 14, padding: "14px 16px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
