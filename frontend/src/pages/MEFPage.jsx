@@ -131,6 +131,28 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  const [draftSaved, setDraftSaved] = useState(false);
+  const draftTimer = useRef(null);
+
+  // Auto-save form to localStorage on every change
+  useEffect(() => {
+    localStorage.setItem("mef_draft", JSON.stringify(form));
+    setDraftSaved(true);
+    clearTimeout(draftTimer.current);
+    draftTimer.current = setTimeout(() => setDraftSaved(false), 1500);
+  }, [form]);
+
+  // Restore draft from localStorage on mount (before backend fetch overwrites)
+  useEffect(() => {
+    try {
+      const draft = localStorage.getItem("mef_draft");
+      if (draft) {
+        const parsed = JSON.parse(draft);
+        setForm(f => ({ ...f, ...parsed }));
+      }
+    } catch (_) {}
+  }, []);
+
   const TEXT_FIELDS = [
     { name: "ID Number",          x: 88,  y: 103, w: 125, h: 11 },
     { name: "Date",               x: 458, y: 104, w: 90,  h: 11 },
@@ -584,6 +606,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
           show({ type: "error", title: "Download required", message: "Please generate and download the MEF PDF first before marking it as complete." });
           return;
         }
+        localStorage.removeItem("mef_draft");
         onSuccess();
       }} style={{ width: "100%", marginTop: 10, padding: "13px", background: t.green, color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
