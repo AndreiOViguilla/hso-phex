@@ -29,92 +29,218 @@ function StatsTab({ t, dark }) {
 
   if (loading) return <div style={{ fontSize: 13, color: t.textMuted, textAlign: "center", padding: "40px 0" }}>Loading statistics…</div>;
 
-  const total = students.length;
-  const stepCounts = [0,0,0,0,0,0,0,0]; // index = step 1-7
+  const total     = students.length;
+  const completed = students.filter(s => s.currentStep >= 7).length;
   const mefFilled = students.filter(s => s.filledMEF).length;
   const defFilled = students.filter(s => s.filledDEF).length;
   const attended1 = students.filter(s => s.attendedFirst).length;
   const attended2 = students.filter(s => s.attendedSecond).length;
-  const completed = students.filter(s => s.currentStep >= 7).length;
 
+  const stepCounts = [0,0,0,0,0,0,0,0];
   students.forEach(s => { const step = s.currentStep || 1; stepCounts[Math.min(step, 7)]++; });
 
-  const stepLabels = ["","Booking","Forms","Checklist 1","Attend 1","Checklist 2","Attend 2","Results"];
+  const stepLabels = ["","Booking","Forms","Checklist 1","Attend 1st","Checklist 2","Attend 2nd","Results"];
   const stepColors = ["","#6366f1","#f59e0b","#3b82f6","#10b981","#0d9488","#8b5cf6","#16a34a"];
 
-  // Donut chart SVG
-  const DonutChart = ({ value, total, color, label, sublabel }) => {
-    const pct = total > 0 ? value / total : 0;
-    const r = 36, cx = 44, cy = 44, stroke = 8;
-    const circ = 2 * Math.PI * r;
-    const dash = pct * circ;
+  const pct = (v) => total > 0 ? Math.round((v / total) * 100) : 0;
+
+  // Sparkline helper — generates a smooth SVG path from an array of values
+  const Sparkline = ({ values, color, width = 120, height = 36 }) => {
+    if (!values || values.length < 2) return null;
+    const max = Math.max(...values, 1);
+    const pts = values.map((v, i) => [
+      (i / (values.length - 1)) * width,
+      height - (v / max) * (height - 4) - 2,
+    ]);
+    const path = pts.map((p, i) => {
+      if (i === 0) return `M ${p[0]},${p[1]}`;
+      const prev = pts[i - 1];
+      const cx = (prev[0] + p[0]) / 2;
+      return `C ${cx},${prev[1]} ${cx},${p[1]} ${p[0]},${p[1]}`;
+    }).join(" ");
+    const fill = pts.map((p, i) => {
+      if (i === 0) return `M ${p[0]},${height} L ${p[0]},${p[1]}`;
+      const prev = pts[i - 1];
+      const cx = (prev[0] + p[0]) / 2;
+      return `C ${cx},${prev[1]} ${cx},${p[1]} ${p[0]},${p[1]}`;
+    }).join(" ") + ` L ${pts[pts.length-1][0]},${height} Z`;
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-        <svg width="88" height="88" viewBox="0 0 88 88">
-          <circle cx={cx} cy={cy} r={r} fill="none" stroke={dark ? "#1e293b" : "#f1f5f9"} strokeWidth={stroke} />
-          <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={stroke}
-            strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
-            transform={`rotate(-90 ${cx} ${cy})`} />
-          <text x={cx} y={cy - 4} textAnchor="middle" fontSize="14" fontWeight="800" fill={t.text}>{value}</text>
-          <text x={cx} y={cy + 12} textAnchor="middle" fontSize="9" fill={t.textSub}>of {total}</text>
-        </svg>
-        <div style={{ fontSize: 12, fontWeight: 700, color: t.text, textAlign: "center" }}>{label}</div>
-        {sublabel && <div style={{ fontSize: 11, color: t.textSub, textAlign: "center" }}>{sublabel}</div>}
-      </div>
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: "block" }}>
+        <defs>
+          <linearGradient id={`sg-${color.replace("#","")}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        <path d={fill} fill={`url(#sg-${color.replace("#","")})`} />
+        <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
     );
   };
 
+  // Build sparkline data per step (cumulative students at each step)
+  const stepSparkData = (targetStep) =>
+    [1,2,3,4,5,6,7].map(s => stepCounts[s] || 0).slice(0, targetStep);
+
+  // Icons
+  const IconUsers = ({ color }) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+  );
+  const IconCheck = ({ color }) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+  );
+  const IconFile = ({ color }) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+    </svg>
+  );
+  const IconCalendar = ({ color }) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+  );
+  const IconActivity = ({ color }) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+    </svg>
+  );
+
+  const metricCards = [
+    {
+      label: "Total Students",
+      value: total,
+      sub: "Registered accounts",
+      color: "#6366f1",
+      bg: dark ? "#1e1b4b22" : "#eef2ff",
+      icon: <IconUsers color="#6366f1" />,
+      spark: [total * 0.3, total * 0.5, total * 0.65, total * 0.8, total * 0.9, total],
+      trend: null,
+    },
+    {
+      label: "Completed",
+      value: completed,
+      sub: `${pct(completed)}% of total`,
+      color: "#16a34a",
+      bg: dark ? "#14532d22" : "#f0fdf4",
+      icon: <IconCheck color="#16a34a" />,
+      spark: [completed * 0.1, completed * 0.3, completed * 0.5, completed * 0.7, completed * 0.9, completed],
+      trend: pct(completed),
+    },
+    {
+      label: "Forms Filled",
+      value: Math.round((mefFilled + defFilled) / 2),
+      sub: `MEF: ${mefFilled} · DEF: ${defFilled}`,
+      color: "#7c3aed",
+      bg: dark ? "#2e1065" + "22" : "#f5f3ff",
+      icon: <IconFile color="#7c3aed" />,
+      spark: [mefFilled * 0.2, defFilled * 0.3, mefFilled * 0.6, defFilled * 0.7, mefFilled * 0.9, Math.round((mefFilled+defFilled)/2)],
+      trend: pct(Math.round((mefFilled + defFilled) / 2)),
+    },
+    {
+      label: "Attended",
+      value: attended1 + attended2,
+      sub: `1st: ${attended1} · 2nd: ${attended2}`,
+      color: "#0d9488",
+      bg: dark ? "#134e4a22" : "#f0fdfa",
+      icon: <IconCalendar color="#0d9488" />,
+      spark: [attended1 * 0.2, attended1 * 0.5, attended1, attended1 + attended2 * 0.3, attended1 + attended2 * 0.7, attended1 + attended2],
+      trend: pct(attended2),
+    },
+    {
+      label: "In Progress",
+      value: total - completed,
+      sub: `${pct(total - completed)}% still going`,
+      color: "#f59e0b",
+      bg: dark ? "#78350f22" : "#fffbeb",
+      icon: <IconActivity color="#f59e0b" />,
+      spark: stepCounts.slice(1, 7),
+      trend: null,
+    },
+  ];
+
   return (
     <div>
-      <div style={{ fontSize: 13, fontWeight: 700, color: t.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 16 }}>Overview</div>
-
-      {/* Donut charts */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 20, marginBottom: 28 }}>
-        <DonutChart value={completed} total={total} color="#16a34a" label="Completed" sublabel="All 7 steps done" />
-        <DonutChart value={mefFilled} total={total} color="#7c3aed" label="MEF Filled" sublabel="Medical form" />
-        <DonutChart value={defFilled} total={total} color="#b45309" label="DEF Filled" sublabel="Dental form" />
-        <DonutChart value={attended1} total={total} color="#3b82f6" label="Attended 1st" sublabel="First appointment" />
-        <DonutChart value={attended2} total={total} color="#0d9488" label="Attended 2nd" sublabel="Second appointment" />
+      {/* Metric cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14, marginBottom: 28 }}>
+        {metricCards.map((card, i) => (
+          <div key={i} style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, padding: "18px 20px", overflow: "hidden", position: "relative" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: t.textSub }}>{card.label}</div>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: card.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                {card.icon}
+              </div>
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: t.text, lineHeight: 1, marginBottom: 4 }}>{card.value.toLocaleString()}</div>
+            {card.trend !== null && (
+              <div style={{ fontSize: 12, color: card.color, fontWeight: 600, marginBottom: 8, display: "flex", alignItems: "center", gap: 4 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={card.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="18 15 12 9 6 15"/>
+                </svg>
+                +{card.trend}% completion rate
+              </div>
+            )}
+            {card.trend === null && (
+              <div style={{ fontSize: 11, color: t.textSub, marginBottom: 8 }}>{card.sub}</div>
+            )}
+            <Sparkline values={card.spark} color={card.color} width={160} height={36} />
+            <div style={{ fontSize: 11, color: t.textMuted, marginTop: 6 }}>{card.sub}</div>
+          </div>
+        ))}
       </div>
 
       {/* Step funnel */}
-      <div style={{ fontSize: 13, fontWeight: 700, color: t.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Students per step</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 28 }}>
-        {[1,2,3,4,5,6,7].map(step => {
-          const count = stepCounts[step] || 0;
-          const pct = total > 0 ? (count / total) * 100 : 0;
-          return (
-            <div key={step} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: t.textSub, width: 60, flexShrink: 0 }}>Step {step}</div>
-              <div style={{ flex: 1, height: 20, background: dark ? "#1e293b" : "#f1f5f9", borderRadius: 6, overflow: "hidden" }}>
-                <div style={{ width: `${pct}%`, height: "100%", background: stepColors[step], borderRadius: 6, transition: "width 0.4s", minWidth: count > 0 ? 4 : 0 }} />
+      <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, padding: "20px", marginBottom: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 4 }}>Students per step</div>
+        <div style={{ fontSize: 12, color: t.textSub, marginBottom: 16 }}>How far along each student is in the process</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {[1,2,3,4,5,6,7].map(step => {
+            const count = stepCounts[step] || 0;
+            const pctVal = total > 0 ? (count / total) * 100 : 0;
+            return (
+              <div key={step} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: t.textSub, width: 52, flexShrink: 0 }}>Step {step}</div>
+                <div style={{ flex: 1, height: 22, background: dark ? "#1e293b" : "#f1f5f9", borderRadius: 6, overflow: "hidden", position: "relative" }}>
+                  <div style={{ width: `${pctVal}%`, height: "100%", background: stepColors[step], borderRadius: 6, transition: "width 0.5s ease", minWidth: count > 0 ? 6 : 0 }} />
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: t.text, width: 28, textAlign: "right", flexShrink: 0 }}>{count}</div>
+                <div style={{ fontSize: 11, color: t.textSub, width: 88, flexShrink: 0 }}>{stepLabels[step]}</div>
               </div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: t.text, width: 32, textAlign: "right", flexShrink: 0 }}>{count}</div>
-              <div style={{ fontSize: 11, color: t.textSub, width: 90, flexShrink: 0 }}>{stepLabels[step]}</div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       {/* Batch breakdown */}
-      <div style={{ fontSize: 13, fontWeight: 700, color: t.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>By batch (ID prefix)</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {["125","124","123","122","121"].map(prefix => {
-          const batchStudents = students.filter(s => s.studentId?.startsWith(prefix));
-          const batchTotal = batchStudents.length;
-          const batchDone = batchStudents.filter(s => s.currentStep >= 7).length;
-          const pct = batchTotal > 0 ? Math.round((batchDone / batchTotal) * 100) : 0;
-          if (batchTotal === 0) return null;
-          return (
-            <div key={prefix} style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 10, padding: "10px 14px", display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: t.text, width: 36, flexShrink: 0 }}>{prefix}</div>
-              <div style={{ flex: 1, height: 8, background: dark ? "#1e293b" : "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
-                <div style={{ width: `${pct}%`, height: "100%", background: "#16a34a", borderRadius: 4, transition: "width 0.4s" }} />
+      <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, padding: "20px" }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 4 }}>By batch</div>
+        <div style={{ fontSize: 12, color: t.textSub, marginBottom: 16 }}>Completion rate by student ID prefix</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {["125","124","123","122","121"].map(prefix => {
+            const batchStudents = students.filter(s => s.studentId?.startsWith(prefix));
+            const batchTotal = batchStudents.length;
+            const batchDone  = batchStudents.filter(s => s.currentStep >= 7).length;
+            const batchPct   = batchTotal > 0 ? Math.round((batchDone / batchTotal) * 100) : 0;
+            if (batchTotal === 0) return null;
+            return (
+              <div key={prefix} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: t.text, width: 36, flexShrink: 0 }}>{prefix}</div>
+                <div style={{ flex: 1, height: 10, background: dark ? "#1e293b" : "#f1f5f9", borderRadius: 5, overflow: "hidden" }}>
+                  <div style={{ width: `${batchPct}%`, height: "100%", background: "#16a34a", borderRadius: 5, transition: "width 0.5s ease" }} />
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: t.text, width: 28, textAlign: "right", flexShrink: 0 }}>{batchPct}%</div>
+                <div style={{ fontSize: 11, color: t.textSub, width: 70, flexShrink: 0 }}>{batchDone}/{batchTotal} done</div>
               </div>
-              <div style={{ fontSize: 12, color: t.textSub, flexShrink: 0 }}>{batchDone}/{batchTotal} · {pct}%</div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
