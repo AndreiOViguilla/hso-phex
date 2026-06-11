@@ -14,7 +14,7 @@ import ProfilePage        from "./pages/ProfilePage";
 import ResetPasswordPage  from "./pages/ResetPasswordPage";
 import { ThemeProvider } from "./ThemeContext";
 import { ModalProvider } from "./components/Modal";
-
+import AdminDashboard from "./pages/AdminDashboard";
 // Cookies are sent automatically with credentials: "include"
 export function getAuthHeader() { return {}; }
 
