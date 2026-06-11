@@ -4,8 +4,8 @@ import { useModal } from "../components/Modal";
 import { getAuthHeader } from "../App";
 import { useIsMobile } from "../utils/useIsMobile";
 
-const TABS = ["Slots", "Venues", "Students"];
-const MASTER_TABS = ["Slots", "Venues", "Students", "Users"];
+const TABS = ["Stats", "Slots", "Venues", "Students"];
+const MASTER_TABS = ["Stats", "Slots", "Venues", "Students", "Users"];
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -13,6 +13,111 @@ function formatDate(str) {
   if (!str) return "";
   const d = new Date(str + "T00:00:00");
   return d.toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+}
+
+// ── Stats Tab ────────────────────────────────────────────────────────────────
+function StatsTab({ t, dark }) {
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/hso/students", { headers: getAuthHeader() })
+      .then(r => r.ok ? r.json() : [])
+      .then(data => { setStudents(data); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div style={{ fontSize: 13, color: t.textMuted, textAlign: "center", padding: "40px 0" }}>Loading statistics…</div>;
+
+  const total = students.length;
+  const stepCounts = [0,0,0,0,0,0,0,0]; // index = step 1-7
+  const mefFilled = students.filter(s => s.filledMEF).length;
+  const defFilled = students.filter(s => s.filledDEF).length;
+  const attended1 = students.filter(s => s.attendedFirst).length;
+  const attended2 = students.filter(s => s.attendedSecond).length;
+  const completed = students.filter(s => s.currentStep >= 7).length;
+
+  students.forEach(s => { const step = s.currentStep || 1; stepCounts[Math.min(step, 7)]++; });
+
+  const stepLabels = ["","Booking","Forms","Checklist 1","Attend 1","Checklist 2","Attend 2","Results"];
+  const stepColors = ["","#6366f1","#f59e0b","#3b82f6","#10b981","#0d9488","#8b5cf6","#16a34a"];
+
+  // Donut chart SVG
+  const DonutChart = ({ value, total, color, label, sublabel }) => {
+    const pct = total > 0 ? value / total : 0;
+    const r = 36, cx = 44, cy = 44, stroke = 8;
+    const circ = 2 * Math.PI * r;
+    const dash = pct * circ;
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+        <svg width="88" height="88" viewBox="0 0 88 88">
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke={dark ? "#1e293b" : "#f1f5f9"} strokeWidth={stroke} />
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={stroke}
+            strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+            transform={`rotate(-90 ${cx} ${cy})`} />
+          <text x={cx} y={cy - 4} textAnchor="middle" fontSize="14" fontWeight="800" fill={t.text}>{value}</text>
+          <text x={cx} y={cy + 12} textAnchor="middle" fontSize="9" fill={t.textSub}>of {total}</text>
+        </svg>
+        <div style={{ fontSize: 12, fontWeight: 700, color: t.text, textAlign: "center" }}>{label}</div>
+        {sublabel && <div style={{ fontSize: 11, color: t.textSub, textAlign: "center" }}>{sublabel}</div>}
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: t.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 16 }}>Overview</div>
+
+      {/* Donut charts */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 20, marginBottom: 28 }}>
+        <DonutChart value={completed} total={total} color="#16a34a" label="Completed" sublabel="All 7 steps done" />
+        <DonutChart value={mefFilled} total={total} color="#7c3aed" label="MEF Filled" sublabel="Medical form" />
+        <DonutChart value={defFilled} total={total} color="#b45309" label="DEF Filled" sublabel="Dental form" />
+        <DonutChart value={attended1} total={total} color="#3b82f6" label="Attended 1st" sublabel="First appointment" />
+        <DonutChart value={attended2} total={total} color="#0d9488" label="Attended 2nd" sublabel="Second appointment" />
+      </div>
+
+      {/* Step funnel */}
+      <div style={{ fontSize: 13, fontWeight: 700, color: t.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Students per step</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 28 }}>
+        {[1,2,3,4,5,6,7].map(step => {
+          const count = stepCounts[step] || 0;
+          const pct = total > 0 ? (count / total) * 100 : 0;
+          return (
+            <div key={step} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: t.textSub, width: 60, flexShrink: 0 }}>Step {step}</div>
+              <div style={{ flex: 1, height: 20, background: dark ? "#1e293b" : "#f1f5f9", borderRadius: 6, overflow: "hidden" }}>
+                <div style={{ width: `${pct}%`, height: "100%", background: stepColors[step], borderRadius: 6, transition: "width 0.4s", minWidth: count > 0 ? 4 : 0 }} />
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: t.text, width: 32, textAlign: "right", flexShrink: 0 }}>{count}</div>
+              <div style={{ fontSize: 11, color: t.textSub, width: 90, flexShrink: 0 }}>{stepLabels[step]}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Batch breakdown */}
+      <div style={{ fontSize: 13, fontWeight: 700, color: t.textMuted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>By batch (ID prefix)</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {["125","124","123","122","121"].map(prefix => {
+          const batchStudents = students.filter(s => s.studentId?.startsWith(prefix));
+          const batchTotal = batchStudents.length;
+          const batchDone = batchStudents.filter(s => s.currentStep >= 7).length;
+          const pct = batchTotal > 0 ? Math.round((batchDone / batchTotal) * 100) : 0;
+          if (batchTotal === 0) return null;
+          return (
+            <div key={prefix} style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 10, padding: "10px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: t.text, width: 36, flexShrink: 0 }}>{prefix}</div>
+              <div style={{ flex: 1, height: 8, background: dark ? "#1e293b" : "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ width: `${pct}%`, height: "100%", background: "#16a34a", borderRadius: 4, transition: "width 0.4s" }} />
+              </div>
+              <div style={{ fontSize: 12, color: t.textSub, flexShrink: 0 }}>{batchDone}/{batchTotal} · {pct}%</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // ── Slots Tab ────────────────────────────────────────────────────────────────
@@ -45,7 +150,7 @@ function SlotsTab({ t, dark }) {
   const load = async () => {
     setLoading(true);
     try {
-      const r = await fetch(`/api/hso/slots?type=${type}`, { credentials: "include" });
+      const r = await fetch(`/api/hso/slots?type=${type}`, { headers: getAuthHeader() });
       if (r.ok) setSlots(await r.json());
     } catch (_) {}
     setLoading(false);
@@ -67,7 +172,7 @@ function SlotsTab({ t, dark }) {
       const slotsPayload = DEFAULT_TIMES.map(time => ({ time, capacity, booked: 0 }));
       const r = await fetch("/api/hso/slots", {
         method: "POST",
-        headers: { "Content-Type": "application/json" }, credentials: "include",
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
         body: JSON.stringify({ appointmentType: type, date: newDate, slots: slotsPayload }),
       });
       if (r.ok) { show({ type: "success", message: "Slots added for " + formatDate(newDate) + "!" }); setNewDate(""); load(); }
@@ -79,7 +184,7 @@ function SlotsTab({ t, dark }) {
   const handleDelete = async (date) => {
     if (!window.confirm("Delete all slots for " + formatDate(date) + "?")) return;
     try {
-      await fetch("/api/hso/slots/" + type + "/" + date, { method: "DELETE", credentials: "include" });
+      await fetch("/api/hso/slots/" + type + "/" + date, { method: "DELETE", headers: getAuthHeader() });
       if (newDate === date) setNewDate("");
       load();
     } catch (_) {}
@@ -244,7 +349,7 @@ function VenuesTab({ t }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/hso/settings", { credentials: "include" })
+    fetch("/api/hso/settings", { headers: getAuthHeader() })
       .then(r => r.ok ? r.json() : {})
       .then(data => setVenues(v => ({ ...v, ...data })))
       .catch(() => {});
@@ -255,7 +360,7 @@ function VenuesTab({ t }) {
     try {
       const r = await fetch("/api/hso/settings", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" }, credentials: "include",
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
         body: JSON.stringify({ key, value }),
       });
       if (r.ok) show({ type: "success", message: "Venue updated!" });
@@ -302,7 +407,7 @@ function StudentsTab({ t, isMaster }) {
   const [search, setSearch] = useState("");
 
   const load = () => {
-    fetch("/api/hso/students", { credentials: "include" })
+    fetch("/api/hso/students", { headers: getAuthHeader() })
       .then(r => r.ok ? r.json() : [])
       .then(data => { setStudents(data); setLoading(false); })
       .catch(() => setLoading(false));
@@ -313,7 +418,7 @@ function StudentsTab({ t, isMaster }) {
   const handleDelete = async (id, name) => {
     if (!window.confirm(`Delete account for ${name}? This will also delete all their appointments.`)) return;
     try {
-      const r = await fetch(`/api/hso/students/${id}`, { method: "DELETE", credentials: "include" });
+      const r = await fetch(`/api/hso/students/${id}`, { method: "DELETE", headers: getAuthHeader() });
       const d = await r.json();
       if (!r.ok) show({ type: "error", message: d.error });
       else { show({ type: "success", message: `${name}'s account deleted.` }); load(); }
@@ -373,7 +478,7 @@ function UsersTab({ t }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const load = () => {
-    fetch("/api/hso/users", { credentials: "include" })
+    fetch("/api/hso/users", { headers: getAuthHeader() })
       .then(r => r.ok ? r.json() : [])
       .then(data => { setUsers(data); setLoading(false); })
       .catch(() => setLoading(false));
@@ -387,7 +492,7 @@ function UsersTab({ t }) {
     try {
       const r = await fetch("/api/hso/users", {
         method: "POST",
-        headers: { "Content-Type": "application/json" }, credentials: "include",
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
         body: JSON.stringify(form),
       });
       const d = await r.json();
@@ -401,7 +506,7 @@ function UsersTab({ t }) {
     try {
       await fetch(`/api/hso/users/${id}/role`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" }, credentials: "include",
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
         body: JSON.stringify({ role }),
       });
       load();
@@ -411,7 +516,7 @@ function UsersTab({ t }) {
   const handleDelete = async (id, name) => {
     if (!window.confirm(`Delete account for ${name}?`)) return;
     try {
-      const r = await fetch(`/api/hso/users/${id}`, { method: "DELETE", credentials: "include" });
+      const r = await fetch(`/api/hso/users/${id}`, { method: "DELETE", headers: getAuthHeader() });
       const d = await r.json();
       if (!r.ok) show({ type: "error", message: d.error });
       else load();
@@ -527,6 +632,7 @@ export default function AdminDashboard({ userData, onLogout, onBack }) {
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "16px" : "28px 32px" }}>
         <div style={{ maxWidth: 800, margin: "0 auto" }}>
+          {activeTab === "Stats"    && <StatsTab t={t} dark={dark} />}
           {activeTab === "Slots"    && <SlotsTab t={t} dark={dark} />}
           {activeTab === "Venues"   && <VenuesTab t={t} />}
           {activeTab === "Students" && <StudentsTab t={t} isMaster={isMaster} />}
