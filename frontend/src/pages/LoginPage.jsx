@@ -38,6 +38,9 @@ export default function LoginPage({ onLogin, onBack }) {
   const [showPass,      setShowPass]      = useState(false);
   const [showConf,      setShowConf]      = useState(false);
   const [loading,       setLoading]       = useState(false);
+  const [forgotOpen,    setForgotOpen]    = useState(false);
+  const [forgotEmail,   setForgotEmail]   = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   const inp = (extra) => ({ width: "100%", padding: "11px 14px", border: `1.5px solid ${t.inputBorder}`, borderRadius: 8, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", background: t.input, color: t.text, ...extra });
   const reset = () => {};
@@ -78,7 +81,7 @@ export default function LoginPage({ onLogin, onBack }) {
       if (!resp.ok) { show({ type: "error", message: data.error || "Login failed" }); setLoading(false); return; }
       localStorage.setItem("token", data.token);
       setLoading(false);
-      onLogin(data.user.studentId, data.user);
+      onLogin(data.user.studentId, data.user, data.token);
     } catch { show({ type: "error", message: "Could not connect to server. Please try again." }); setLoading(false); }
   };
 
