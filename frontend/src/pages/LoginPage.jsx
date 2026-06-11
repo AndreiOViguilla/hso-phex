@@ -156,7 +156,7 @@ export default function LoginPage({ onLogin, onBack }) {
             <div style={{ fontSize: 20, fontWeight: 800, color: t.text, marginBottom: 4 }}>PHEx Portal</div>
             <div style={{ fontSize: 13, color: t.textSub }}>AY 2025–2026 · Manila Campus</div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", background: "#f3f4f6", borderRadius: 10, padding: 4, marginBottom: 22, gap: 4 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", background: dark ? "#1e293b" : "#f3f4f6", borderRadius: 10, padding: 4, marginBottom: 22, gap: 4 }}>
             {[["signin", "Sign in"], ["register", "Register"]].map(([key, label]) => (
               <button key={key} onClick={() => { setTab(key); reset(); }} style={{ padding: "9px", borderRadius: 8, border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s", background: tab === key ? "#fff" : "transparent", color: tab === key ? "#111827" : "#6b7280", boxShadow: tab === key ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>{label}</button>
             ))}
@@ -173,7 +173,15 @@ export default function LoginPage({ onLogin, onBack }) {
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 8 }}>Gender</label>
                 <div style={{ display: "flex", gap: 12 }}>
-                  {["Female", "Male"].map(g => (<label key={g} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: "#374151", flex: 1, padding: "10px 14px", border: `1.5px solid ${gender === g ? "#1d4ed8" : "#d1d5db"}`, borderRadius: 8, background: gender === g ? "#eff6ff" : "#fff", transition: "all 0.15s" }}><input type="radio" name="reg-gender" value={g} checked={gender === g} onChange={() => setGender(g)} style={{ accentColor: "#1d4ed8" }} />{g}</label>))}
+                  {[
+                    { value: "Female", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M12 12v8"/><path d="M9 18h6"/></svg> },
+                    { value: "Male",   icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="10" cy="14" r="4"/><line x1="17" y1="7" x2="10" y2="14"/><polyline points="14 7 17 7 17 10"/></svg> },
+                  ].map(({ value: g, icon }) => (
+                    <label key={g} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, color: gender === g ? "#1d4ed8" : t.text, flex: 1, padding: "10px 14px", border: `1.5px solid ${gender === g ? "#1d4ed8" : t.cardBorder}`, borderRadius: 8, background: gender === g ? (dark ? "#1e3a5f" : "#eff6ff") : t.card, transition: "all 0.15s" }}>
+                      <input type="radio" name="reg-gender" value={g} checked={gender === g} onChange={() => setGender(g)} style={{ accentColor: "#1d4ed8", display: "none" }} />
+                      {icon}{g}
+                    </label>
+                  ))}
                 </div>
               </div>
             </>)}
@@ -189,7 +197,7 @@ export default function LoginPage({ onLogin, onBack }) {
 
             {tab === "signin" && (<>
               <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "2px 0" }}><div style={{ flex: 1, height: 1, background: "#e5e7eb" }} /><span style={{ fontSize: 11, color: "#9ca3af", whiteSpace: "nowrap" }}>or continue with</span><div style={{ flex: 1, height: 1, background: "#e5e7eb" }} /></div>
-              <button disabled title="Coming soon" style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #e5e7eb", borderRadius: 10, background: "#fafafa", cursor: "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, fontSize: 14, fontWeight: 600, color: "#9ca3af", fontFamily: "inherit" }}>
+              <button disabled title="Coming soon" style={{ width: "100%", padding: "11px 14px", border: `1.5px solid ${t.cardBorder}`, borderRadius: 10, background: t.card, cursor: "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, fontSize: 14, fontWeight: 600, color: t.textMuted, fontFamily: "inherit" }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" style={{ flexShrink: 0 }}><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
                 Sign in with Google <span style={{ fontSize: 10, background: "#f3f4f6", color: "#6b7280", padding: "2px 6px", borderRadius: 4, fontWeight: 500 }}>Coming soon</span>
               </button>
