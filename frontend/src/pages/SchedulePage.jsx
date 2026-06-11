@@ -272,7 +272,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
   const saveProgress = (updates) => {
     fetch("/api/students/me/progress", {
       method: "PUT",
-      headers: { "Content-Type": "application/json" }, headers: getAuthHeader(),
+      headers: { "Content-Type": "application/json", ...getAuthHeader() },
       body: JSON.stringify(updates),
     }).catch(() => {});
   };
