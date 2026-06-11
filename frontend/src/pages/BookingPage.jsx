@@ -411,7 +411,8 @@ export default function BookingPage({ activity = "phex", studentId, prefillFirst
         const resp = await fetch("/api/students/me", { headers: { Authorization: `Bearer ${token}` } });
         if (resp.ok) setAuthValid(true);
         else setAuthValid(false);
-      } catch { setAuthValid(false); setAuthChecked(true); }
+      } catch { setAuthValid(false); }
+      setAuthChecked(true);
     };
     verify();
   }, []);
