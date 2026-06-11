@@ -48,13 +48,10 @@ router.post("/login", [
     const prevLogin = user.lastLoginAt;
     user.lastLoginAt = new Date();
     await user.save();
-
-    // Create session
     req.session.userId    = String(user._id);
     req.session.studentId = user.studentId;
     req.session.email     = user.email;
     req.session.role      = user.role;
-
     res.json({ user: { id: user._id, studentId: user.studentId, email: user.email, firstName: user.firstName, middleInitial: user.middleInitial, lastName: user.lastName, gender: user.gender, college: user.college, role: user.role, lastLoginAt: prevLogin || null } });
   } catch (err) {
     console.error(err); res.status(500).json({ error: "Login failed" });

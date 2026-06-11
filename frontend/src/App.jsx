@@ -53,8 +53,8 @@ function AppInner() {
     const init = async () => {
       try {
         const [userResp, bookingsResp] = await Promise.all([
-          fetch((process.env.REACT_APP_API_URL || "") + "/api/students/me", { credentials: "include" }),
-          fetch((process.env.REACT_APP_API_URL || "") + "/api/appointments/mine", { credentials: "include" }),
+          fetch("/api/students/me", { credentials: "include" }),
+          fetch("/api/appointments/mine", { credentials: "include" }),
         ]);
 
         if (userResp.ok) {
@@ -90,7 +90,7 @@ function AppInner() {
     setPhexBooking(null);
     setDtBooking(null);
     try {
-      const bookings = await fetch((process.env.REACT_APP_API_URL || "") + "/api/appointments/mine", { credentials: "include" }).then(r => r.json());
+      const bookings = await fetch("/api/appointments/mine", { credentials: "include" }).then(r => r.json());
       bookings.forEach(b => {
         const booking = { date: b.appointmentDate, time: b.timeSlot, code: b.bookingCode };
         if (b.appointmentType === "phex") setPhexBooking(booking);
