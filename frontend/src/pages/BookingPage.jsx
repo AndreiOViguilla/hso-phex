@@ -407,8 +407,6 @@ export default function BookingPage({ activity = "phex", studentId, prefillFirst
   useEffect(() => {
     const verify = async () => {
       try {
-        const token = localStorage.getItem("token");
-        if (!token) { setAuthValid(false); setAuthChecked(true); return; }
         const resp = await fetch("/api/students/me", { credentials: "include" });
         if (resp.ok) setAuthValid(true);
         else setAuthValid(false);
