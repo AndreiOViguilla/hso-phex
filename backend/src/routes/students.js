@@ -4,30 +4,6 @@ const { authMiddleware } = require("../middleware/auth");
 
 const router = express.Router();
 
-// Helper: build a Google Calendar URL from an appointment
-function buildGCalUrl(label, venue, dateStr, timeSlot) {
-  const [tp, ap] = [timeSlot.slice(0, -2), timeSlot.slice(-2)];
-  let [h, m] = tp.split(":").map(Number);
-  if (ap === "pm" && h !== 12) h += 12;
-  if (ap === "am" && h === 12) h = 0;
-  const pad = (n) => String(n).padStart(2, "0");
-  const startDt = `${dateStr.replace(/-/g, "")}T${pad(h)}${pad(m)}00`;
-  const endDt   = `${dateStr.replace(/-/g, "")}T${pad(h + 1)}${pad(m)}00`;
-  const title    = encodeURIComponent(`${label} Appointment — DLSU HSO`);
-  const details  = encodeURIComponent(`Your ${label} appointment at ${venue}. Show your confirmation email to the guard.`);
-  const location = encodeURIComponent(venue);
-  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDt}/${endDt}&details=${details}&location=${location}&ctz=Asia/Manila`;
-}
-
-const VENUE_MAP = {
-  phex: "Waldo Perfecto Seminar Room",
-  dt:   "2nd Floor, Enrique Razon Sports Center (ERSC)",
-};
-const LABEL_MAP = {
-  phex: "PHEx",
-  dt:   "Drug Test",
-};
-
 // GET /api/students/me
 router.get("/me", authMiddleware, async (req, res) => {
   try {
@@ -60,6 +36,7 @@ router.get("/me", authMiddleware, async (req, res) => {
     let calculatedStep = 1;
 
     if (phex && dt) {
+      // Determine which appointment comes first
       const phexMs = new Date(phex.appointmentDate + "T00:00:00").getTime() + parseMin(phex.timeSlot) * 60000;
       const dtMs   = new Date(dt.appointmentDate   + "T00:00:00").getTime() + parseMin(dt.timeSlot)   * 60000;
       const phexFirst = phexMs <= dtMs;
@@ -69,8 +46,10 @@ router.get("/me", authMiddleware, async (req, res) => {
       const firstChecklist  = phexFirst ? CHECKLIST_PHEX : CHECKLIST_DT;
       const secondChecklist = phexFirst ? CHECKLIST_DT   : CHECKLIST_PHEX;
 
-      const firstCheckedDone  = firstChecklist.every(id => user.checklist.includes(id));
+      const firstCheckedDone  = firstChecklist.every(id  => user.checklist.includes(id));
       const secondCheckedDone = secondChecklist.every(id => user.checklist.includes(id));
+      const firstPast  = isPast(firstAppt);
+      const secondPast = isPast(secondAppt);
 
       if (!user.filledMEF || !user.filledDEF) {
         calculatedStep = 2;
@@ -87,7 +66,7 @@ router.get("/me", authMiddleware, async (req, res) => {
       }
     }
 
-    // Save calculated step to DB
+    // Save calculated step + any resets to DB
     await User.findByIdAndUpdate(user._id, {
       filledMEF:      user.filledMEF,
       filledDEF:      user.filledDEF,
@@ -98,25 +77,6 @@ router.get("/me", authMiddleware, async (req, res) => {
     });
 
     user.currentStep = calculatedStep;
-
-    // ── Attach Google Calendar URLs ───────────────────────────────────────
-    if (phex && !isPast(phex)) {
-      user._doc.phexGCalUrl = buildGCalUrl(
-        LABEL_MAP.phex,
-        VENUE_MAP.phex,
-        phex.appointmentDate,
-        phex.timeSlot
-      );
-    }
-    if (dt && !isPast(dt)) {
-      user._doc.dtGCalUrl = buildGCalUrl(
-        LABEL_MAP.dt,
-        VENUE_MAP.dt,
-        dt.appointmentDate,
-        dt.timeSlot
-      );
-    }
-
     res.json(user);
   } catch (err) {
     console.error("GET /me error:", err.message);
@@ -126,6 +86,12 @@ router.get("/me", authMiddleware, async (req, res) => {
 
 // PUT /api/students/me — update editable fields only (studentId is NOT editable)
 router.put("/me", authMiddleware, async (req, res) => {
+  // Sanitize inputs
+  if (req.body.firstName)     req.body.firstName     = String(req.body.firstName).trim().replace(/[<>]/g, "");
+  if (req.body.lastName)      req.body.lastName      = String(req.body.lastName).trim().replace(/[<>]/g, "");
+  if (req.body.middleInitial) req.body.middleInitial = String(req.body.middleInitial).trim().replace(/[^a-zA-Z.]/g, "");
+  if (req.body.college)       req.body.college       = String(req.body.college).trim().replace(/[<>]/g, "");
+  if (req.body.contact)       req.body.contact       = String(req.body.contact).trim().replace(/[^0-9+\-() ]/g, "");
   const { firstName, middleInitial, lastName, gender, college, birthday, contact, course } = req.body;
   try {
     const user = await User.findByIdAndUpdate(

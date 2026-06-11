@@ -1,6 +1,5 @@
 const express  = require("express");
 const bcrypt   = require("bcryptjs");
-const jwt      = require("jsonwebtoken");
 const crypto   = require("crypto");
 const { body, validationResult } = require("express-validator");
 const User     = require("../models/User");
@@ -20,10 +19,22 @@ router.post("/register", [
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const { studentId, email, password, firstName, middleInitial, lastName, gender, college } = req.body;
   try {
-    const existing = await User.findOne({ email });
+    // Sanitize inputs
+    const cleanStudentId = String(studentId).trim().replace(/[^0-9]/g, "");
+    const cleanEmail     = String(email).trim().toLowerCase();
+    const cleanFirst     = String(firstName || "").trim().replace(/[<>]/g, "");
+    const cleanLast      = String(lastName  || "").trim().replace(/[<>]/g, "");
+    const cleanMI        = String(middleInitial || "").trim().replace(/[^a-zA-Z.]/g, "");
+    const cleanGender    = ["Male","Female"].includes(gender) ? gender : "";
+    const cleanCollege   = String(college || "").trim().replace(/[<>]/g, "");
+
+    const existing = await User.findOne({ email: cleanEmail });
     if (existing) return res.status(409).json({ error: "Email already registered" });
+    // Check student ID too
+    const existingId = await User.findOne({ studentId: cleanStudentId });
+    if (existingId) return res.status(409).json({ error: "Student ID already registered" });
     const passwordHash = await bcrypt.hash(password, 12);
-    const user = await User.create({ studentId, email, passwordHash, firstName, middleInitial: middleInitial || "", lastName, gender: gender || "", college: college || "" });
+    const user = await User.create({ studentId: cleanStudentId, email: cleanEmail, passwordHash, firstName: cleanFirst, middleInitial: cleanMI, lastName: cleanLast, gender: cleanGender, college: cleanCollege });
     res.status(201).json({ user: { id: user._id, studentId: user.studentId, email: user.email, firstName: user.firstName, middleInitial: user.middleInitial, lastName: user.lastName, gender: user.gender, college: user.college, role: user.role } });
   } catch (err) {
     if (err.code === 11000) { const field = Object.keys(err.keyPattern)[0]; return res.status(409).json({ error: field === "email" ? "Email already registered" : "Student ID already registered" }); }
@@ -40,7 +51,8 @@ router.post("/login", [
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const { email, password } = req.body;
   try {
-    const user = await User.findOne({ email });
+    const cleanEmail = String(email).trim().toLowerCase();
+    const user = await User.findOne({ email: cleanEmail });
     if (!user) return res.status(401).json({ error: "No account found with this email" });
     const isValid = await user.comparePassword(password);
     if (!isValid) return res.status(401).json({ error: "Incorrect password" });
@@ -48,11 +60,18 @@ router.post("/login", [
     const prevLogin = user.lastLoginAt;
     user.lastLoginAt = new Date();
     await user.save();
-    req.session.userId    = String(user._id);
-    req.session.studentId = user.studentId;
-    req.session.email     = user.email;
-    req.session.role      = user.role;
-    res.json({ user: { id: user._id, studentId: user.studentId, email: user.email, firstName: user.firstName, middleInitial: user.middleInitial, lastName: user.lastName, gender: user.gender, college: user.college, role: user.role, lastLoginAt: prevLogin || null } });
+    // Regenerate session ID to prevent session fixation
+    req.session.regenerate((err) => {
+      if (err) return res.status(500).json({ error: "Session error." });
+      req.session.userId    = String(user._id);
+      req.session.studentId = user.studentId;
+      req.session.email     = user.email;
+      req.session.role      = user.role;
+      req.session.save((err) => {
+        if (err) return res.status(500).json({ error: "Session save error." });
+        res.json({ user: { id: user._id, studentId: user.studentId, email: user.email, firstName: user.firstName, middleInitial: user.middleInitial, lastName: user.lastName, gender: user.gender, college: user.college, role: user.role, lastLoginAt: prevLogin || null } });
+      });
+    });
   } catch (err) {
     console.error(err); res.status(500).json({ error: "Login failed" });
   }
