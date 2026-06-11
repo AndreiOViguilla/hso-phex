@@ -85,6 +85,23 @@ export default function LoginPage({ onLogin, onBack }) {
     } catch { show({ type: "error", message: "Could not connect to server. Please try again." }); setLoading(false); }
   };
 
+  const handleForgot = async (type) => {
+    if (!forgotEmail.includes("@")) { show({ type: "error", message: "Enter your email address." }); return; }
+    setForgotLoading(true);
+    try {
+      const endpoint = type === "password" ? "/api/auth/forgot-password" : "/api/auth/forgot-booking-code";
+      const resp = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) show({ type: "error", message: data.error || "Failed to send email." });
+      else { show({ type: "success", title: "Email sent!", message: data.message }); setForgotOpen(false); setForgotEmail(""); }
+    } catch { show({ type: "error", message: "Could not connect to server." }); }
+    setForgotLoading(false);
+  };
+
   const submitBtn = (label) => (
     <button onClick={tab === "signin" ? handleSignIn : handleRegister} disabled={loading}
       style={{ background: loading ? "#93c5fd" : "#1d4ed8", color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 15, fontWeight: 700, cursor: loading ? "default" : "pointer", fontFamily: "inherit", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 4 }}>
@@ -175,6 +192,12 @@ export default function LoginPage({ onLogin, onBack }) {
               </button>
             </>)}
             {submitBtn(tab === "signin" ? "Sign in" : "Create account")}
+            {tab === "signin" && (
+              <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 4 }}>
+                <button onClick={() => setForgotOpen("password")} style={{ background: "none", border: "none", color: t.accent, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Forgot password?</button>
+                <button onClick={() => setForgotOpen("code")} style={{ background: "none", border: "none", color: t.accent, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Forgot booking code?</button>
+              </div>
+            )}
             <div style={{ textAlign: "center", fontSize: 12, color: "#9ca3af" }}>
               {tab === "signin" ? (<>Don't have an account?{" "}<button onClick={() => { setTab("register"); reset(); }} style={{ background: "none", border: "none", color: "#1d4ed8", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>Register</button></>) : (<>Already have an account?{" "}<button onClick={() => { setTab("signin"); reset(); }} style={{ background: "none", border: "none", color: "#1d4ed8", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>Sign in</button></>)}
             </div>
@@ -182,6 +205,7 @@ export default function LoginPage({ onLogin, onBack }) {
         </div>
       </div>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      {ForgotModal}
     </div>
   );
 }

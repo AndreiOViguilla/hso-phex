@@ -12,6 +12,7 @@ import SuccessPage      from "./pages/SuccessPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import ProfilePage        from "./pages/ProfilePage";
 import ResetPasswordPage  from "./pages/ResetPasswordPage";
+import AdminDashboard     from "./pages/AdminDashboard";
 import { ThemeProvider } from "./ThemeContext";
 import { ModalProvider } from "./components/Modal";
 
