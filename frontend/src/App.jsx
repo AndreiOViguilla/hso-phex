@@ -103,7 +103,7 @@ function AppInner() {
   };
 
   const handleLogout = async () => {
-    try { await fetch((process.env.REACT_APP_API_URL || "") + "/api/auth/logout", { method: "POST", credentials: "include" }); } catch (_) {}
+    try { await fetch("/api/auth/logout", { method: "POST", credentials: "include" }); } catch (_) {}
     setAuthLoading(true);
     setStudentId(""); setSched(null);
     setPhexBooking(null); setDtBooking(null); setUserData(null);
@@ -123,11 +123,11 @@ function AppInner() {
         <Route path="/schedule" element={<RequireAuth userData={userData} authLoading={authLoading}><SchedulePage studentId={studentId} sched={sched} onBack={() => navigate("/")} onGuide={() => navigate("/guide")} onMEF={() => navigate("/mef")} onBookPHEx={() => openBooking("phex")} onBookDT={() => openBooking("dt")} onDEF={() => navigate("/def")} phexBooking={phexBooking} dtBooking={dtBooking} onLogout={handleLogout} onProfile={() => navigate("/profile")} userData={userData} /></RequireAuth>} />
         <Route path="/booking" element={<RequireAuth userData={userData} authLoading={authLoading}><BookingPage activity={bookActivity} studentId={studentId} prefillFirstName={userData?.firstName || ""} prefillLastName={userData?.lastName || ""} prefillEmail={userData?.email || ""} onBack={() => navigate("/schedule")} onBooked={(booking) => { if (bookActivity === "phex") setPhexBooking(booking); else setDtBooking(booking); navigate("/schedule"); }} /></RequireAuth>} />
         <Route path="/mef" element={<RequireAuth userData={userData} authLoading={authLoading}><MEFPage prefillId={studentId} prefillFirstName={userData?.firstName || ""} prefillLastName={userData?.lastName || ""} prefillMI={userData?.middleInitial || ""} prefillGender={userData?.gender || ""} onBack={() => navigate("/schedule")} onSuccess={async () => {
-                  await fetch((process.env.REACT_APP_API_URL || "") + "/api/students/me/progress", { method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ filledMEF: true }) });
+                  await fetch("/api/students/me/progress", { method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ filledMEF: true }) });
                   navigate("/schedule");
                 }} /></RequireAuth>} />
         <Route path="/def" element={<RequireAuth userData={userData} authLoading={authLoading}><DEFPage prefillId={studentId} prefillName={userData ? [userData.firstName, userData.middleInitial, userData.lastName].filter(Boolean).join(" ") : ""} onBack={() => navigate("/schedule")} onSuccess={async () => {
-                  await fetch((process.env.REACT_APP_API_URL || "") + "/api/students/me/progress", { method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ filledDEF: true }) });
+                  await fetch("/api/students/me/progress", { method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ filledDEF: true }) });
                   navigate("/schedule");
                 }} /></RequireAuth>} />
         <Route path="/success" element={<RequireAuth userData={userData} authLoading={authLoading}><SuccessPage onHome={() => navigate("/schedule")} /></RequireAuth>} />

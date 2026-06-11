@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express      = require("express");
 const cors         = require("cors");
+const path         = require("path");
 const session      = require("express-session");
 const MongoStore   = require("connect-mongo");
 const connectDB    = require("./db");
@@ -21,28 +22,19 @@ async function start() {
   await connectDB();
   await seedSlots();
 
-  const allowedOrigins = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://localhost:3002",
-    process.env.FRONTEND_URL,
-  ].filter(Boolean);
-
-  app.set("trust proxy", 1);
-
   app.use(cors({
     origin: (origin, cb) => {
-      // Allow requests with no origin (mobile apps, curl, etc.)
       if (!origin) return cb(null, true);
-      // Allow any localhost in development
-      if (origin.startsWith("http://localhost")) return cb(null, true);
-      if (allowedOrigins.includes(origin)) return cb(null, true);
+      if (origin.startsWith("http://localhost:")) return cb(null, true);
+      if (origin === process.env.FRONTEND_URL) return cb(null, true);
       cb(new Error("Not allowed by CORS"));
     },
     credentials: true,
   }));
 
   app.use(express.json());
+
+  app.set("trust proxy", 1);
 
   app.use(session({
     secret: process.env.SESSION_SECRET || "hso_phex_session_secret_2026",
@@ -56,7 +48,7 @@ async function start() {
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "lax" : "lax",
+      sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     },
   }));
@@ -68,6 +60,15 @@ async function start() {
   app.use("/api/hso",          hsoRoutes);
 
   app.get("/api/health", (req, res) => res.json({ status: "ok" }));
+
+  // Serve React frontend in production
+  if (process.env.NODE_ENV === "production") {
+    const frontendPath = path.join(__dirname, "../../frontend/build");
+    app.use(express.static(frontendPath));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(frontendPath, "index.html"));
+    });
+  }
 
   startAutoCancel();
 

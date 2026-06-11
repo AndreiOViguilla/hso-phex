@@ -53,7 +53,7 @@ export default function LoginPage({ onLogin, onBack }) {
     if (password !== confirm)        { show({ type: "error", message: "Passwords do not match." }); return; }
     setLoading(true);
     try {
-      const resp = await fetch((process.env.REACT_APP_API_URL || "") + "/api/auth/register", {
+      const resp = await fetch("/api/auth/register", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ studentId: idNumber.trim(), email, password, firstName: firstName.trim() || email.split("@")[0], lastName: lastName.trim() || "-", middleInitial: middleInitial.trim(), gender }),
       });
@@ -71,7 +71,7 @@ export default function LoginPage({ onLogin, onBack }) {
     if (!password)             { show({ type: "error", message: "Enter your password." }); return; }
     setLoading(true);
     try {
-      const resp = await fetch((process.env.REACT_APP_API_URL || "") + "/api/auth/login", {
+      const resp = await fetch("/api/auth/login", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
