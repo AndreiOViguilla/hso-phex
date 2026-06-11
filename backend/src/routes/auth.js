@@ -24,8 +24,7 @@ router.post("/register", [
     if (existing) return res.status(409).json({ error: "Email already registered" });
     const passwordHash = await bcrypt.hash(password, 12);
     const user = await User.create({ studentId, email, passwordHash, firstName, middleInitial: middleInitial || "", lastName, gender: gender || "", college: college || "" });
-    const token = jwt.sign({ id: user._id, studentId: user.studentId, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
-    res.status(201).json({ token, user: { id: user._id, studentId: user.studentId, email: user.email, firstName: user.firstName, middleInitial: user.middleInitial, lastName: user.lastName, gender: user.gender, college: user.college, role: user.role } });
+    res.status(201).json({ user: { id: user._id, studentId: user.studentId, email: user.email, firstName: user.firstName, middleInitial: user.middleInitial, lastName: user.lastName, gender: user.gender, college: user.college, role: user.role } });
   } catch (err) {
     if (err.code === 11000) { const field = Object.keys(err.keyPattern)[0]; return res.status(409).json({ error: field === "email" ? "Email already registered" : "Student ID already registered" }); }
     console.error(err); res.status(500).json({ error: "Registration failed" });
@@ -45,19 +44,31 @@ router.post("/login", [
     if (!user) return res.status(401).json({ error: "No account found with this email" });
     const isValid = await user.comparePassword(password);
     if (!isValid) return res.status(401).json({ error: "Incorrect password" });
-            const token = jwt.sign({ id: user._id, studentId: user.studentId, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
     // Save last login timestamp
     const prevLogin = user.lastLoginAt;
     user.lastLoginAt = new Date();
     await user.save();
-    res.json({ token, user: { id: user._id, studentId: user.studentId, email: user.email, firstName: user.firstName, middleInitial: user.middleInitial, lastName: user.lastName, gender: user.gender, college: user.college, role: user.role, lastLoginAt: prevLogin || null } });
+
+    // Create session
+    req.session.userId    = String(user._id);
+    req.session.studentId = user.studentId;
+    req.session.email     = user.email;
+    req.session.role      = user.role;
+
+    res.json({ user: { id: user._id, studentId: user.studentId, email: user.email, firstName: user.firstName, middleInitial: user.middleInitial, lastName: user.lastName, gender: user.gender, college: user.college, role: user.role, lastLoginAt: prevLogin || null } });
   } catch (err) {
     console.error(err); res.status(500).json({ error: "Login failed" });
   }
 });
 
 // POST /api/auth/logout
-router.post("/logout", (req, res) => res.json({ message: "Logged out" }));
+router.post("/logout", (req, res) => {
+  req.session.destroy(err => {
+    if (err) return res.status(500).json({ error: "Logout failed." });
+    res.clearCookie("connect.sid");
+    res.json({ message: "Logged out." });
+  });
+});
 
 // POST /api/auth/forgot-password
 router.post("/forgot-password", [

@@ -23,6 +23,8 @@ async function start() {
 
   const allowedOrigins = [
     "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
     process.env.FRONTEND_URL,
   ].filter(Boolean);
 
@@ -30,8 +32,12 @@ async function start() {
 
   app.use(cors({
     origin: (origin, cb) => {
-      if (!origin || allowedOrigins.includes(origin)) cb(null, true);
-      else cb(new Error("Not allowed by CORS"));
+      // Allow requests with no origin (mobile apps, curl, etc.)
+      if (!origin) return cb(null, true);
+      // Allow any localhost in development
+      if (origin.startsWith("http://localhost")) return cb(null, true);
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+      cb(new Error("Not allowed by CORS"));
     },
     credentials: true,
   }));
