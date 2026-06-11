@@ -16,10 +16,7 @@ import AdminDashboard     from "./pages/AdminDashboard";
 import { ThemeProvider } from "./ThemeContext";
 import { ModalProvider } from "./components/Modal";
 
-export function getAuthHeader() {
-  const token = localStorage.getItem("token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
+export function getAuthHeader() { return {}; }
 
 function RequireAuth({ userData, authLoading, children }) {
   if (authLoading) return (
@@ -53,15 +50,11 @@ function AppInner() {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) { setAuthLoading(false); return; }
-
-    // Wait for both auth and bookings before rendering
     const init = async () => {
       try {
         const [userResp, bookingsResp] = await Promise.all([
-          fetch("/api/students/me", { headers: getAuthHeader() }),
-          fetch("/api/appointments/mine", { headers: getAuthHeader() }),
+          fetch("/api/students/me", { credentials: "include" }),
+          fetch("/api/appointments/mine", { credentials: "include" }),
         ]);
 
         if (userResp.ok) {
@@ -70,7 +63,7 @@ function AppInner() {
           setStudentId(user.studentId);
           setSched(getSchedule(user.studentId));
         } else {
-          localStorage.removeItem("token");
+
         }
 
         if (bookingsResp.ok) {
@@ -84,12 +77,10 @@ function AppInner() {
       } catch (_) {}
       setAuthLoading(false);
     };
-
     init();
   }, []);
 
-  const handleLogin = async (id, user, token) => {
-    if (token) localStorage.setItem("token", token);
+  const handleLogin = async (id, user) => {
     setUserData(user);
     setStudentId(id);
     if (user.role === "admin" || user.role === "master" || user.role === "nurse") {
@@ -99,7 +90,7 @@ function AppInner() {
     setPhexBooking(null);
     setDtBooking(null);
     try {
-      const bookings = await fetch("/api/appointments/mine", { headers: getAuthHeader() }).then(r => r.json());
+      const bookings = await fetch("/api/appointments/mine", { credentials: "include" }).then(r => r.json());
       bookings.forEach(b => {
         const booking = { date: b.appointmentDate, time: b.timeSlot, code: b.bookingCode };
         if (b.appointmentType === "phex") setPhexBooking(booking);
@@ -111,9 +102,8 @@ function AppInner() {
     else navigate("/");
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+  const handleLogout = async () => {
+    try { await fetch("/api/auth/logout", { method: "POST", credentials: "include" }); } catch (_) {}
     setAuthLoading(true);
     setStudentId(""); setSched(null);
     setPhexBooking(null); setDtBooking(null); setUserData(null);
@@ -133,11 +123,11 @@ function AppInner() {
         <Route path="/schedule" element={<RequireAuth userData={userData} authLoading={authLoading}><SchedulePage studentId={studentId} sched={sched} onBack={() => navigate("/")} onGuide={() => navigate("/guide")} onMEF={() => navigate("/mef")} onBookPHEx={() => openBooking("phex")} onBookDT={() => openBooking("dt")} onDEF={() => navigate("/def")} phexBooking={phexBooking} dtBooking={dtBooking} onLogout={handleLogout} onProfile={() => navigate("/profile")} userData={userData} /></RequireAuth>} />
         <Route path="/booking" element={<RequireAuth userData={userData} authLoading={authLoading}><BookingPage activity={bookActivity} studentId={studentId} prefillFirstName={userData?.firstName || ""} prefillLastName={userData?.lastName || ""} prefillEmail={userData?.email || ""} onBack={() => navigate("/schedule")} onBooked={(booking) => { if (bookActivity === "phex") setPhexBooking(booking); else setDtBooking(booking); navigate("/schedule"); }} /></RequireAuth>} />
         <Route path="/mef" element={<RequireAuth userData={userData} authLoading={authLoading}><MEFPage prefillId={studentId} prefillFirstName={userData?.firstName || ""} prefillLastName={userData?.lastName || ""} prefillMI={userData?.middleInitial || ""} prefillGender={userData?.gender || ""} onBack={() => navigate("/schedule")} onSuccess={async () => {
-                  await fetch("/api/students/me/progress", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` }, body: JSON.stringify({ filledMEF: true }) });
+                  await fetch("/api/students/me/progress", { method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ filledMEF: true }) });
                   navigate("/schedule");
                 }} /></RequireAuth>} />
         <Route path="/def" element={<RequireAuth userData={userData} authLoading={authLoading}><DEFPage prefillId={studentId} prefillName={userData ? [userData.firstName, userData.middleInitial, userData.lastName].filter(Boolean).join(" ") : ""} onBack={() => navigate("/schedule")} onSuccess={async () => {
-                  await fetch("/api/students/me/progress", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` }, body: JSON.stringify({ filledDEF: true }) });
+                  await fetch("/api/students/me/progress", { method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ filledDEF: true }) });
                   navigate("/schedule");
                 }} /></RequireAuth>} />
         <Route path="/success" element={<RequireAuth userData={userData} authLoading={authLoading}><SuccessPage onHome={() => navigate("/schedule")} /></RequireAuth>} />

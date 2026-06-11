@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTheme } from "../ThemeContext";
 import { useModal } from "../components/Modal";
-import { getAuthHeader } from "../App";
 import { useIsMobile } from "../utils/useIsMobile";
 
 const TABS = ["Stats", "Slots", "Venues", "Students"];
@@ -21,7 +20,7 @@ function StatsTab({ t, dark }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/hso/students", { headers: getAuthHeader() })
+    fetch("/api/hso/students", { credentials: "include" })
       .then(r => r.ok ? r.json() : [])
       .then(data => { setStudents(data); setLoading(false); })
       .catch(() => setLoading(false));
@@ -44,7 +43,6 @@ function StatsTab({ t, dark }) {
 
   const pct = (v) => total > 0 ? Math.round((v / total) * 100) : 0;
 
-  // Sparkline helper — generates a smooth SVG path from an array of values
   const Sparkline = ({ values, color, width = 120, height = 36 }) => {
     if (!values || values.length < 2) return null;
     const max = Math.max(...values, 1);
@@ -78,125 +76,40 @@ function StatsTab({ t, dark }) {
     );
   };
 
-  // Build sparkline data per step (cumulative students at each step)
-  const stepSparkData = (targetStep) =>
-    [1,2,3,4,5,6,7].map(s => stepCounts[s] || 0).slice(0, targetStep);
-
-  // Icons
-  const IconUsers = ({ color }) => (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-    </svg>
-  );
-  const IconCheck = ({ color }) => (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12"/>
-    </svg>
-  );
-  const IconFile = ({ color }) => (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-      <polyline points="14 2 14 8 20 8"/>
-      <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
-    </svg>
-  );
-  const IconCalendar = ({ color }) => (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
-      <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-    </svg>
-  );
-  const IconActivity = ({ color }) => (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-    </svg>
-  );
+  const IconUsers = ({ color }) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
+  const IconCheckS = ({ color }) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
+  const IconFileS = ({ color }) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>;
+  const IconCalS = ({ color }) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
+  const IconActS = ({ color }) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
 
   const metricCards = [
-    {
-      label: "Total Students",
-      value: total,
-      sub: "Registered accounts",
-      color: "#6366f1",
-      bg: dark ? "#1e1b4b22" : "#eef2ff",
-      icon: <IconUsers color="#6366f1" />,
-      spark: [total * 0.3, total * 0.5, total * 0.65, total * 0.8, total * 0.9, total],
-      trend: null,
-    },
-    {
-      label: "Completed",
-      value: completed,
-      sub: `${pct(completed)}% of total`,
-      color: "#16a34a",
-      bg: dark ? "#14532d22" : "#f0fdf4",
-      icon: <IconCheck color="#16a34a" />,
-      spark: [completed * 0.1, completed * 0.3, completed * 0.5, completed * 0.7, completed * 0.9, completed],
-      trend: pct(completed),
-    },
-    {
-      label: "Forms Filled",
-      value: Math.round((mefFilled + defFilled) / 2),
-      sub: `MEF: ${mefFilled} · DEF: ${defFilled}`,
-      color: "#7c3aed",
-      bg: dark ? "#2e1065" + "22" : "#f5f3ff",
-      icon: <IconFile color="#7c3aed" />,
-      spark: [mefFilled * 0.2, defFilled * 0.3, mefFilled * 0.6, defFilled * 0.7, mefFilled * 0.9, Math.round((mefFilled+defFilled)/2)],
-      trend: pct(Math.round((mefFilled + defFilled) / 2)),
-    },
-    {
-      label: "Attended",
-      value: attended1 + attended2,
-      sub: `1st: ${attended1} · 2nd: ${attended2}`,
-      color: "#0d9488",
-      bg: dark ? "#134e4a22" : "#f0fdfa",
-      icon: <IconCalendar color="#0d9488" />,
-      spark: [attended1 * 0.2, attended1 * 0.5, attended1, attended1 + attended2 * 0.3, attended1 + attended2 * 0.7, attended1 + attended2],
-      trend: pct(attended2),
-    },
-    {
-      label: "In Progress",
-      value: total - completed,
-      sub: `${pct(total - completed)}% still going`,
-      color: "#f59e0b",
-      bg: dark ? "#78350f22" : "#fffbeb",
-      icon: <IconActivity color="#f59e0b" />,
-      spark: stepCounts.slice(1, 7),
-      trend: null,
-    },
+    { label: "Total Students", value: total, sub: "Registered accounts", color: "#6366f1", bg: dark ? "#1e1b4b22" : "#eef2ff", icon: <IconUsers color="#6366f1" />, spark: [total*0.3,total*0.5,total*0.65,total*0.8,total*0.9,total], trend: null },
+    { label: "Completed", value: completed, sub: `${pct(completed)}% of total`, color: "#16a34a", bg: dark ? "#14532d22" : "#f0fdf4", icon: <IconCheckS color="#16a34a" />, spark: [completed*0.1,completed*0.3,completed*0.5,completed*0.7,completed*0.9,completed], trend: pct(completed) },
+    { label: "Forms Filled", value: Math.round((mefFilled+defFilled)/2), sub: `MEF: ${mefFilled} · DEF: ${defFilled}`, color: "#7c3aed", bg: dark ? "#2e106522" : "#f5f3ff", icon: <IconFileS color="#7c3aed" />, spark: [mefFilled*0.2,defFilled*0.3,mefFilled*0.6,defFilled*0.7,mefFilled*0.9,Math.round((mefFilled+defFilled)/2)], trend: pct(Math.round((mefFilled+defFilled)/2)) },
+    { label: "Attended", value: attended1+attended2, sub: `1st: ${attended1} · 2nd: ${attended2}`, color: "#0d9488", bg: dark ? "#134e4a22" : "#f0fdfa", icon: <IconCalS color="#0d9488" />, spark: [attended1*0.2,attended1*0.5,attended1,attended1+attended2*0.3,attended1+attended2*0.7,attended1+attended2], trend: pct(attended2) },
+    { label: "In Progress", value: total-completed, sub: `${pct(total-completed)}% still going`, color: "#f59e0b", bg: dark ? "#78350f22" : "#fffbeb", icon: <IconActS color="#f59e0b" />, spark: stepCounts.slice(1,7), trend: null },
   ];
 
   return (
     <div>
-      {/* Metric cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14, marginBottom: 28 }}>
         {metricCards.map((card, i) => (
-          <div key={i} style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, padding: "18px 20px", overflow: "hidden", position: "relative" }}>
+          <div key={i} style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, padding: "18px 20px", overflow: "hidden" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: t.textSub }}>{card.label}</div>
-              <div style={{ width: 38, height: 38, borderRadius: 10, background: card.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                {card.icon}
-              </div>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: card.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{card.icon}</div>
             </div>
             <div style={{ fontSize: 28, fontWeight: 800, color: t.text, lineHeight: 1, marginBottom: 4 }}>{card.value.toLocaleString()}</div>
-            {card.trend !== null && (
-              <div style={{ fontSize: 12, color: card.color, fontWeight: 600, marginBottom: 8, display: "flex", alignItems: "center", gap: 4 }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={card.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="18 15 12 9 6 15"/>
-                </svg>
-                +{card.trend}% completion rate
-              </div>
-            )}
-            {card.trend === null && (
-              <div style={{ fontSize: 11, color: t.textSub, marginBottom: 8 }}>{card.sub}</div>
-            )}
+            {card.trend !== null
+              ? <div style={{ fontSize: 12, color: card.color, fontWeight: 600, marginBottom: 8, display: "flex", alignItems: "center", gap: 4 }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={card.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>+{card.trend}% completion rate</div>
+              : <div style={{ fontSize: 11, color: t.textSub, marginBottom: 8 }}>{card.sub}</div>
+            }
             <Sparkline values={card.spark} color={card.color} width={160} height={36} />
             <div style={{ fontSize: 11, color: t.textMuted, marginTop: 6 }}>{card.sub}</div>
           </div>
         ))}
       </div>
 
-      {/* Step funnel */}
       <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, padding: "20px", marginBottom: 20 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 4 }}>Students per step</div>
         <div style={{ fontSize: 12, color: t.textSub, marginBottom: 16 }}>How far along each student is in the process</div>
@@ -207,7 +120,7 @@ function StatsTab({ t, dark }) {
             return (
               <div key={step} style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: t.textSub, width: 52, flexShrink: 0 }}>Step {step}</div>
-                <div style={{ flex: 1, height: 22, background: dark ? "#1e293b" : "#f1f5f9", borderRadius: 6, overflow: "hidden", position: "relative" }}>
+                <div style={{ flex: 1, height: 22, background: dark ? "#1e293b" : "#f1f5f9", borderRadius: 6, overflow: "hidden" }}>
                   <div style={{ width: `${pctVal}%`, height: "100%", background: stepColors[step], borderRadius: 6, transition: "width 0.5s ease", minWidth: count > 0 ? 6 : 0 }} />
                 </div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: t.text, width: 28, textAlign: "right", flexShrink: 0 }}>{count}</div>
@@ -218,7 +131,6 @@ function StatsTab({ t, dark }) {
         </div>
       </div>
 
-      {/* Batch breakdown */}
       <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, padding: "20px" }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 4 }}>By batch</div>
         <div style={{ fontSize: 12, color: t.textSub, marginBottom: 16 }}>Completion rate by student ID prefix</div>
@@ -276,7 +188,7 @@ function SlotsTab({ t, dark }) {
   const load = async () => {
     setLoading(true);
     try {
-      const r = await fetch(`/api/hso/slots?type=${type}`, { headers: getAuthHeader() });
+      const r = await fetch(`/api/hso/slots?type=${type}`, { credentials: "include" });
       if (r.ok) setSlots(await r.json());
     } catch (_) {}
     setLoading(false);
@@ -298,7 +210,7 @@ function SlotsTab({ t, dark }) {
       const slotsPayload = DEFAULT_TIMES.map(time => ({ time, capacity, booked: 0 }));
       const r = await fetch("/api/hso/slots", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ appointmentType: type, date: newDate, slots: slotsPayload }),
       });
       if (r.ok) { show({ type: "success", message: "Slots added for " + formatDate(newDate) + "!" }); setNewDate(""); load(); }
@@ -310,7 +222,7 @@ function SlotsTab({ t, dark }) {
   const handleDelete = async (date) => {
     if (!window.confirm("Delete all slots for " + formatDate(date) + "?")) return;
     try {
-      await fetch("/api/hso/slots/" + type + "/" + date, { method: "DELETE", headers: getAuthHeader() });
+      await fetch("/api/hso/slots/" + type + "/" + date, { method: "DELETE", credentials: "include" });
       if (newDate === date) setNewDate("");
       load();
     } catch (_) {}
@@ -475,7 +387,7 @@ function VenuesTab({ t }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/hso/settings", { headers: getAuthHeader() })
+    fetch("/api/hso/settings", { credentials: "include" })
       .then(r => r.ok ? r.json() : {})
       .then(data => setVenues(v => ({ ...v, ...data })))
       .catch(() => {});
@@ -486,7 +398,7 @@ function VenuesTab({ t }) {
     try {
       const r = await fetch("/api/hso/settings", {
         method: "PUT",
-        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ key, value }),
       });
       if (r.ok) show({ type: "success", message: "Venue updated!" });
@@ -533,7 +445,7 @@ function StudentsTab({ t, isMaster }) {
   const [search, setSearch] = useState("");
 
   const load = () => {
-    fetch("/api/hso/students", { headers: getAuthHeader() })
+    fetch("/api/hso/students", { credentials: "include" })
       .then(r => r.ok ? r.json() : [])
       .then(data => { setStudents(data); setLoading(false); })
       .catch(() => setLoading(false));
@@ -544,7 +456,7 @@ function StudentsTab({ t, isMaster }) {
   const handleDelete = async (id, name) => {
     if (!window.confirm(`Delete account for ${name}? This will also delete all their appointments.`)) return;
     try {
-      const r = await fetch(`/api/hso/students/${id}`, { method: "DELETE", headers: getAuthHeader() });
+      const r = await fetch(`/api/hso/students/${id}`, { method: "DELETE", credentials: "include" });
       const d = await r.json();
       if (!r.ok) show({ type: "error", message: d.error });
       else { show({ type: "success", message: `${name}'s account deleted.` }); load(); }
@@ -604,7 +516,7 @@ function UsersTab({ t }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const load = () => {
-    fetch("/api/hso/users", { headers: getAuthHeader() })
+    fetch("/api/hso/users", { credentials: "include" })
       .then(r => r.ok ? r.json() : [])
       .then(data => { setUsers(data); setLoading(false); })
       .catch(() => setLoading(false));
@@ -618,7 +530,7 @@ function UsersTab({ t }) {
     try {
       const r = await fetch("/api/hso/users", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify(form),
       });
       const d = await r.json();
@@ -632,7 +544,7 @@ function UsersTab({ t }) {
     try {
       await fetch(`/api/hso/users/${id}/role`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ role }),
       });
       load();
@@ -642,7 +554,7 @@ function UsersTab({ t }) {
   const handleDelete = async (id, name) => {
     if (!window.confirm(`Delete account for ${name}?`)) return;
     try {
-      const r = await fetch(`/api/hso/users/${id}`, { method: "DELETE", headers: getAuthHeader() });
+      const r = await fetch(`/api/hso/users/${id}`, { method: "DELETE", credentials: "include" });
       const d = await r.json();
       if (!r.ok) show({ type: "error", message: d.error });
       else load();
@@ -747,54 +659,12 @@ export default function AdminDashboard({ userData, onLogout, onBack }) {
 
       {/* Tabs */}
       <div style={{ display: "flex", borderBottom: `1px solid ${t.divider}`, background: t.card, flexShrink: 0, overflowX: "auto" }}>
-        {tabs.map(tab => {
-          const icons = {
-            Stats: (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
-              </svg>
-            ),
-            Slots: (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-              </svg>
-            ),
-            Venues: (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
-              </svg>
-            ),
-            Students: (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-              </svg>
-            ),
-            Users: (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-                <line x1="19" y1="8" x2="23" y2="8"/><line x1="21" y1="6" x2="21" y2="10"/>
-              </svg>
-            ),
-          };
-          const isActive = activeTab === tab;
-          return (
-            <button key={tab} onClick={() => setActiveTab(tab)}
-              style={{
-                padding: "12px 18px", border: "none",
-                borderBottom: `2px solid ${isActive ? t.accent : "transparent"}`,
-                background: "none",
-                color: isActive ? t.accent : t.textSub,
-                fontSize: 13, fontWeight: isActive ? 700 : 500,
-                cursor: "pointer", fontFamily: "inherit",
-                whiteSpace: "nowrap",
-                display: "flex", alignItems: "center", gap: 6,
-                transition: "color 0.15s",
-              }}>
-              {icons[tab]}
-              {tab}
-            </button>
-          );
-        })}
+        {tabs.map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            style={{ padding: "12px 20px", border: "none", borderBottom: `2px solid ${activeTab === tab ? t.accent : "transparent"}`, background: "none", color: activeTab === tab ? t.accent : t.textSub, fontSize: 13, fontWeight: activeTab === tab ? 700 : 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+            {tab}
+          </button>
+        ))}
       </div>
 
       {/* Content */}

@@ -21,31 +21,37 @@ async function start() {
   await connectDB();
   await seedSlots();
 
+  const allowedOrigins = [
+    "http://localhost:3000",
+    process.env.FRONTEND_URL,
+  ].filter(Boolean);
+
+  app.set("trust proxy", 1);
+
   app.use(cors({
-    origin: [
-      "http://localhost:3000",
-      process.env.FRONTEND_URL,
-    ].filter(Boolean),
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.includes(origin)) cb(null, true);
+      else cb(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   }));
 
   app.use(express.json());
 
-  // Session middleware
   app.use(session({
     secret: process.env.SESSION_SECRET || "hso_phex_session_secret_2026",
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
       mongoUrl: process.env.MONGODB_URI,
-      ttl: 7 * 24 * 60 * 60, // 7 days
+      ttl: 7 * 24 * 60 * 60,
       autoRemove: "native",
     }),
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      secure: true,
+      sameSite: "none",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     },
   }));
 

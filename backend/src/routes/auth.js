@@ -45,9 +45,7 @@ router.post("/login", [
     if (!user) return res.status(401).json({ error: "No account found with this email" });
     const isValid = await user.comparePassword(password);
     if (!isValid) return res.status(401).json({ error: "Incorrect password" });
-    const jwt = require("jsonwebtoken");
-    const JWT_SECRET = process.env.JWT_SECRET || "hso_phex_fallback_secret_2026";
-    const token = jwt.sign({ id: user._id, studentId: user.studentId, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
+            const token = jwt.sign({ id: user._id, studentId: user.studentId, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
     // Save last login timestamp
     const prevLogin = user.lastLoginAt;
     user.lastLoginAt = new Date();

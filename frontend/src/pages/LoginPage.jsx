@@ -55,7 +55,6 @@ export default function LoginPage({ onLogin, onBack }) {
     try {
       const resp = await fetch("/api/auth/register", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ studentId: idNumber.trim(), email, password, firstName: firstName.trim() || email.split("@")[0], lastName: lastName.trim() || "-", middleInitial: middleInitial.trim(), gender }),
       });
       const data = await resp.json();
@@ -74,14 +73,12 @@ export default function LoginPage({ onLogin, onBack }) {
     try {
       const resp = await fetch("/api/auth/login", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ email, password }),
       });
       const data = await resp.json();
       if (!resp.ok) { show({ type: "error", message: data.error || "Login failed" }); setLoading(false); return; }
-      localStorage.setItem("token", data.token);
       setLoading(false);
-      onLogin(data.user.studentId, data.user, data.token);
+      onLogin(data.user.studentId, data.user);
     } catch { show({ type: "error", message: "Could not connect to server. Please try again." }); setLoading(false); }
   };
 

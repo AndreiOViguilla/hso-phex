@@ -121,7 +121,7 @@ function AppointmentHistory({ t }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/appointments/history", { headers: getAuthHeader() })
+    fetch("/api/appointments/history", { credentials: "include" })
       .then(r => r.ok ? r.json() : [])
       .then(data => { setHistory(data); setLoading(false); })
       .catch(() => setLoading(false));
@@ -247,7 +247,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
   const allItems = [...CHECKLIST_PHEX, ...CHECKLIST_DT];
 
   const fetchProgress = () => {
-    fetch("/api/students/me", { headers: getAuthHeader() })
+    fetch("/api/students/me", { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
       .then(user => {
         if (!user) return;
@@ -272,7 +272,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
   const saveProgress = (updates) => {
     fetch("/api/students/me/progress", {
       method: "PUT",
-      headers: { "Content-Type": "application/json", ...getAuthHeader() },
+      headers: { "Content-Type": "application/json" }, credentials: "include",
       body: JSON.stringify(updates),
     }).catch(() => {});
   };
