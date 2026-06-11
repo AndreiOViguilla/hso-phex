@@ -507,8 +507,37 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
                 const bookingCode = rescheduleFor === "phex" ? bookedPHEx?.code : bookedDT?.code;
                 if (!rescheduleCode.trim()) { show({ type: "error", message: "Please enter your booking code." }); return; }
                 if (rescheduleCode.trim() !== bookingCode) { show({ type: "error", message: "Incorrect booking code. Please try again." }); return; }
-                if (rescheduleFor === "phex") { setBookedPHEx(null); onBookPHEx(); }
-                else { setBookedDT(null); onBookDT(); }
+                if (rescheduleFor === "phex") {
+                  setBookedPHEx(null);
+                  // Reset PHEx-related checklist items and attended state
+                  const phexIds = CHECKLIST_PHEX.map(i => i.id);
+                  const newChecked = checked.filter(id => !phexIds.includes(id));
+                  setChecked(newChecked);
+                  // If phex was first, reset attendedFirst; if second, reset attendedSecond
+                  if (phexFirst) {
+                    setAttendedFirst(false);
+                    saveProgress({ checklist: newChecked, attendedFirst: false });
+                  } else {
+                    setAttendedSecond(false);
+                    saveProgress({ checklist: newChecked, attendedSecond: false });
+                  }
+                  onBookPHEx();
+                } else {
+                  setBookedDT(null);
+                  // Reset DT-related checklist items and attended state
+                  const dtIds = CHECKLIST_DT.map(i => i.id);
+                  const newChecked = checked.filter(id => !dtIds.includes(id));
+                  setChecked(newChecked);
+                  // If dt was first, reset attendedFirst; if second, reset attendedSecond
+                  if (!phexFirst) {
+                    setAttendedFirst(false);
+                    saveProgress({ checklist: newChecked, attendedFirst: false });
+                  } else {
+                    setAttendedSecond(false);
+                    saveProgress({ checklist: newChecked, attendedSecond: false });
+                  }
+                  onBookDT();
+                }
                 setRescheduleFor(null);
               }} style={{ flex: 1, padding: "11px", border: "none", borderRadius: 10, background: t.accentBtn, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Confirm</button>
             </div>

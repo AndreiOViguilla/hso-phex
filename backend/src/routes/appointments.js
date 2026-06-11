@@ -186,13 +186,52 @@ router.get("/mine", authMiddleware, async (req, res) => {
 // DELETE /api/appointments/:id — cancel and free the slot
 router.delete("/:id", authMiddleware, async (req, res) => {
   try {
+    const User = require("../models/User");
     const appt = await Appointment.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
     if (appt) {
+      // Restore slot count
       const Model = getModel(appt.appointmentType);
       await Model.findOneAndUpdate(
         { date: appt.appointmentDate, "slots.time": appt.timeSlot },
         { $inc: { "slots.$.booked": -1 } }
       );
+
+      // Reset checklist items and attended state for this appointment type
+      const CHECKLIST_PHEX = ["mef", "id", "fast", "clothes", "glasses", "arrive"];
+      const CHECKLIST_DT   = ["def", "id_dt", "water", "avoid", "arrive_dt"];
+      const user = await User.findById(req.user.id);
+      if (user) {
+        const idsToRemove = appt.appointmentType === "phex" ? CHECKLIST_PHEX : CHECKLIST_DT;
+        const newChecklist = (user.checklist || []).filter(id => !idsToRemove.includes(id));
+
+        // Determine if this appt was first or second based on other appointment
+        const otherType = appt.appointmentType === "phex" ? "dt" : "phex";
+        const otherAppt = await Appointment.findOne({ userId: req.user.id, appointmentType: otherType, status: "confirmed" });
+
+        const update = { checklist: newChecklist };
+
+        if (!otherAppt) {
+          // No other appointment — reset both
+          update.attendedFirst  = false;
+          update.attendedSecond = false;
+        } else {
+          // Determine which was first chronologically
+          const parseMs = (a) => {
+            const [tp, ap] = [a.timeSlot.slice(0,-2), a.timeSlot.slice(-2)];
+            let [h, m] = tp.split(":").map(Number);
+            if (ap === "pm" && h !== 12) h += 12;
+            if (ap === "am" && h === 12) h = 0;
+            return new Date(a.appointmentDate + "T00:00:00").getTime() + h * 3600000 + m * 60000;
+          };
+          const deletedMs = parseMs(appt);
+          const otherMs   = parseMs(otherAppt);
+          const deletedWasFirst = deletedMs <= otherMs;
+          if (deletedWasFirst) update.attendedFirst  = false;
+          else                  update.attendedSecond = false;
+        }
+
+        await User.findByIdAndUpdate(req.user.id, update);
+      }
     }
     res.json({ message: "Booking cancelled" });
   } catch (err) {
