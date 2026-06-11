@@ -1,5 +1,7 @@
 require("dotenv").config();
 const express      = require("express");
+const helmet       = require("helmet");
+const rateLimit    = require("express-rate-limit");
 const cors         = require("cors");
 const path         = require("path");
 const session      = require("express-session");
@@ -22,14 +24,18 @@ async function start() {
   await connectDB();
   await seedSlots();
 
+  const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    process.env.RENDER_EXTERNAL_URL,
+    "https://hso-phex-backend.onrender.com",
+    "https://hso-phex.vercel.app",
+  ].filter(Boolean);
+
   app.use(cors({
     origin: (origin, cb) => {
       if (!origin) return cb(null, true);
       if (origin.startsWith("http://localhost:")) return cb(null, true);
-      if (origin === process.env.FRONTEND_URL) return cb(null, true);
-      if (origin === process.env.RENDER_EXTERNAL_URL) return cb(null, true);
-      if (origin?.includes("onrender.com")) return cb(null, true);
-      if (origin?.includes("vercel.app")) return cb(null, true);
+      if (allowedOrigins.includes(origin)) return cb(null, true);
       cb(new Error("Not allowed by CORS"));
     },
     credentials: true,
@@ -38,6 +44,30 @@ async function start() {
   app.use(express.json());
 
   app.set("trust proxy", 1);
+
+  // Security headers
+  app.use(helmet({
+    contentSecurityPolicy: false, // Disabled to not break React
+  }));
+
+  // Rate limiting
+  const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // 100 requests per 15 min globally
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many requests, please try again later." },
+  });
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10, // 10 login/register attempts per 15 min
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many attempts. Please wait 15 minutes and try again." },
+  });
+  app.use(globalLimiter);
+  app.use("/api/auth/login",    authLimiter);
+  app.use("/api/auth/register", authLimiter);
 
   app.use(session({
     secret: process.env.SESSION_SECRET || "hso_phex_session_secret_2026",

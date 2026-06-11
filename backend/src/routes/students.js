@@ -77,7 +77,7 @@ router.get("/me", authMiddleware, async (req, res) => {
     });
 
     user.currentStep = calculatedStep;
-    res.json(user);
+    res.json(user.toSafeObject ? user.toSafeObject() : user);
   } catch (err) {
     console.error("GET /me error:", err.message);
     res.status(500).json({ error: "Failed to fetch profile", detail: err.message });
@@ -99,7 +99,7 @@ router.put("/me", authMiddleware, async (req, res) => {
       { firstName, middleInitial, lastName, gender, college, birthday, contact, course },
       { new: true }
     ).select("-passwordHash");
-    res.json(user);
+    res.json(user.toSafeObject ? user.toSafeObject() : user);
   } catch (err) {
     console.error("PUT /me error:", err.message);
     res.status(500).json({ error: "Failed to update profile" });
@@ -118,7 +118,7 @@ router.put("/me/progress", authMiddleware, async (req, res) => {
     if (attendedFirst   !== undefined) update.attendedFirst   = attendedFirst;
     if (attendedSecond  !== undefined) update.attendedSecond  = attendedSecond;
     const user = await User.findByIdAndUpdate(req.user.id, update, { new: true }).select("-passwordHash");
-    res.json(user);
+    res.json(user.toSafeObject ? user.toSafeObject() : user);
   } catch (err) {
     console.error("PUT /me/progress error:", err.message);
     res.status(500).json({ error: "Failed to update progress" });

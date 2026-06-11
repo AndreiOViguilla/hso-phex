@@ -1,5 +1,30 @@
 const mongoose = require("mongoose");
 const bcrypt   = require("bcryptjs");
+const crypto   = require("crypto");
+
+// Field-level encryption for sensitive data
+const FIELD_KEY = process.env.FIELD_ENCRYPTION_KEY || "hso_phex_field_enc_key_32bytes!!";
+const KEY = Buffer.from(FIELD_KEY.padEnd(32).slice(0, 32));
+const ALGO = "aes-256-cbc";
+
+function encrypt(text) {
+  if (!text) return text;
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv(ALGO, KEY, iv);
+  const encrypted = Buffer.concat([cipher.update(String(text), "utf8"), cipher.final()]);
+  return iv.toString("hex") + ":" + encrypted.toString("hex");
+}
+
+function decrypt(text) {
+  if (!text || !text.includes(":")) return text;
+  try {
+    const [ivHex, encHex] = text.split(":");
+    const iv = Buffer.from(ivHex, "hex");
+    const decipher = crypto.createDecipheriv(ALGO, KEY, iv);
+    const decrypted = Buffer.concat([decipher.update(Buffer.from(encHex, "hex")), decipher.final()]);
+    return decrypted.toString("utf8");
+  } catch { return text; }
+}
 
 const userSchema = new mongoose.Schema({
   studentId:    { type: String, unique: true, sparse: true },
