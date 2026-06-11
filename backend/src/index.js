@@ -1,8 +1,10 @@
 require("dotenv").config();
-const express  = require("express");
-const cors     = require("cors");
-const connectDB  = require("./db");
-const seedSlots  = require("./services/seedSlots");
+const express      = require("express");
+const cors         = require("cors");
+const session      = require("express-session");
+const MongoStore   = require("connect-mongo");
+const connectDB    = require("./db");
+const seedSlots    = require("./services/seedSlots");
 
 const authRoutes        = require("./routes/auth");
 const studentRoutes     = require("./routes/students");
@@ -29,6 +31,24 @@ async function start() {
 
   app.use(express.json());
 
+  // Session middleware
+  app.use(session({
+    secret: process.env.SESSION_SECRET || "hso_phex_session_secret_2026",
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({
+      mongoUrl: process.env.MONGODB_URI,
+      ttl: 7 * 24 * 60 * 60, // 7 days
+      autoRemove: "native",
+    }),
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    },
+  }));
+
   app.use("/api/auth",         authRoutes);
   app.use("/api/students",     studentRoutes);
   app.use("/api/appointments", appointmentRoutes);
@@ -37,7 +57,6 @@ async function start() {
 
   app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
-  // Start auto-cancel scheduler
   startAutoCancel();
 
   app.listen(PORT, () => console.log(`HSO PHEx backend running on port ${PORT}`));

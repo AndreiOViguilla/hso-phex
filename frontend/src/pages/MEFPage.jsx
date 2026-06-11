@@ -97,7 +97,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
   });
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = null;
     if (!token) return;
     fetch("/api/students/me", { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : null)

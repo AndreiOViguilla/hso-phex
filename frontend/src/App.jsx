@@ -14,12 +14,9 @@ import ProfilePage        from "./pages/ProfilePage";
 import ResetPasswordPage  from "./pages/ResetPasswordPage";
 import { ThemeProvider } from "./ThemeContext";
 import { ModalProvider } from "./components/Modal";
-import AdminDashboard from "./pages/AdminDashboard";
 
-export function getAuthHeader() {
-  const token = localStorage.getItem("token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
+// Cookies are sent automatically with credentials: "include"
+export function getAuthHeader() { return {}; }
 
 function RequireAuth({ userData, authLoading, children }) {
   if (authLoading) return (
@@ -88,8 +85,7 @@ function AppInner() {
     init();
   }, []);
 
-  const handleLogin = async (id, user, token) => {
-    if (token) localStorage.setItem("token", token);
+  const handleLogin = async (id, user) => {
     setUserData(user);
     setStudentId(id);
     if (user.role === "admin" || user.role === "master" || user.role === "nurse") {
@@ -111,12 +107,11 @@ function AppInner() {
     else navigate("/");
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    // Set authLoading true so RequireAuth shows spinner instead of unauthorized
-    // while we navigate away
+  const handleLogout = async () => {
     setAuthLoading(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } catch (_) {}
     setStudentId(""); setSched(null);
     setPhexBooking(null); setDtBooking(null); setUserData(null);
     navigate("/", { replace: true });

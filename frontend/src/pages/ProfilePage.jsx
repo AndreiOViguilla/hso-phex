@@ -35,7 +35,7 @@ export default function ProfilePage({ userData, onBack, onSaved }) {
 
   // Fetch fresh data from backend on mount — override any stale props
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = null;
     if (!token) return;
     fetch("/api/students/me", { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : null)
@@ -70,7 +70,7 @@ export default function ProfilePage({ userData, onBack, onSaved }) {
     try {
       const resp = await fetch("/api/students/me/password", {
         method: "PUT",
-        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ currentPassword: pwForm.current, newPassword: pwForm.newPw }),
       });
       const data = await resp.json();
@@ -102,7 +102,7 @@ export default function ProfilePage({ userData, onBack, onSaved }) {
     try {
       const resp = await fetch("/api/students/me", {
         method: "PUT",
-        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify(form),
       });
       const data = await resp.json();
