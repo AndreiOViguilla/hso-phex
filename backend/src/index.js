@@ -27,6 +27,9 @@ async function start() {
       if (!origin) return cb(null, true);
       if (origin.startsWith("http://localhost:")) return cb(null, true);
       if (origin === process.env.FRONTEND_URL) return cb(null, true);
+      if (origin === process.env.RENDER_EXTERNAL_URL) return cb(null, true);
+      if (origin?.includes("onrender.com")) return cb(null, true);
+      if (origin?.includes("vercel.app")) return cb(null, true);
       cb(new Error("Not allowed by CORS"));
     },
     credentials: true,
