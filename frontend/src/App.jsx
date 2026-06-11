@@ -50,6 +50,9 @@ function AppInner() {
   }, []);
 
   useEffect(() => {
+    // Only attempt restore if we have a session hint flag
+    if (!sessionStorage.getItem("hasSession")) { setAuthLoading(false); return; }
+
     const init = async () => {
       try {
         const [userResp, bookingsResp] = await Promise.all([
@@ -63,6 +66,7 @@ function AppInner() {
           setStudentId(user.studentId);
           setSched(getSchedule(user.studentId));
         } else {
+          sessionStorage.removeItem("hasSession");
 
         }
 
@@ -81,6 +85,7 @@ function AppInner() {
   }, []);
 
   const handleLogin = async (id, user) => {
+    sessionStorage.setItem("hasSession", "1");
     setUserData(user);
     setStudentId(id);
     if (user.role === "admin" || user.role === "master" || user.role === "nurse") {
@@ -103,6 +108,7 @@ function AppInner() {
   };
 
   const handleLogout = async () => {
+    sessionStorage.removeItem("hasSession");
     try { await fetch("/api/auth/logout", { method: "POST", credentials: "include" }); } catch (_) {}
     setAuthLoading(true);
     setStudentId(""); setSched(null);
