@@ -121,7 +121,7 @@ function AppointmentHistory({ t }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/appointments/history", { credentials: "include" })
+    fetch((process.env.REACT_APP_API_URL || "") + "/api/appointments/history", { credentials: "include" })
       .then(r => r.ok ? r.json() : [])
       .then(data => { setHistory(data); setLoading(false); })
       .catch(() => setLoading(false));
@@ -194,7 +194,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
     if (!forgotCodeEmail.includes("@")) { show({ type: "error", message: "Enter your email address." }); return; }
     setForgotCodeLoading(true);
     try {
-      const resp = await fetch("/api/auth/forgot-booking-code", {
+      const resp = await fetch((process.env.REACT_APP_API_URL || "") + "/api/auth/forgot-booking-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: forgotCodeEmail }),
@@ -247,7 +247,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
   const allItems = [...CHECKLIST_PHEX, ...CHECKLIST_DT];
 
   const fetchProgress = () => {
-    fetch("/api/students/me", { credentials: "include" })
+    fetch((process.env.REACT_APP_API_URL || "") + "/api/students/me", { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
       .then(user => {
         if (!user) return;
@@ -270,7 +270,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
   }, []);
 
   const saveProgress = (updates) => {
-    fetch("/api/students/me/progress", {
+    fetch((process.env.REACT_APP_API_URL || "") + "/api/students/me/progress", {
       method: "PUT",
       headers: { "Content-Type": "application/json" }, credentials: "include",
       body: JSON.stringify(updates),

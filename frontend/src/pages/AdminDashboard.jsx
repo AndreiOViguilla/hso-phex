@@ -20,7 +20,7 @@ function StatsTab({ t, dark }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/hso/students", { credentials: "include" })
+    fetch((process.env.REACT_APP_API_URL || "") + "/api/hso/students", { credentials: "include" })
       .then(r => r.ok ? r.json() : [])
       .then(data => { setStudents(data); setLoading(false); })
       .catch(() => setLoading(false));
@@ -188,7 +188,7 @@ function SlotsTab({ t, dark }) {
   const load = async () => {
     setLoading(true);
     try {
-      const r = await fetch(`/api/hso/slots?type=${type}`, { credentials: "include" });
+      const r = await fetch((process.env.REACT_APP_API_URL || "") + `/api/hso/slots?type=${type}`, { credentials: "include" });
       if (r.ok) setSlots(await r.json());
     } catch (_) {}
     setLoading(false);
@@ -208,7 +208,7 @@ function SlotsTab({ t, dark }) {
     setSaving(true);
     try {
       const slotsPayload = DEFAULT_TIMES.map(time => ({ time, capacity, booked: 0 }));
-      const r = await fetch("/api/hso/slots", {
+      const r = await fetch((process.env.REACT_APP_API_URL || "") + "/api/hso/slots", {
         method: "POST",
         headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ appointmentType: type, date: newDate, slots: slotsPayload }),
@@ -222,7 +222,7 @@ function SlotsTab({ t, dark }) {
   const handleDelete = async (date) => {
     if (!window.confirm("Delete all slots for " + formatDate(date) + "?")) return;
     try {
-      await fetch("/api/hso/slots/" + type + "/" + date, { method: "DELETE", credentials: "include" });
+      await fetch((process.env.REACT_APP_API_URL || "") + "/api/hso/slots/" + type + "/" + date, { method: "DELETE", credentials: "include" });
       if (newDate === date) setNewDate("");
       load();
     } catch (_) {}
@@ -387,7 +387,7 @@ function VenuesTab({ t }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/hso/settings", { credentials: "include" })
+    fetch((process.env.REACT_APP_API_URL || "") + "/api/hso/settings", { credentials: "include" })
       .then(r => r.ok ? r.json() : {})
       .then(data => setVenues(v => ({ ...v, ...data })))
       .catch(() => {});
@@ -396,7 +396,7 @@ function VenuesTab({ t }) {
   const save = async (key, value) => {
     setSaving(true);
     try {
-      const r = await fetch("/api/hso/settings", {
+      const r = await fetch((process.env.REACT_APP_API_URL || "") + "/api/hso/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ key, value }),
@@ -445,7 +445,7 @@ function StudentsTab({ t, isMaster }) {
   const [search, setSearch] = useState("");
 
   const load = () => {
-    fetch("/api/hso/students", { credentials: "include" })
+    fetch((process.env.REACT_APP_API_URL || "") + "/api/hso/students", { credentials: "include" })
       .then(r => r.ok ? r.json() : [])
       .then(data => { setStudents(data); setLoading(false); })
       .catch(() => setLoading(false));
@@ -456,7 +456,7 @@ function StudentsTab({ t, isMaster }) {
   const handleDelete = async (id, name) => {
     if (!window.confirm(`Delete account for ${name}? This will also delete all their appointments.`)) return;
     try {
-      const r = await fetch(`/api/hso/students/${id}`, { method: "DELETE", credentials: "include" });
+      const r = await fetch((process.env.REACT_APP_API_URL || "") + `/api/hso/students/${id}`, { method: "DELETE", credentials: "include" });
       const d = await r.json();
       if (!r.ok) show({ type: "error", message: d.error });
       else { show({ type: "success", message: `${name}'s account deleted.` }); load(); }
@@ -516,7 +516,7 @@ function UsersTab({ t }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const load = () => {
-    fetch("/api/hso/users", { credentials: "include" })
+    fetch((process.env.REACT_APP_API_URL || "") + "/api/hso/users", { credentials: "include" })
       .then(r => r.ok ? r.json() : [])
       .then(data => { setUsers(data); setLoading(false); })
       .catch(() => setLoading(false));
@@ -528,7 +528,7 @@ function UsersTab({ t }) {
       { show({ type: "error", message: "All fields required." }); return; }
     setSaving(true);
     try {
-      const r = await fetch("/api/hso/users", {
+      const r = await fetch((process.env.REACT_APP_API_URL || "") + "/api/hso/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify(form),
@@ -542,7 +542,7 @@ function UsersTab({ t }) {
 
   const handleRoleChange = async (id, role) => {
     try {
-      await fetch(`/api/hso/users/${id}/role`, {
+      await fetch((process.env.REACT_APP_API_URL || "") + `/api/hso/users/${id}/role`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ role }),
@@ -554,7 +554,7 @@ function UsersTab({ t }) {
   const handleDelete = async (id, name) => {
     if (!window.confirm(`Delete account for ${name}?`)) return;
     try {
-      const r = await fetch(`/api/hso/users/${id}`, { method: "DELETE", credentials: "include" });
+      const r = await fetch((process.env.REACT_APP_API_URL || "") + `/api/hso/users/${id}`, { method: "DELETE", credentials: "include" });
       const d = await r.json();
       if (!r.ok) show({ type: "error", message: d.error });
       else load();

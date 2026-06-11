@@ -77,7 +77,7 @@ function StepPicker({ activity, onSelect }) {
     const fetchDays = async () => {
       setDaysLoading(true);
       try {
-        const resp = await fetch(`/api/appointments/days?type=${activity}`, {
+        const resp = await fetch((process.env.REACT_APP_API_URL || "") + `/api/appointments/days?type=${activity}`, {
           credentials: "include",
         });
         if (resp.ok) setDaysData(await resp.json());
@@ -250,7 +250,7 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
 
     // 1-hour gap check
     try {
-      const gapResp = await fetch("/api/appointments/mine", { credentials: "include" });
+      const gapResp = await fetch((process.env.REACT_APP_API_URL || "") + "/api/appointments/mine", { credentials: "include" });
       if (gapResp.ok) {
         const existing = await gapResp.json();
         const otherType = activity === "phex" ? "dt" : "phex";
@@ -268,13 +268,13 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
 
     const bookDateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
     try {
-      const mineResp2 = await fetch("/api/appointments/mine", { credentials: "include" });
+      const mineResp2 = await fetch((process.env.REACT_APP_API_URL || "") + "/api/appointments/mine", { credentials: "include" });
       if (mineResp2.ok) {
         const existing2 = await mineResp2.json();
         const ea = existing2.find(b => b.appointmentType === activity);
-        if (ea) await fetch(`/api/appointments/${ea._id}`, { method: "DELETE", credentials: "include" });
+        if (ea) await fetch((process.env.REACT_APP_API_URL || "") + `/api/appointments/${ea._id}`, { method: "DELETE", credentials: "include" });
       }
-      const resp = await fetch("/api/appointments", {
+      const resp = await fetch((process.env.REACT_APP_API_URL || "") + "/api/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ appointmentType: activity, appointmentDate: bookDateStr, timeSlot: slot.time, bookingCode: form.code }),
@@ -406,7 +406,7 @@ export default function BookingPage({ activity = "phex", studentId, prefillFirst
   useEffect(() => {
     const verify = async () => {
       try {
-        const resp = await fetch("/api/students/me", { credentials: "include" });
+        const resp = await fetch((process.env.REACT_APP_API_URL || "") + "/api/students/me", { credentials: "include" });
         if (resp.ok) setAuthValid(true);
         else setAuthValid(false);
       } catch { setAuthValid(false); }
