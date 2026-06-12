@@ -175,9 +175,10 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
   const [form, setForm] = useState({});       // text fields (nurse-editable)
   const [checks, setChecks] = useState({});   // checkbox fields
 
-  const canvasRef   = useRef(null);
-  const pdfDocRef   = useRef(null);
-  const scaleRef    = useRef(1);
+  const canvasRef          = useRef(null);
+  const annotationLayerRef = useRef(null);
+  const pdfDocRef          = useRef(null);
+  const scaleRef           = useRef(1);
   const [pdfReady, setPdfReady] = useState(false);
   const [pdfError, setPdfError] = useState(false);
   const [rendering, setRendering] = useState(false);
@@ -260,9 +261,16 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
     setSaving(false);
   };
 
-  // Ensure pdf.js is loaded once
+  // Ensure pdf.js + viewer (annotation layer) assets are loaded once
   useEffect(() => {
     const ensurePdfJs = async () => {
+      if (!document.getElementById("pdfjs-annotation-css")) {
+        const link = document.createElement("link");
+        link.id = "pdfjs-annotation-css";
+        link.rel = "stylesheet";
+        link.href = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.css";
+        document.head.appendChild(link);
+      }
       if (!window.pdfjsLib) {
         await new Promise((res, rej) => {
           const s = document.createElement("script");
@@ -273,11 +281,19 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
         window.pdfjsLib.GlobalWorkerOptions.workerSrc =
           "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
       }
+      if (!window.pdfjsViewer) {
+        await new Promise((res, rej) => {
+          const s = document.createElement("script");
+          s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.js";
+          s.onload = res; s.onerror = rej;
+          document.head.appendChild(s);
+        });
+      }
     };
     ensurePdfJs();
   }, []);
 
-  // Fetch the live-filled PDF from the backend and load it for preview
+  // Fetch the live-filled PDF (with AcroForm intact) from the backend and load it for preview
   const loadFilledPdf = useCallback(async () => {
     if (!window.pdfjsLib) { console.log("[NurseMEF] pdfjsLib not ready"); return; }
     setRendering(true);
@@ -328,6 +344,8 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
       const fitScale = fitWidth / pdfNatural.width;
       const renderScale = fitScale * Math.max(dpr, 2);
       scaleRef.current = renderScale;
+
+      // Canvas render uses device-pixel-ratio-scaled viewport for crispness
       const viewport = page.getViewport({ scale: renderScale });
       canvas.width  = viewport.width;
       canvas.height = viewport.height;
@@ -338,6 +356,50 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
       console.log("[NurseMEF] canvas dims:", canvas.width, canvas.height, "style:", canvas.style.width, canvas.style.height);
       await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
       console.log("[NurseMEF] render complete");
+
+      // ── Annotation layer (renders the AcroForm fields/widgets) ──────────
+      const annotationDiv = annotationLayerRef.current;
+      if (annotationDiv && window.pdfjsViewer) {
+        // Clear previous annotation layer content
+        annotationDiv.innerHTML = "";
+
+        // CSS-pixel viewport (annotation layer is positioned in CSS pixels,
+        // matching canvas.style.width/height, not canvas.width/height)
+        const cssViewport = page.getViewport({ scale: fitScale });
+
+        annotationDiv.style.width  = `${fitWidth}px`;
+        annotationDiv.style.height = `${pdfNatural.height * fitScale}px`;
+        annotationDiv.style.margin = zoom <= 1 ? "0 auto" : "0";
+
+        try {
+          const annotations = await page.getAnnotations({ intent: "display" });
+
+          const annotationLayer = new window.pdfjsViewer.AnnotationLayer({
+            div: annotationDiv,
+            page,
+            viewport: cssViewport,
+          });
+
+          await annotationLayer.render({
+            viewport: cssViewport,
+            div: annotationDiv,
+            annotations,
+            page,
+            renderForms: true,
+            linkService: {
+              // Minimal no-op link service so internal links don't throw
+              getDestinationHash: () => "#",
+              getAnchorUrl: () => "#",
+              addLinkAttributes: () => {},
+              executeNamedAction: () => {},
+              isPageVisible: () => true,
+            },
+          });
+          console.log("[NurseMEF] annotation layer rendered, count:", annotations.length);
+        } catch (annErr) {
+          console.error("[NurseMEF] Annotation layer error:", annErr);
+        }
+      }
     } catch (e) { console.error("[NurseMEF] Render error:", e); }
     setRendering(false);
   }, [zoom]);
@@ -354,12 +416,12 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
     return () => window.removeEventListener("resize", onResize);
   }, [pdfReady, renderPreview]);
 
-  // Download the fully filled PDF (student + nurse fields)
+  // Download the fully filled, flattened PDF (student + nurse fields)
   const handleDownloadPDF = async () => {
     setDownloading(true);
     try {
       const payload = { ...form, ...checks };
-      const resp = await fetch(`/api/hso/students/${studentMongoId}/mef/pdf`, {
+      const resp = await fetch(`/api/hso/students/${studentMongoId}/mef/pdf/download`, {
         method: "POST",
         headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify(payload),
@@ -551,7 +613,15 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
               Make sure <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>backend/public/medical-examination-form.pdf</code> exists on the server with all MEF fields.
             </div>
           ) : (
-            <canvas ref={canvasRef} style={{ borderRadius: 4, display: "block" }} />
+            <div style={{ position: "relative", display: "inline-block" }}>
+              <canvas ref={canvasRef} style={{ borderRadius: 4, display: "block" }} />
+              {/* AcroForm annotation layer overlay (text fields, checkboxes, etc.) */}
+              <div
+                ref={annotationLayerRef}
+                className="annotationLayer"
+                style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }}
+              />
+            </div>
           )}
         </div>
         <div style={{ padding: "12px 16px", background: "#1f2937" }}>
