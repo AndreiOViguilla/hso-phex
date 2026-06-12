@@ -385,14 +385,44 @@ function SlotsTab({ t, dark }) {
 function VenuesTab({ t }) {
   const { show } = useModal();
   const [venues, setVenues] = useState({ phex_venue: "", phex_venue_sub: "", dt_venue: "", dt_venue_sub: "" });
+  const [batchWindows, setBatchWindows] = useState({});
   const [saving, setSaving] = useState(false);
+  const [savingBatch, setSavingBatch] = useState(false);
 
   useEffect(() => {
     fetch("/api/hso/settings", { credentials: "include" })
       .then(r => r.ok ? r.json() : {})
-      .then(data => setVenues(v => ({ ...v, ...data })))
+      .then(data => {
+        setVenues(v => ({ ...v, ...data }));
+        if (data.batch_windows) setBatchWindows(data.batch_windows);
+        else setBatchWindows({
+          "125": { bookStart: "2026-06-05", bookEnd: "2026-06-19" },
+          "124": { bookStart: "2026-06-17", bookEnd: "2026-07-04" },
+          "123": { bookStart: "2026-07-03", bookEnd: "2026-07-16" },
+          "122": { bookStart: "2026-07-17", bookEnd: "2026-07-27" },
+          "121": { bookStart: "2026-07-25", bookEnd: "2026-07-31" },
+        });
+      })
       .catch(() => {});
   }, []);
+
+  const saveBatchWindows = async () => {
+    setSavingBatch(true);
+    try {
+      const r = await fetch("/api/hso/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ key: "batch_windows", value: batchWindows }),
+      });
+      if (r.ok) show({ type: "success", message: "Booking windows updated!" });
+      else show({ type: "error", message: "Failed to update." });
+    } catch (_) { show({ type: "error", message: "Server error." }); }
+    setSavingBatch(false);
+  };
+
+  const updateBatchWindow = (prefix, field, value) => {
+    setBatchWindows(bw => ({ ...bw, [prefix]: { ...bw[prefix], [field]: value } }));
+  };
 
   const save = async (key, value) => {
     setSaving(true);
@@ -434,6 +464,31 @@ function VenuesTab({ t }) {
           </button>
         </div>
       ))}
+
+      {/* Booking windows per batch */}
+      <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: "16px" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 4 }}>Booking Windows per Batch</div>
+        <div style={{ fontSize: 11, color: t.textSub, marginBottom: 14 }}>Set when each batch (by ID prefix) can book PHEx/DT appointments.</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {Object.keys(batchWindows).sort((a,b) => b.localeCompare(a)).map(prefix => (
+            <div key={prefix} style={{ display: "grid", gridTemplateColumns: "60px 1fr 1fr", gap: 10, alignItems: "end" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{prefix}</div>
+              <div>
+                <label style={lbl}>Opens</label>
+                <input type="date" style={inp} value={batchWindows[prefix]?.bookStart || ""} onChange={e => updateBatchWindow(prefix, "bookStart", e.target.value)} />
+              </div>
+              <div>
+                <label style={lbl}>Closes</label>
+                <input type="date" style={inp} value={batchWindows[prefix]?.bookEnd || ""} onChange={e => updateBatchWindow(prefix, "bookEnd", e.target.value)} />
+              </div>
+            </div>
+          ))}
+        </div>
+        <button onClick={saveBatchWindows} disabled={savingBatch}
+          style={{ marginTop: 14, padding: "9px 20px", border: "none", borderRadius: 8, background: t.accentBtn, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: savingBatch ? 0.7 : 1 }}>
+          {savingBatch ? "Saving…" : "Save booking windows"}
+        </button>
+      </div>
     </div>
   );
 }

@@ -318,7 +318,26 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
     ? { label: `In ${d2} day${d2 !== 1 ? "s" : ""}`, type: "blue" }
     : { label: "Active", type: "green" };
 
-  const BookedCard = ({ label, color, bgColor, booking, countdown, onReschedule }) => {
+  // Build Google Calendar URL for a booking
+  const buildGCalUrl = (booking, label, venue) => {
+    const parseMin = (t) => {
+      const [tp, ap] = [t.slice(0,-2), t.slice(-2)];
+      let [h, m] = tp.split(":").map(Number);
+      if (ap === "pm" && h !== 12) h += 12;
+      if (ap === "am" && h === 12) h = 0;
+      return { h, m };
+    };
+    const { h, m } = parseMin(booking.time);
+    const pad = (n) => String(n).padStart(2, "0");
+    const startDt = `${booking.date.replace(/-/g,"")}T${pad(h)}${pad(m)}00`;
+    const endDt   = `${booking.date.replace(/-/g,"")}T${pad(h+1)}${pad(m)}00`;
+    const title    = encodeURIComponent(`${label} Appointment \u2014 DLSU HSO`);
+    const details  = encodeURIComponent(`Your ${label} appointment at ${venue}. Show your confirmation email to the guard.`);
+    const location = encodeURIComponent(venue);
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDt}/${endDt}&details=${details}&location=${location}&ctz=Asia/Manila`;
+  };
+
+  const BookedCard = ({ label, color, bgColor, booking, countdown, onReschedule, venue }) => {
     const isPast      = new Date(booking.date + "T23:59:59") < new Date();
     const isNow       = countdown === "Now!";
     const isNowOrPast = isPast || isNow;
@@ -344,6 +363,15 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
           <div style={{ background: t.orangeBg, border: `1px solid ${t.orange}44`, borderRadius: 8, padding: "8px 10px", fontSize: 11, color: t.orangeText, marginBottom: 10, lineHeight: 1.5 }}>
             {isPast ? "Your appointment date has passed." : "Your appointment time has already passed."} Please find another appointment.
           </div>
+        )}
+        {!isNowOrPast && (
+          <a href={buildGCalUrl(booking, label, venue)} target="_blank" rel="noopener noreferrer"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", padding: "8px", borderRadius: 8, border: `1.5px solid ${t.cardBorder}`, background: t.card, color: t.textSub, fontSize: 12, fontWeight: 600, textDecoration: "none", marginBottom: 8, boxSizing: "border-box" }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            Add to Google Calendar
+          </a>
         )}
         <button onClick={onReschedule} style={{ width: "100%", padding: "8px", borderRadius: 8, border: `1.5px solid ${isNowOrPast ? t.orange : t.cardBorder}`, background: isNowOrPast ? t.orangeBg : t.card, color: isNowOrPast ? t.orangeText : t.textSub, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
           Change appointment
@@ -616,7 +644,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
             <div style={{ fontSize: 12, color: t.textSub, lineHeight: 1.6, marginBottom: 12 }}>Book your PHEx and Drug Test appointments separately. Space at least 1 hour apart if on the same day.</div>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
               {bookedPHEx ? (
-                <BookedCard label="PHEx" color={t.blue} bgColor={t.blueBg} booking={bookedPHEx} countdown={phexCountdown} onReschedule={() => { setRescheduleCode(""); setRescheduleFor("phex"); }} />
+                <BookedCard label="PHEx" color={t.blue} bgColor={t.blueBg} booking={bookedPHEx} countdown={phexCountdown} onReschedule={() => { setRescheduleCode(""); setRescheduleFor("phex"); }} venue="Waldo Perfecto Seminar Room" />
               ) : (
                 <div style={{ background: t.card, border: `1.5px solid ${t.cardBorder}`, borderRadius: 14, padding: "14px 16px" }}>
                   <div style={{ marginBottom: 8 }}><span style={{ background: t.blueBg, color: t.blue, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>PHEx</span></div>
@@ -628,7 +656,7 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
                 </div>
               )}
               {bookedDT ? (
-                <BookedCard label="Drug Test" color={t.teal} bgColor={t.tealBg} booking={bookedDT} countdown={dtCountdown} onReschedule={() => { setRescheduleCode(""); setRescheduleFor("dt"); }} />
+                <BookedCard label="Drug Test" color={t.teal} bgColor={t.tealBg} booking={bookedDT} countdown={dtCountdown} onReschedule={() => { setRescheduleCode(""); setRescheduleFor("dt"); }} venue="2nd Floor, Enrique Razon Sports Center (ERSC)" />
               ) : (
                 <div style={{ background: t.card, border: `1.5px solid ${t.cardBorder}`, borderRadius: 14, padding: "14px 16px" }}>
                   <div style={{ marginBottom: 8 }}><span style={{ background: t.tealBg, color: t.teal, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>Drug Test</span></div>

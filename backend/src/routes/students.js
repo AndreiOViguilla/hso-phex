@@ -1,4 +1,5 @@
 const express = require("express");
+const Settings = require("../models/Settings");
 const User    = require("../models/User");
 const { authMiddleware } = require("../middleware/auth");
 
@@ -141,6 +142,41 @@ router.put("/me/password", authMiddleware, async (req, res) => {
   } catch (err) {
     console.error("Change password error:", err.message);
     res.status(500).json({ error: "Failed to change password." });
+  }
+});
+
+// GET /api/students/booking-config — venue + booking window settings for students
+router.get("/booking-config", authMiddleware, async (req, res) => {
+  try {
+    const settings = await Settings.find({});
+    const result = {};
+    settings.forEach(s => { result[s.key] = s.value; });
+
+    // Determine booking window based on student ID prefix
+    const studentId = req.user.studentId || "";
+    const batchWindows = result.batch_windows || {};
+    let bookStart = null, bookEnd = null;
+
+    // Try matching prefixes from longest to shortest (3-digit, then partial matches)
+    const prefixes = Object.keys(batchWindows).sort((a, b) => b.length - a.length);
+    for (const prefix of prefixes) {
+      if (studentId.startsWith(prefix)) {
+        bookStart = batchWindows[prefix].bookStart;
+        bookEnd   = batchWindows[prefix].bookEnd;
+        break;
+      }
+    }
+
+    res.json({
+      phex_venue:     result.phex_venue     || "Waldo Perfecto Seminar Room",
+      phex_venue_sub: result.phex_venue_sub || "Ground floor, Br. Connon Hall",
+      dt_venue:       result.dt_venue       || "2nd Floor, Enrique Razon Sports Center (ERSC)",
+      dt_venue_sub:   result.dt_venue_sub   || "ERSC — across from the main gym",
+      bookStart,
+      bookEnd,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

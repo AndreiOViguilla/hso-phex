@@ -44,7 +44,7 @@ function isSameDay(a, b) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-const ACTIVITIES = {
+const DEFAULT_ACTIVITIES = {
   phex: {
     label: "PHEx", title: "PHEX ID:125", org: "HSO PHEx Booking", duration: "15 min",
     venue: "Waldo Perfecto Seminar Room", color: "#1e3a8a",
@@ -57,8 +57,7 @@ const ACTIVITIES = {
   },
 };
 
-function StepPicker({ activity, onSelect }) {
-  const act = ACTIVITIES[activity];
+function StepPicker({ activity, onSelect, act }) {
   const { dark, t } = useTheme();
 
   const accentColor = activity === "dt" ? (dark ? t.tealText : act.color) : (dark ? t.blueText : act.color);
@@ -232,8 +231,7 @@ function StepPicker({ activity, onSelect }) {
   );
 }
 
-function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName, prefillLastName, prefillEmail }) {
-  const act = ACTIVITIES[activity];
+function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName, prefillLastName, prefillEmail, act }) {
   const { dark, t } = useTheme();
   const accentColor = activity === "dt" ? (dark ? t.tealText : act.color) : (dark ? t.blueText : act.color);
   const accentSolid = activity === "dt" ? (dark ? "#0d9488" : act.color) : (dark ? "#2563eb" : act.color);
@@ -329,8 +327,7 @@ function StepDetails({ activity, date, slot, onBack, onConfirm, prefillFirstName
   );
 }
 
-function StepConfirmed({ activity, booking, onDone }) {
-  const act = ACTIVITIES[activity];
+function StepConfirmed({ activity, booking, onDone, act }) {
   const { dark, t } = useTheme();
   const accentColor = activity === "dt" ? (dark ? t.tealText : act.color) : (dark ? t.blueText : act.color);
   const accentSolid = activity === "dt" ? (dark ? "#0d9488" : act.color) : (dark ? "#2563eb" : act.color);
@@ -402,7 +399,24 @@ export default function BookingPage({ activity = "phex", studentId, prefillFirst
   const [booking, setBooking] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [authValid,   setAuthValid]   = useState(false);
-  const act = ACTIVITIES[activity];
+  const [config, setConfig] = useState(null);
+
+  // Merge fetched config (venue + booking window) into the default activity object
+  const act = (() => {
+    const base = { ...DEFAULT_ACTIVITIES[activity] };
+    if (config) {
+      if (activity === "phex") {
+        if (config.phex_venue) base.venue = config.phex_venue;
+        if (config.bookStart)  base.bookStart = new Date(config.bookStart);
+        if (config.bookEnd)    base.bookEnd   = new Date(config.bookEnd);
+      } else {
+        if (config.dt_venue)   base.venue = config.dt_venue;
+        if (config.bookStart)  base.bookStart = new Date(config.bookStart);
+        if (config.bookEnd)    base.bookEnd   = new Date(config.bookEnd);
+      }
+    }
+    return base;
+  })();
 
   useEffect(() => {
     const verify = async () => {
@@ -414,6 +428,12 @@ export default function BookingPage({ activity = "phex", studentId, prefillFirst
       setAuthChecked(true);
     };
     verify();
+
+    // Fetch venue + booking window config
+    fetch("/api/students/booking-config", { credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setConfig(data); })
+      .catch(() => {});
   }, []);
 
   if (!authChecked) return (
@@ -452,9 +472,9 @@ export default function BookingPage({ activity = "phex", studentId, prefillFirst
       </div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", background: t.card, overflow: "hidden" }}>
         <div style={{ flex: 1, overflow: "auto" }}>
-          {step === "pick"      && <StepPicker activity={activity} onSelect={(d, s) => { setDate(d); setSlot(s); setStep("details"); }} />}
-          {step === "details"   && <StepDetails activity={activity} date={date} slot={slot} onBack={() => setStep("pick")} onConfirm={(b) => { setBooking(b); setStep("confirmed"); }} prefillFirstName={prefillFirstName} prefillLastName={prefillLastName} prefillEmail={prefillEmail} />}
-          {step === "confirmed" && <StepConfirmed activity={activity} booking={booking} onDone={() => { if (onBooked) onBooked(booking); else onBack(); }} />}
+          {step === "pick"      && <StepPicker activity={activity} act={act} onSelect={(d, s) => { setDate(d); setSlot(s); setStep("details"); }} />}
+          {step === "details"   && <StepDetails activity={activity} act={act} date={date} slot={slot} onBack={() => setStep("pick")} onConfirm={(b) => { setBooking(b); setStep("confirmed"); }} prefillFirstName={prefillFirstName} prefillLastName={prefillLastName} prefillEmail={prefillEmail} />}
+          {step === "confirmed" && <StepConfirmed activity={activity} act={act} booking={booking} onDone={() => { if (onBooked) onBooked(booking); else onBack(); }} />}
         </div>
       </div>
     </div>
