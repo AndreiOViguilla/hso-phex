@@ -35,7 +35,8 @@ router.post("/register", [
     if (existingId) return res.status(409).json({ error: "Student ID already registered" });
     const passwordHash = await bcrypt.hash(password, 12);
     const user = await User.create({ studentId: cleanStudentId, email: cleanEmail, passwordHash, firstName: cleanFirst, middleInitial: cleanMI, lastName: cleanLast, gender: cleanGender, college: cleanCollege });
-    res.status(201).json({ user: { id: user._id, studentId: user.studentId, email: user.email, firstName: user.firstName, middleInitial: user.middleInitial, lastName: user.lastName, gender: user.gender, college: user.college, role: user.role } });
+    const safe = user.toSafeObject ? user.toSafeObject() : user.toObject();
+    res.status(201).json({ user: { id: user._id, studentId: user.studentId, email: user.email, firstName: safe.firstName, middleInitial: safe.middleInitial, lastName: safe.lastName, gender: user.gender, college: safe.college, role: user.role } });
   } catch (err) {
     if (err.code === 11000) { const field = Object.keys(err.keyPattern)[0]; return res.status(409).json({ error: field === "email" ? "Email already registered" : "Student ID already registered" }); }
     console.error(err); res.status(500).json({ error: "Registration failed" });
@@ -69,7 +70,8 @@ router.post("/login", [
       req.session.role      = user.role;
       req.session.save((err) => {
         if (err) return res.status(500).json({ error: "Session save error." });
-        res.json({ user: { id: user._id, studentId: user.studentId, email: user.email, firstName: user.firstName, middleInitial: user.middleInitial, lastName: user.lastName, gender: user.gender, college: user.college, role: user.role, lastLoginAt: prevLogin || null } });
+        const safe = user.toSafeObject ? user.toSafeObject() : user.toObject();
+        res.json({ user: { id: user._id, studentId: user.studentId, email: user.email, firstName: safe.firstName, middleInitial: safe.middleInitial, lastName: safe.lastName, gender: user.gender, college: safe.college, role: user.role, lastLoginAt: prevLogin || null } });
       });
     });
   } catch (err) {

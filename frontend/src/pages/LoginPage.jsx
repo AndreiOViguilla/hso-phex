@@ -139,7 +139,7 @@ export default function LoginPage({ onLogin, onBack }) {
 
   return (
     <div style={{ minHeight: "100vh", background: t.bg, display: "flex", flexDirection: "column", fontFamily: "'DM Sans','Inter',sans-serif" }}>
-      <div style={{ background: "#1e3a8a", padding: "12px 24px", display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ background: dark ? "#1e293b" : "#1e3a8a", padding: "12px 24px", display: "flex", alignItems: "center", gap: 10 }}>
         {onBack && <button onClick={onBack} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginRight: 4 }}>←</button>}
         <span style={{ color: "#fff", fontSize: 13, fontWeight: 600, letterSpacing: "0.04em", flex: 1 }}>DLSU · Health Services Office</span>
         <button onClick={toggle} title={dark ? "Light mode" : "Dark mode"} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 32, height: 32, borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
