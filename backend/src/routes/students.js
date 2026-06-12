@@ -174,6 +174,7 @@ router.get("/booking-config", authMiddleware, async (req, res) => {
       dt_venue_sub:   result.dt_venue_sub   || "ERSC — across from the main gym",
       bookStart,
       bookEnd,
+      announcement: result.announcement || null,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

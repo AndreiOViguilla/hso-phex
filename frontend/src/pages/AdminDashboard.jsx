@@ -386,14 +386,17 @@ function VenuesTab({ t }) {
   const { show } = useModal();
   const [venues, setVenues] = useState({ phex_venue: "", phex_venue_sub: "", dt_venue: "", dt_venue_sub: "" });
   const [batchWindows, setBatchWindows] = useState({});
+  const [announcement, setAnnouncement] = useState({ text: "", type: "info", active: false });
   const [saving, setSaving] = useState(false);
   const [savingBatch, setSavingBatch] = useState(false);
+  const [savingAnnouncement, setSavingAnnouncement] = useState(false);
 
   useEffect(() => {
     fetch("/api/hso/settings", { credentials: "include" })
       .then(r => r.ok ? r.json() : {})
       .then(data => {
         setVenues(v => ({ ...v, ...data }));
+        if (data.announcement) setAnnouncement(data.announcement);
         if (data.batch_windows) setBatchWindows(data.batch_windows);
         else setBatchWindows({
           "125": { bookStart: "2026-06-05", bookEnd: "2026-06-19" },
@@ -424,6 +427,20 @@ function VenuesTab({ t }) {
     setBatchWindows(bw => ({ ...bw, [prefix]: { ...bw[prefix], [field]: value } }));
   };
 
+  const saveAnnouncement = async () => {
+    setSavingAnnouncement(true);
+    try {
+      const r = await fetch("/api/hso/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ key: "announcement", value: announcement }),
+      });
+      if (r.ok) show({ type: "success", message: announcement.active ? "Announcement published!" : "Announcement saved (inactive)." });
+      else show({ type: "error", message: "Failed to update." });
+    } catch (_) { show({ type: "error", message: "Server error." }); }
+    setSavingAnnouncement(false);
+  };
+
   const save = async (key, value) => {
     setSaving(true);
     try {
@@ -441,8 +458,66 @@ function VenuesTab({ t }) {
   const inp = { width: "100%", padding: "10px 12px", border: `1px solid ${t.inputBorder}`, borderRadius: 8, fontSize: 13, fontFamily: "inherit", background: t.input, color: t.text, boxSizing: "border-box", outline: "none" };
   const lbl = { fontSize: 11, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 4 };
 
+  const announcementTypes = [
+    { value: "info",    label: "Info",    color: "#1d4ed8", bg: "#eff6ff" },
+    { value: "success", label: "Success", color: "#16a34a", bg: "#f0fdf4" },
+    { value: "warning", label: "Warning", color: "#d97706", bg: "#fffbeb" },
+    { value: "urgent",  label: "Urgent",  color: "#dc2626", bg: "#fef2f2" },
+  ];
+  const currentTypeStyle = announcementTypes.find(a => a.value === announcement.type) || announcementTypes[0];
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Announcement banner */}
+      <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: "16px" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 4 }}>Announcement Banner</div>
+        <div style={{ fontSize: 11, color: t.textSub, marginBottom: 14 }}>Shown to all students at the top of their schedule page.</div>
+
+        <div style={{ marginBottom: 10 }}>
+          <label style={lbl}>Message</label>
+          <textarea
+            style={{ ...inp, minHeight: 70, resize: "vertical", fontFamily: "inherit" }}
+            placeholder="e.g. PHEx booking opens Monday, June 16 at 8:00 AM."
+            value={announcement.text || ""}
+            onChange={e => setAnnouncement(a => ({ ...a, text: e.target.value }))}
+          />
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
+          <label style={lbl}>Type</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            {announcementTypes.map(({ value, label, color, bg }) => (
+              <button key={value} onClick={() => setAnnouncement(a => ({ ...a, type: value }))}
+                style={{ flex: 1, padding: "8px", borderRadius: 8, border: `1.5px solid ${announcement.type === value ? color : t.cardBorder}`, background: announcement.type === value ? bg : t.card, color: announcement.type === value ? color : t.textSub, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Live preview */}
+        {announcement.text && (
+          <div style={{ marginBottom: 14 }}>
+            <label style={lbl}>Preview</label>
+            <div style={{ background: currentTypeStyle.bg, border: `1px solid ${currentTypeStyle.color}44`, borderRadius: 10, padding: "12px 14px", fontSize: 13, color: currentTypeStyle.color, fontWeight: 600, lineHeight: 1.5 }}>
+              {announcement.text}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, color: t.text, fontWeight: 600 }}>
+            <input type="checkbox" checked={!!announcement.active} onChange={e => setAnnouncement(a => ({ ...a, active: e.target.checked }))} style={{ width: 16, height: 16, accentColor: t.accent }} />
+            Show this announcement to students
+          </label>
+        </div>
+
+        <button onClick={saveAnnouncement} disabled={savingAnnouncement}
+          style={{ padding: "9px 20px", border: "none", borderRadius: 8, background: t.accentBtn, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: savingAnnouncement ? 0.7 : 1 }}>
+          {savingAnnouncement ? "Saving…" : "Save announcement"}
+        </button>
+      </div>
+
       {[
         { label: "PHEx Venue", mainKey: "phex_venue", subKey: "phex_venue_sub", mainPh: "e.g. Waldo Perfecto Seminar Room", subPh: "e.g. Ground floor, Br. Connon Hall" },
         { label: "Drug Test Venue", mainKey: "dt_venue", subKey: "dt_venue_sub", mainPh: "e.g. 2nd Floor, Enrique Razon Sports Center", subPh: "e.g. ERSC — across from the main gym" },

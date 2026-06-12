@@ -90,6 +90,24 @@ function formatBookingDate(dateStr) {
   return d.toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 }
 
+function buildGCalUrl(booking, label, venue) {
+  const parseMin = (t) => {
+    const [tp, ap] = [t.slice(0,-2), t.slice(-2)];
+    let [h, m] = tp.split(":").map(Number);
+    if (ap === "pm" && h !== 12) h += 12;
+    if (ap === "am" && h === 12) h = 0;
+    return { h, m };
+  };
+  const { h, m } = parseMin(booking.time);
+  const pad = (n) => String(n).padStart(2, "0");
+  const startDt = `${booking.date.replace(/-/g,"")}T${pad(h)}${pad(m)}00`;
+  const endDt   = `${booking.date.replace(/-/g,"")}T${pad(h+1)}${pad(m)}00`;
+  const title    = encodeURIComponent(`${label} Appointment \u2014 DLSU HSO`);
+  const details  = encodeURIComponent(`Your ${label} appointment at ${venue}. Show your confirmation email to the guard.`);
+  const location = encodeURIComponent(venue);
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDt}/${endDt}&details=${details}&location=${location}&ctz=Asia/Manila`;
+}
+
 function StepRow({ n, active, done, lineColor, isLast, children, t }) {
   return (
     <div style={{ display: "flex", gap: 16, alignItems: "stretch", minHeight: 0 }}>
@@ -189,6 +207,19 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
   const [forgotCodeEmail, setForgotCodeEmail] = useState("");
   const [progressLoaded, setProgressLoaded] = useState(false);
   const [bookingsLoaded, setBookingsLoaded] = useState(false);
+  const [announcement, setAnnouncement] = useState(null);
+  const [dismissedAnnouncement, setDismissedAnnouncement] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/students/booking-config", { credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.announcement?.active && data.announcement.text) {
+          setAnnouncement(data.announcement);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleForgotCode = async () => {
     if (!forgotCodeEmail.includes("@")) { show({ type: "error", message: "Enter your email address." }); return; }
@@ -488,6 +519,28 @@ export default function SchedulePage({ studentId, sched, onBack, onGuide, onMEF,
           </button>
         </div>
       </div>
+
+      {/* Announcement banner */}
+      {announcement && !dismissedAnnouncement && (() => {
+        const styles = {
+          info:    { color: "#1d4ed8", bg: dark ? "#1e3a5f" : "#eff6ff", border: "#1d4ed8" },
+          success: { color: "#16a34a", bg: dark ? "#14532d" : "#f0fdf4", border: "#16a34a" },
+          warning: { color: "#d97706", bg: dark ? "#78350f" : "#fffbeb", border: "#d97706" },
+          urgent:  { color: "#dc2626", bg: dark ? "#7f1d1d" : "#fef2f2", border: "#dc2626" },
+        };
+        const s = styles[announcement.type] || styles.info;
+        return (
+          <div style={{ background: s.bg, borderBottom: `1px solid ${s.border}44`, padding: "10px 20px", display: "flex", alignItems: "center", gap: 10 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={s.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: s.color, lineHeight: 1.5 }}>{announcement.text}</div>
+            <button onClick={() => setDismissedAnnouncement(true)} style={{ background: "none", border: "none", color: s.color, cursor: "pointer", padding: 4, flexShrink: 0, display: "flex", alignItems: "center" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        );
+      })()}
 
       {/* Reschedule modal */}
       {rescheduleFor && (
