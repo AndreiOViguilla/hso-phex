@@ -117,10 +117,9 @@ router.get("/students/:id/appointments", authMiddleware, requireRole("admin", "m
 router.get("/appointments/today", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
   try {
     const { type } = req.query;
-    const today = new Date().toISOString().split("T")[0];
-    const filter = { appointmentDate: today };
+    const filter = {};
     if (type) filter.appointmentType = type;
-    const appts = await Appointment.find(filter).sort({ timeSlot: 1 });
+    const appts = await Appointment.find(filter).sort({ appointmentDate: 1, timeSlot: 1 });
 
     // Attach student info
     const studentIds = appts.map(a => a.studentId);

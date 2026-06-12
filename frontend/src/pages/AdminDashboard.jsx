@@ -826,14 +826,14 @@ function NurseFormsTab({ t, dark }) {
     return d.toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" });
   };
 
-  const StudentRow = ({ student, timeSlot }) => {
+  const StudentRow = ({ student, timeSlot, appointmentDate }) => {
     if (!student) return null;
     return (
       <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 160, cursor: "pointer" }} onClick={() => setSelectedStudent(student)}>
           <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{student.firstName} {student.lastName}</div>
           <div style={{ fontSize: 11, color: t.textSub }}>{student.studentId} · {student.email}</div>
-          {timeSlot && <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>Appointment: {timeSlot}</div>}
+          {appointmentDate && timeSlot && <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{formatDate(appointmentDate)} at {timeSlot}</div>}
         </div>
         {student.filledMEF && (
           <span style={{ padding: "6px 12px", borderRadius: 8, border: `1.5px solid #16a34a`, background: dark ? "#14532d33" : "#f0fdf4", color: "#16a34a", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
@@ -884,13 +884,13 @@ function NurseFormsTab({ t, dark }) {
             {["phex","dt"].map(t2 => (
               <button key={t2} onClick={() => setType(t2)}
                 style={{ padding: "7px 16px", borderRadius: 8, border: "1.5px solid " + (type === t2 ? t.accent : t.cardBorder), background: type === t2 ? t.accentBg : t.card, color: type === t2 ? t.accent : t.textSub, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                {t2 === "phex" ? "PHEx" : "Drug Test"}
+                {t2 === "phex" ? "MEF" : "DEF"}
               </button>
             ))}
           </div>
 
-          <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 4 }}>Today's {type === "phex" ? "PHEx" : "Drug Test"} Appointments</div>
-          <div style={{ fontSize: 11, color: t.textSub, marginBottom: 12 }}>{new Date().toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 4 }}>All {type === "phex" ? "MEF" : "DEF"} Appointments</div>
+          <div style={{ fontSize: 11, color: t.textSub, marginBottom: 12 }}>Upcoming and past appointments, sorted by date</div>
 
           {loading ? (
             <div style={{ fontSize: 13, color: t.textMuted, textAlign: "center", padding: "20px 0" }}>Loading…</div>
@@ -898,7 +898,7 @@ function NurseFormsTab({ t, dark }) {
             <div style={{ fontSize: 13, color: t.textMuted, textAlign: "center", padding: "20px 0" }}>No appointments today.</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {appointments.map((a, i) => <StudentRow key={i} student={a.student} timeSlot={a.timeSlot} />)}
+              {appointments.map((a, i) => <StudentRow key={i} student={a.student} timeSlot={a.timeSlot} appointmentDate={a.appointmentDate} />)}
             </div>
           )}
         </>
