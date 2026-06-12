@@ -200,8 +200,8 @@ router.put("/students/:id/mef", authMiddleware, requireRole("admin", "master", "
 // POST /api/hso/students/:id/mef/pdf — generate full MEF PDF (student + nurse fields)
 router.post("/students/:id/mef/pdf", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
   try {
-    const pdfPath = path.join(__dirname, "../../public/medical-examination-form-full.pdf");
-    if (!fs.existsSync(pdfPath)) return res.status(404).json({ error: "Full MEF PDF template not found on server." });
+    const pdfPath = path.join(__dirname, "../../public/medical-examination-form.pdf");
+    if (!fs.existsSync(pdfPath)) return res.status(404).json({ error: "MEF PDF template not found on server." });
 
     const existing = await Form.findOne({ userId: req.params.id, formType: "mef" });
     const data = { ...(existing?.formData || {}), ...req.body };

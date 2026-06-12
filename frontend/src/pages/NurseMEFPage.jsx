@@ -274,7 +274,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
           window.pdfjsLib.GlobalWorkerOptions.workerSrc =
             "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
         }
-        const resp = await fetch("/medical-examination-form.pdf");
+        const resp = await fetch("/medical-examination-form-full.pdf");
         if (!resp.ok) throw new Error("not found");
         const buf = await resp.arrayBuffer();
         pdfDocRef.current = await window.pdfjsLib.getDocument({ data: buf }).promise;
@@ -314,8 +314,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
 
   useEffect(() => {
     if (!pdfReady) return;
-    const t = setTimeout(() => renderPreview(), 150);
-    return () => clearTimeout(t);
+    renderPreview();
   }, [pdfReady, zoom, renderPreview]);
 
   useEffect(() => {
@@ -519,7 +518,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
           {pdfError ? (
             <div style={{ color: "#d1d5db", fontSize: 13, padding: 20, lineHeight: 1.8 }}>
               <strong>To enable preview:</strong><br /><br />
-              Place <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>medical-examination-form.pdf</code><br />
+              Place <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>medical-examination-form-full.pdf</code><br />
               in your <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>public/</code> folder.
             </div>
           ) : (
