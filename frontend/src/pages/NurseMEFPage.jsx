@@ -279,7 +279,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
 
   // Fetch the live-filled PDF from the backend and load it for preview
   const loadFilledPdf = useCallback(async () => {
-    if (!window.pdfjsLib) return;
+    if (!window.pdfjsLib) { console.log("[NurseMEF] pdfjsLib not ready"); return; }
     setRendering(true);
     try {
       const payload = { ...form, ...checks };
@@ -288,12 +288,16 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
         headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify(payload),
       });
+      console.log("[NurseMEF] PDF fetch status:", resp.status);
       if (!resp.ok) throw new Error("not found");
       const buf = await resp.arrayBuffer();
+      console.log("[NurseMEF] PDF bytes:", buf.byteLength);
       pdfDocRef.current = await window.pdfjsLib.getDocument({ data: buf }).promise;
+      console.log("[NurseMEF] PDF doc loaded, pages:", pdfDocRef.current.numPages);
       setPdfReady(true);
       setPdfError(false);
     } catch (e) {
+      console.error("[NurseMEF] loadFilledPdf error:", e);
       setPdfError(true);
     }
     setRendering(false);
@@ -307,10 +311,12 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
   }, [form, checks, loading, loadFilledPdf]);
 
   const renderPreview = useCallback(async () => {
+    console.log("[NurseMEF] renderPreview called. pdfDocRef:", !!pdfDocRef.current, "canvasRef:", !!canvasRef.current);
     if (!pdfDocRef.current || !canvasRef.current) return;
     setRendering(true);
     try {
       const page = await pdfDocRef.current.getPage(1);
+      console.log("[NurseMEF] page loaded");
       const canvas = canvasRef.current;
       const container = canvas.parentElement;
       const dpr = window.devicePixelRatio || 1;
@@ -329,8 +335,10 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
       canvas.style.height  = `${pdfNatural.height * fitScale}px`;
       canvas.style.display = "block";
       canvas.style.margin  = zoom <= 1 ? "0 auto" : "0";
+      console.log("[NurseMEF] canvas dims:", canvas.width, canvas.height, "style:", canvas.style.width, canvas.style.height);
       await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
-    } catch (e) { console.error("Render error:", e); }
+      console.log("[NurseMEF] render complete");
+    } catch (e) { console.error("[NurseMEF] Render error:", e); }
     setRendering(false);
   }, [zoom]);
 
