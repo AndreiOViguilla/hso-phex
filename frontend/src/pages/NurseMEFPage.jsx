@@ -374,26 +374,27 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
         try {
           const annotations = await page.getAnnotations({ intent: "display" });
 
-          const annotationLayer = new window.pdfjsViewer.AnnotationLayer({
-            div: annotationDiv,
-            page,
-            viewport: cssViewport,
-          });
+          // Minimal no-op link service so internal links don't throw
+          const linkService = {
+            getDestinationHash: () => "#",
+            getAnchorUrl: () => "#",
+            addLinkAttributes: () => {},
+            executeNamedAction: () => {},
+            isPageVisible: () => true,
+            eventBus: new window.pdfjsViewer.EventBus(),
+          };
 
-          await annotationLayer.render({
-            viewport: cssViewport,
+          // pdf.js 3.x exposes AnnotationLayer as an object with a static
+          // `render` method (not a constructor).
+          window.pdfjsViewer.AnnotationLayer.render({
+            viewport: cssViewport.clone({ dontFlip: true }),
             div: annotationDiv,
             annotations,
             page,
             renderForms: true,
-            linkService: {
-              // Minimal no-op link service so internal links don't throw
-              getDestinationHash: () => "#",
-              getAnchorUrl: () => "#",
-              addLinkAttributes: () => {},
-              executeNamedAction: () => {},
-              isPageVisible: () => true,
-            },
+            linkService,
+            downloadManager: null,
+            imageResourcesPath: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/web/images/",
           });
           console.log("[NurseMEF] annotation layer rendered, count:", annotations.length);
         } catch (annErr) {
