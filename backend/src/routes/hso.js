@@ -2,6 +2,9 @@ const express    = require("express");
 const router     = express.Router();
 const User       = require("../models/User");
 const Form       = require("../models/Form");
+const { PDFDocument } = require("pdf-lib");
+const fs   = require("fs");
+const path = require("path");
 const Appointment = require("../models/Appointment");
 const Settings   = require("../models/Settings");
 const { authMiddleware } = require("../middleware/auth");
@@ -191,6 +194,71 @@ router.put("/students/:id/mef", authMiddleware, requireRole("admin", "master", "
 
     res.json({ message: "MEF saved.", formData: mergedData });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/hso/students/:id/mef/pdf — generate full MEF PDF (student + nurse fields)
+router.post("/students/:id/mef/pdf", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
+  try {
+    const pdfPath = path.join(__dirname, "../../public/medical-examination-form-full.pdf");
+    if (!fs.existsSync(pdfPath)) return res.status(404).json({ error: "Full MEF PDF template not found on server." });
+
+    const existing = await Form.findOne({ userId: req.params.id, formType: "mef" });
+    const data = { ...(existing?.formData || {}), ...req.body };
+
+    const pdfDoc = await PDFDocument.load(fs.readFileSync(pdfPath), { ignoreEncryption: true });
+    const form   = pdfDoc.getForm();
+
+    // All text fields
+    const TEXT_FIELD_NAMES = [
+      "ID Number", "Date", "Last Name", "First Name", "MI", "Birthday",
+      "Contact Number", "College Section", "Academic Year", "Emergency Name",
+      "Relationship", "Emergency Contact", "Student Name Auth", "Student Age",
+      "Blood Type", "Blood Pressure", "Resp Rate", "Pulse Rate", "Temperature",
+      "Height Inches", "Weight Pounds", "BMI", "BMI Category", "LMP Female",
+      "Medical History 1", "Medical History 2", "Medical History 3", "Medical History 4",
+      "Present Medication 1", "Present Medication 2",
+      "Left Vision", "Right Vision", "Smoking Details", "Drinking Details",
+      "Exercising Details", "Type Of Disability", "Diagnosis Impression",
+      "EENT Findings", "Head Neck Findings", "Breast Findings", "Lungs Findings",
+      "Heart Findings", "Skin Findings", "Abdomen Findings", "Neurologic Findings",
+      "Chest Xray Findings", "Drug Test Findings",
+      "Restrictions Details", "Clearance Specialty Reason", "Examining Physician",
+      "Assigned Nurse", "License Number", "Encoded By",
+    ];
+    TEXT_FIELD_NAMES.forEach(name => {
+      try { form.getTextField(name).setText(data[name] || ""); } catch (_) {}
+    });
+
+    // All checkbox fields
+    const CHECKBOX_FIELD_NAMES = [
+      "Gender Female", "Gender Male", "With Corrective Lens",
+      "Disability No", "Disability Yes", "PWD Card No", "PWD Card Yes",
+      "Right Handed", "Left Handed", "Ambidextrous",
+      "Smoking No", "Smoking Yes", "Drinking No", "Drinking Yes",
+      "Exercising No", "Exercising Yes",
+      "EENT Normal", "Head Neck Normal", "Breast Normal", "Lungs Normal",
+      "Heart Normal", "Skin Normal", "Abdomen Normal", "Neurologic Normal",
+      "Chest Xray Normal", "Drug Test Normal",
+      "Fit For Academic Activities", "Fit With Restrictions", "Pending Classification",
+      "For Additional Xray", "For Clearance",
+    ];
+    CHECKBOX_FIELD_NAMES.forEach(name => {
+      try {
+        const cb = form.getCheckBox(name);
+        data[name] ? cb.check() : cb.uncheck();
+      } catch (_) {}
+    });
+
+    try { form.flatten(); } catch (_) {}
+    const bytes = await pdfDoc.save({ updateFieldAppearances: false });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="MEF_Full_${data["ID Number"] || "student"}.pdf"`);
+    res.send(Buffer.from(bytes));
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });

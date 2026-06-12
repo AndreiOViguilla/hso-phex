@@ -97,9 +97,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
   });
 
   useEffect(() => {
-    const token = null;
-    if (!token) return;
-    fetch("/api/students/me", { headers: { Authorization: `Bearer ${token}` } })
+    fetch("/api/students/me", { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
       .then(user => {
         if (!user) return;
@@ -383,8 +381,6 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
   }, [highlighted, pdfReady, composite, form]);
 
   const handleDownload = async () => {
-    if (!pdfBytesRef.current) return;
-
     // Validate — every field must be filled
     const missing = [];
     if (!form.idNumber)         missing.push("ID number");
@@ -408,69 +404,25 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
 
     setDownloading(true);
     try {
-      if (!window.PDFLib) {
-        await new Promise((res, rej) => {
-          const s = document.createElement("script");
-          s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js";
-          s.onload = res; s.onerror = rej;
-          document.head.appendChild(s);
-        });
-      }
-      const { PDFDocument, rgb } = window.PDFLib;
-      const pdfDoc  = await PDFDocument.load(pdfBytesRef.current.slice(0), { ignoreEncryption: true });
-      const pdfForm = pdfDoc.getForm();
-      const fieldMap = buildFieldMap(form);
-
-      for (const [name, value] of Object.entries(fieldMap)) {
-        if (value === "Yes" || value === "Off") continue;
-        try {
-          const tf = pdfForm.getTextField(name);
-          tf.setText(value || "");
-          tf.enableReadOnly();
-        } catch (_) {}
-      }
-
-      try { pdfForm.flatten(); } catch (_) {}
-
-      const pages = pdfDoc.getPages();
-      const page  = pages[0];
-      const { height: pageHeight } = page.getSize();
-
-      const CHECK_POSITIONS = [
-        { name: "Gender Female", x: 89,  yTop: 134, w: 8, h: 8 },
-        { name: "Gender Male",   x: 141, yTop: 134, w: 8, h: 7 },
-      ];
-
-      CHECK_POSITIONS.forEach(({ name, x, yTop, w, h }) => {
-        const pdfY      = pageHeight - yTop - h;
-        const isChecked = fieldMap[name] === "Yes";
-        const pad       = 1.2;
-
-        page.drawRectangle({
-          x: x - 2, y: pdfY - 2,
-          width: w + 4, height: h + 4,
-          color: rgb(1, 1, 1), opacity: 1,
-          borderColor: rgb(1, 1, 1), borderOpacity: 1, borderWidth: 0,
-        });
-        page.drawRectangle({
-          x, y: pdfY, width: w, height: h,
-          color: rgb(1, 1, 1), opacity: 1,
-          borderColor: rgb(0, 0, 0), borderOpacity: 1, borderWidth: 0.75,
-        });
-        if (isChecked) {
-          page.drawLine({ start: { x: x + pad, y: pdfY + h * 0.48 }, end: { x: x + w * 0.38, y: pdfY + pad }, thickness: 1.1, color: rgb(0, 0, 0) });
-          page.drawLine({ start: { x: x + w * 0.38, y: pdfY + pad }, end: { x: x + w - pad, y: pdfY + h - pad }, thickness: 1.1, color: rgb(0, 0, 0) });
-        }
+      const resp = await fetch("/api/forms/mef", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(form),
       });
-
-      const bytes = await pdfDoc.save({ updateFieldAppearances: false });
-      const blob  = new Blob([bytes], { type: "application/pdf" });
-      const url   = URL.createObjectURL(blob);
-      const a     = document.createElement("a");
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to generate PDF");
+      }
+      const blob = await resp.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
       a.href = url; a.download = `MEF_${form.idNumber || "student"}.pdf`;
       a.click(); URL.revokeObjectURL(url);
       setDownloaded(true);
-    } catch (e) { alert("Download failed: " + e.message); }
+    } catch (e) {
+      show({ type: "error", title: "Download failed", message: e.message });
+    }
     setDownloading(false);
   };
 
