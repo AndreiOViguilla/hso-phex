@@ -315,7 +315,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
       const container = canvas.parentElement;
       const dpr = window.devicePixelRatio || 1;
       const previewPanel = container?.parentElement;
-      const panelW = (previewPanel ? previewPanel.clientWidth : 700) - 24;
+      const panelW = (previewPanel?.clientWidth || canvas.parentElement?.clientWidth || 700) - 24;
       const pdfNatural = page.getViewport({ scale: 1 });
       const baseWidth = Math.max(panelW, 280);
       const fitWidth = baseWidth * zoom;

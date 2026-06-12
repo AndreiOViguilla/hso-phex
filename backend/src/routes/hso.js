@@ -251,7 +251,7 @@ router.post("/students/:id/mef/pdf", authMiddleware, requireRole("admin", "maste
     });
 
     try { form.flatten(); } catch (_) {}
-    const bytes = await pdfDoc.save({ updateFieldAppearances: false });
+    const bytes = await pdfDoc.save({ updateFieldAppearances: true });
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="MEF_Full_${data["ID Number"] || "student"}.pdf"`);
