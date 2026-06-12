@@ -260,29 +260,51 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
     setSaving(false);
   };
 
-  // Load PDF template for preview
+  // Ensure pdf.js is loaded once
   useEffect(() => {
-    const load = async () => {
-      try {
-        if (!window.pdfjsLib) {
-          await new Promise((res, rej) => {
-            const s = document.createElement("script");
-            s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-            s.onload = res; s.onerror = rej;
-            document.head.appendChild(s);
-          });
-          window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-            "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-        }
-        const resp = await fetch("/medical-examination-form.pdf");
-        if (!resp.ok) throw new Error("not found");
-        const buf = await resp.arrayBuffer();
-        pdfDocRef.current = await window.pdfjsLib.getDocument({ data: buf }).promise;
-        setPdfReady(true);
-      } catch (e) { setPdfError(true); }
+    const ensurePdfJs = async () => {
+      if (!window.pdfjsLib) {
+        await new Promise((res, rej) => {
+          const s = document.createElement("script");
+          s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+          s.onload = res; s.onerror = rej;
+          document.head.appendChild(s);
+        });
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      }
     };
-    load();
+    ensurePdfJs();
   }, []);
+
+  // Fetch the live-filled PDF from the backend and load it for preview
+  const loadFilledPdf = useCallback(async () => {
+    if (!window.pdfjsLib) return;
+    setRendering(true);
+    try {
+      const payload = { ...form, ...checks };
+      const resp = await fetch(`/api/hso/students/${studentMongoId}/mef/pdf`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      if (!resp.ok) throw new Error("not found");
+      const buf = await resp.arrayBuffer();
+      pdfDocRef.current = await window.pdfjsLib.getDocument({ data: buf }).promise;
+      setPdfReady(true);
+      setPdfError(false);
+    } catch (e) {
+      setPdfError(true);
+    }
+    setRendering(false);
+  }, [form, checks, studentMongoId]);
+
+  // Debounced re-fetch of the filled PDF whenever form/checks change
+  useEffect(() => {
+    if (loading) return; // wait until initial data loaded
+    const timer = setTimeout(() => { loadFilledPdf(); }, 600);
+    return () => clearTimeout(timer);
+  }, [form, checks, loading, loadFilledPdf]);
 
   const renderPreview = useCallback(async () => {
     if (!pdfDocRef.current || !canvasRef.current) return;
@@ -517,9 +539,8 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
         <div style={{ flex: 1, overflow: "auto", padding: "12px" }}>
           {pdfError ? (
             <div style={{ color: "#d1d5db", fontSize: 13, padding: 20, lineHeight: 1.8 }}>
-              <strong>To enable preview:</strong><br /><br />
-              Place <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>medical-examination-form.pdf</code><br />
-              in your <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>public/</code> folder.
+              <strong>Preview unavailable</strong><br /><br />
+              Make sure <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>backend/public/medical-examination-form.pdf</code> exists on the server with all MEF fields.
             </div>
           ) : (
             <canvas ref={canvasRef} style={{ borderRadius: 4, display: "block" }} />
