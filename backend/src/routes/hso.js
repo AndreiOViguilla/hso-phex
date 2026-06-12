@@ -1,6 +1,7 @@
 const express    = require("express");
 const router     = express.Router();
 const User       = require("../models/User");
+const Form       = require("../models/Form");
 const Appointment = require("../models/Appointment");
 const Settings   = require("../models/Settings");
 const { authMiddleware } = require("../middleware/auth");
@@ -86,22 +87,109 @@ router.put("/settings", authMiddleware, requireRole("admin", "master"), async (r
 // ── ADMIN + MASTER: View all students ────────────────────────────────────────
 
 // GET /api/hso/students
-router.get("/students", authMiddleware, requireRole("admin", "master"), async (req, res) => {
+router.get("/students", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
   try {
     const students = await User.find({ role: "student" })
       .select("-passwordHash")
       .sort({ createdAt: -1 });
-    res.json(students);
+    res.json(students.map(u => u.toSafeObject ? u.toSafeObject() : u));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // GET /api/hso/students/:id/appointments
-router.get("/students/:id/appointments", authMiddleware, requireRole("admin", "master"), async (req, res) => {
+router.get("/students/:id/appointments", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
   try {
     const appts = await Appointment.find({ userId: req.params.id }).sort({ appointmentDate: 1 });
     res.json(appts);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── NURSE + ADMIN + MASTER: Today's appointments ─────────────────────────────
+
+// GET /api/hso/appointments/today?type=phex
+router.get("/appointments/today", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
+  try {
+    const { type } = req.query;
+    const today = new Date().toISOString().split("T")[0];
+    const filter = { appointmentDate: today };
+    if (type) filter.appointmentType = type;
+    const appts = await Appointment.find(filter).sort({ timeSlot: 1 });
+
+    // Attach student info
+    const studentIds = appts.map(a => a.studentId);
+    const students = await User.find({ studentId: { $in: studentIds } }).select("-passwordHash");
+    const studentMap = {};
+    students.forEach(s => { studentMap[s.studentId] = s.toSafeObject ? s.toSafeObject() : s; });
+
+    const result = appts.map(a => ({
+      ...a.toObject(),
+      student: studentMap[a.studentId] || null,
+    }));
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── NURSE + ADMIN + MASTER: Mark MEF/DEF as filled for a student ─────────────
+
+// PUT /api/hso/students/:id/forms
+router.put("/students/:id/forms", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
+  try {
+    const { filledMEF, filledDEF } = req.body;
+    const update = {};
+    if (typeof filledMEF === "boolean") update.filledMEF = filledMEF;
+    if (typeof filledDEF === "boolean") update.filledDEF = filledDEF;
+    if (Object.keys(update).length === 0) return res.status(400).json({ error: "No valid fields to update." });
+
+    const user = await User.findByIdAndUpdate(req.params.id, update, { new: true }).select("-passwordHash");
+    if (!user) return res.status(404).json({ error: "Student not found." });
+    res.json(user.toSafeObject ? user.toSafeObject() : user);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/hso/students/:id/mef — get student's MEF form data (for nurse to view)
+router.get("/students/:id/mef", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select("-passwordHash");
+    if (!user) return res.status(404).json({ error: "Student not found." });
+
+    const form = await Form.findOne({ userId: req.params.id, formType: "mef" });
+    res.json({
+      student: user.toSafeObject ? user.toSafeObject() : user,
+      formData: form?.formData || {},
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/hso/students/:id/mef — save nurse's MEF form data
+router.put("/students/:id/mef", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: "Student not found." });
+
+    const existing = await Form.findOne({ userId: req.params.id, formType: "mef" });
+    const mergedData = { ...(existing?.formData || {}), ...req.body };
+
+    await Form.findOneAndUpdate(
+      { userId: req.params.id, formType: "mef" },
+      { userId: req.params.id, formType: "mef", formData: mergedData },
+      { upsert: true, new: true }
+    );
+
+    // Mark as filled
+    user.filledMEF = true;
+    await user.save();
+
+    res.json({ message: "MEF saved.", formData: mergedData });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -130,7 +218,7 @@ router.get("/users", authMiddleware, requireRole("master"), async (req, res) => 
     const users = await User.find({ role: { $in: ["admin", "master", "nurse"] } })
       .select("-passwordHash")
       .sort({ createdAt: -1 });
-    res.json(users);
+    res.json(users.map(u => u.toSafeObject ? u.toSafeObject() : u));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

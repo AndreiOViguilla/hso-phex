@@ -3,9 +3,11 @@ import { getAuthHeader } from "../App";
 import { useTheme } from "../ThemeContext";
 import { useModal } from "../components/Modal";
 import { useIsMobile } from "../utils/useIsMobile";
+import NurseMEFPage from "./NurseMEFPage";
 
 const TABS = ["Stats", "Slots", "Venues", "Students"];
 const MASTER_TABS = ["Stats", "Slots", "Venues", "Students", "Users"];
+const NURSE_TABS = ["Forms", "Students"];
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -760,12 +762,158 @@ function UsersTab({ t }) {
   );
 }
 
+// ── Nurse Forms Tab ──────────────────────────────────────────────────────────
+function NurseFormsTab({ t, dark }) {
+  const { show } = useModal();
+  const [type, setType] = useState("phex");
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [allStudents, setAllStudents] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+
+  const load = () => {
+    setLoading(true);
+    fetch(`/api/hso/appointments/today?type=${type}`, { credentials: "include" })
+      .then(r => r.ok ? r.json() : [])
+      .then(data => { setAppointments(data); setLoading(false); })
+      .catch(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, [type]);
+
+  // Load all students once for search
+  useEffect(() => {
+    fetch("/api/hso/students", { credentials: "include" })
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setAllStudents(data))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!search.trim()) { setSearchResults([]); return; }
+    const q = search.toLowerCase();
+    setSearchResults(allStudents.filter(s =>
+      s.studentId?.includes(search) ||
+      s.firstName?.toLowerCase().includes(q) ||
+      s.lastName?.toLowerCase().includes(q) ||
+      s.email?.toLowerCase().includes(q)
+    ).slice(0, 8));
+  }, [search, allStudents]);
+
+  const toggleForm = async (studentMongoId, field, currentValue) => {
+    try {
+      const r = await fetch(`/api/hso/students/${studentMongoId}/forms`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ [field]: !currentValue }),
+      });
+      if (r.ok) {
+        show({ type: "success", message: `${field === "filledMEF" ? "MEF" : "DEF"} ${!currentValue ? "marked as filled" : "unmarked"}.` });
+        load();
+        // Update search results / allStudents in place
+        setAllStudents(prev => prev.map(s => s._id === studentMongoId ? { ...s, [field]: !currentValue } : s));
+      } else {
+        show({ type: "error", message: "Failed to update." });
+      }
+    } catch (_) { show({ type: "error", message: "Server error." }); }
+  };
+
+  const formatDate = (str) => {
+    const d = new Date(str + "T00:00:00");
+    return d.toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" });
+  };
+
+  const StudentRow = ({ student, timeSlot }) => {
+    if (!student) return null;
+    return (
+      <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: 160, cursor: "pointer" }} onClick={() => setSelectedStudent(student)}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{student.firstName} {student.lastName}</div>
+          <div style={{ fontSize: 11, color: t.textSub }}>{student.studentId} · {student.email}</div>
+          {timeSlot && <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>Appointment: {timeSlot}</div>}
+        </div>
+        {student.filledMEF && (
+          <span style={{ padding: "6px 12px", borderRadius: 8, border: `1.5px solid #16a34a`, background: dark ? "#14532d33" : "#f0fdf4", color: "#16a34a", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            MEF Filled
+          </span>
+        )}
+        <button onClick={() => setSelectedStudent(student)}
+          style={{ padding: "6px 12px", borderRadius: 8, border: `1.5px solid ${t.accent}`, background: t.accentBg, color: t.accent, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+          {student.filledMEF ? "Edit MEF" : "Fill MEF"}
+        </button>
+      </div>
+    );
+  };
+
+  // If a student is selected, show the NurseMEFPage
+  if (selectedStudent) {
+    return (
+      <NurseMEFPage
+        studentMongoId={selectedStudent._id}
+        onBack={() => setSelectedStudent(null)}
+        onSaved={() => {
+          setSelectedStudent(null);
+          load();
+          setAllStudents(prev => prev.map(s => s._id === selectedStudent._id ? { ...s, filledMEF: true } : s));
+        }}
+      />
+    );
+  }
+
+  return (
+    <div>
+      {/* Search */}
+      <div style={{ marginBottom: 20 }}>
+        <input placeholder="Search by name, ID, or email…" value={search} onChange={e => setSearch(e.target.value)}
+          style={{ width: "100%", padding: "10px 14px", border: `1px solid ${t.inputBorder}`, borderRadius: 10, fontSize: 13, fontFamily: "inherit", background: t.input, color: t.text, boxSizing: "border-box", outline: "none" }} />
+        {searchResults.length > 0 && (
+          <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+            {searchResults.map((s, i) => <StudentRow key={i} student={s} />)}
+          </div>
+        )}
+      </div>
+
+      {!search.trim() && (
+        <>
+          {/* Type switcher */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            {["phex","dt"].map(t2 => (
+              <button key={t2} onClick={() => setType(t2)}
+                style={{ padding: "7px 16px", borderRadius: 8, border: "1.5px solid " + (type === t2 ? t.accent : t.cardBorder), background: type === t2 ? t.accentBg : t.card, color: type === t2 ? t.accent : t.textSub, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                {t2 === "phex" ? "PHEx" : "Drug Test"}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 4 }}>Today's {type === "phex" ? "PHEx" : "Drug Test"} Appointments</div>
+          <div style={{ fontSize: 11, color: t.textSub, marginBottom: 12 }}>{new Date().toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</div>
+
+          {loading ? (
+            <div style={{ fontSize: 13, color: t.textMuted, textAlign: "center", padding: "20px 0" }}>Loading…</div>
+          ) : appointments.length === 0 ? (
+            <div style={{ fontSize: 13, color: t.textMuted, textAlign: "center", padding: "20px 0" }}>No appointments today.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {appointments.map((a, i) => <StudentRow key={i} student={a.student} timeSlot={a.timeSlot} />)}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function AdminDashboard({ userData, onLogout, onBack }) {
   const { dark, toggle, t } = useTheme();
   const isMobile = useIsMobile();
   const isMaster = userData?.role === "master";
-  const tabs = isMaster ? MASTER_TABS : TABS;
+  const isNurse  = userData?.role === "nurse";
+  const tabs = isNurse ? NURSE_TABS : isMaster ? MASTER_TABS : TABS;
   const [activeTab, setActiveTab] = useState(tabs[0]);
 
   return (
@@ -774,7 +922,7 @@ export default function AdminDashboard({ userData, onLogout, onBack }) {
       <div style={{ background: dark ? "#1e293b" : "#1e3a8a", color: "#fff", padding: "14px 24px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 16, fontWeight: 700 }}>HSO Dashboard</div>
-          <div style={{ fontSize: 12, opacity: 0.7 }}>{isMaster ? "Master" : "Admin"} · {userData?.firstName} {userData?.lastName}</div>
+          <div style={{ fontSize: 12, opacity: 0.7 }}>{isMaster ? "Master" : isNurse ? "Nurse" : "Admin"} · {userData?.firstName} {userData?.lastName}</div>
         </div>
         <button onClick={toggle} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 34, height: 34, borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
           {dark
@@ -801,9 +949,10 @@ export default function AdminDashboard({ userData, onLogout, onBack }) {
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "16px" : "28px 32px" }}>
         <div style={{ maxWidth: 800, margin: "0 auto" }}>
-          {activeTab === "Stats"    && <StatsTab t={t} dark={dark} />}
-          {activeTab === "Slots"    && <SlotsTab t={t} dark={dark} />}
-          {activeTab === "Venues"   && <VenuesTab t={t} />}
+          {activeTab === "Forms"    && isNurse && <NurseFormsTab t={t} dark={dark} />}
+          {activeTab === "Stats"    && !isNurse && <StatsTab t={t} dark={dark} />}
+          {activeTab === "Slots"    && !isNurse && <SlotsTab t={t} dark={dark} />}
+          {activeTab === "Venues"   && !isNurse && <VenuesTab t={t} />}
           {activeTab === "Students" && <StudentsTab t={t} isMaster={isMaster} />}
           {activeTab === "Users"    && isMaster && <UsersTab t={t} />}
         </div>
