@@ -312,9 +312,10 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
     setRendering(false);
   }, [form, checks, studentMongoId]);
 
+  // Debounced re-fetch of the filled PDF whenever form/checks change
   useEffect(() => {
     if (loading) return;
-    const timer = setTimeout(() => { loadFilledPdf(); }, 600);
+    const timer = setTimeout(() => { loadFilledPdf(); }, 500);
     return () => clearTimeout(timer);
   }, [form, checks, loading, loadFilledPdf]);
 
@@ -382,8 +383,6 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
             .forEach(el => { el.style.pointerEvents = "none"; });
         } catch (_) {}
       }
-
-      const tooltipDiv = tooltipLayerRef.current;
       if (tooltipDiv) {
         await renderFieldOwnerTooltips({
           page,
@@ -588,7 +587,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
               Make sure <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>backend/public/medical-examination-form.pdf</code> exists on the server with all MEF fields.
             </div>
           ) : (
-            <div style={{ position: "relative", display: "inline-block" }}>
+            <div style={{ position: "relative", display: "inline-block", opacity: rendering ? 0.6 : 1, transition: "opacity 0.2s ease" }}>
               <canvas ref={canvasRef} style={{ borderRadius: 4, display: "block" }} />
               <div ref={annotationLayerRef} className="annotationLayer" style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }} />
               <div ref={tooltipLayerRef} style={{ position: "absolute", top: 0, left: 0 }} />
