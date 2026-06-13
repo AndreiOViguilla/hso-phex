@@ -383,6 +383,8 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
             .forEach(el => { el.style.pointerEvents = "none"; });
         } catch (_) {}
       }
+
+      const tooltipDiv = tooltipLayerRef.current;
       if (tooltipDiv) {
         await renderFieldOwnerTooltips({
           page,
