@@ -21,19 +21,55 @@ async function fillAndSendPDF(res, pdfPath, fieldMap, checkboxMap, filename) {
   }
 
   try { form.flatten(); } catch (_) {}
-  const bytes = await pdfDoc.save({ updateFieldAppearances: false });
+  const bytes = await pdfDoc.save({ updateFieldAppearances: true });
 
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
   res.send(Buffer.from(bytes));
 }
 
+// Maps the student MEF form's camelCase keys -> PDF AcroForm field names,
+// so the saved Form.formData uses the same key names the nurse's PDF
+// generation routes (in hso.js) expect.
+function buildMefPdfFieldMap(body) {
+  const {
+    idNumber, date, lastName, firstName, mi, gender, birthday, contact,
+    college, academicYear, emergencyName, emergencyRel, emergencyContact,
+    studentNameAuth, studentAge,
+  } = body;
+
+  return {
+    "ID Number":          idNumber,
+    "Date":               date,
+    "Last Name":          lastName,
+    "First Name":         firstName,
+    "MI":                 mi,
+    "Birthday":           birthday,
+    "Contact Number":     contact,
+    "College Section":    college,
+    "Academic Year":      academicYear,
+    "Emergency Name":     emergencyName,
+    "Relationship":       emergencyRel,
+    "Emergency Contact":  emergencyContact,
+    "Student Name Auth":  studentNameAuth,
+    "Student Age":        studentAge,
+    "Gender Female":      gender === "Female",
+    "Gender Male":        gender === "Male",
+  };
+}
+
 // POST /api/forms/mef
 router.post("/mef", authMiddleware, async (req, res) => {
   try {
+    const pdfFieldData = buildMefPdfFieldMap(req.body);
+
+    // Save using PDF field names so nurse-side routes can read them directly
+    const existing = await Form.findOne({ userId: req.user.id, formType: "mef" });
+    const mergedData = { ...(existing?.formData || {}), ...pdfFieldData };
+
     await Form.findOneAndUpdate(
       { userId: req.user.id, formType: "mef" },
-      { userId: req.user.id, formType: "mef", formData: req.body },
+      { userId: req.user.id, formType: "mef", formData: mergedData },
       { upsert: true, new: true }
     );
 
