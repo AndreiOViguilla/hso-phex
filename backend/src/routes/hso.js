@@ -287,6 +287,30 @@ function fillDefForm(form, data) {
   });
 }
 
+// Auto-fills "Assigned Dentist" (logged-in nurse's name), "Date" (today),
+// and "Academic Year" (from Settings, falling back to a sensible default).
+async function autofillDefMeta(req) {
+  const meta = {};
+
+  try {
+    const nurse = await User.findById(req.user.id).select("firstName lastName");
+    if (nurse) {
+      meta["Assigned Dentist"] = `${nurse.firstName || ""} ${nurse.lastName || ""}`.trim();
+    }
+  } catch (_) {}
+
+  meta["Date"] = new Date().toISOString().split("T")[0];
+
+  try {
+    const setting = await Settings.findOne({ key: "academic_year" });
+    meta["Academic Year"] = setting?.value || "2025-2026";
+  } catch (_) {
+    meta["Academic Year"] = "2025-2026";
+  }
+
+  return meta;
+}
+
 // GET /api/hso/students/:id/def — get student's DEF form data (for nurse to view)
 router.get("/students/:id/def", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
   try {
@@ -294,9 +318,12 @@ router.get("/students/:id/def", authMiddleware, requireRole("admin", "master", "
     if (!user) return res.status(404).json({ error: "Student not found." });
 
     const form = await Form.findOne({ userId: req.params.id, formType: "def" });
+    const autofill = await autofillDefMeta(req);
+    const formData = { ...autofill, ...(form?.formData || {}) };
+
     res.json({
       student: user.toSafeObject ? user.toSafeObject() : user,
-      formData: form?.formData || {},
+      formData,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -335,7 +362,8 @@ router.post("/students/:id/def/pdf", authMiddleware, requireRole("admin", "maste
     if (!fs.existsSync(pdfPath)) return res.status(404).json({ error: "DEF PDF template not found on server." });
 
     const existing = await Form.findOne({ userId: req.params.id, formType: "def" });
-    const data = { ...(existing?.formData || {}), ...req.body };
+    const autofill = await autofillDefMeta(req);
+    const data = { ...autofill, ...(existing?.formData || {}), ...req.body };
 
     const pdfDoc = await PDFDocument.load(fs.readFileSync(pdfPath), { ignoreEncryption: true });
     const form   = pdfDoc.getForm();
@@ -361,7 +389,8 @@ router.post("/students/:id/def/pdf/download", authMiddleware, requireRole("admin
     if (!fs.existsSync(pdfPath)) return res.status(404).json({ error: "DEF PDF template not found on server." });
 
     const existing = await Form.findOne({ userId: req.params.id, formType: "def" });
-    const data = { ...(existing?.formData || {}), ...req.body };
+    const autofill = await autofillDefMeta(req);
+    const data = { ...autofill, ...(existing?.formData || {}), ...req.body };
 
     const pdfDoc = await PDFDocument.load(fs.readFileSync(pdfPath), { ignoreEncryption: true });
     const form   = pdfDoc.getForm();
