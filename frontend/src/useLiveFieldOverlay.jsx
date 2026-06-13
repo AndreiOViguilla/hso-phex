@@ -30,7 +30,7 @@ export function useLiveFieldOverlay() {
   // already flipped to top-left origin.
   const [fieldRects, setFieldRects] = useState({});
 
-  const captureFieldRects = useCallback(async (page, cssViewport) => {
+  const captureFieldRects = useCallback(async (page, cssViewport, fitScale = 1) => {
     try {
       const annotations = await page.getAnnotations({ intent: "display" });
       const next = {};
@@ -49,10 +49,35 @@ export function useLiveFieldOverlay() {
         const width = Math.abs(vx2 - vx1);
         const height = Math.abs(vy2 - vy1);
 
+        // Extract the field's font size from its default appearance (/DA),
+        // e.g. "/Helv 10 Tf 0 g" -> 10. This is the same size pdf-lib uses
+        // when it draws the value into the flattened download PDF, so using
+        // it here (scaled by fitScale, same as the canvas render scale)
+        // keeps the live overlay text visually consistent with the download.
+        let pdfFontSize = 0; // 0 = "auto-size to fit" in PDF spec terms
+        const da = ann.defaultAppearanceData?.fontSize ?? null;
+        if (typeof da === "number") {
+          pdfFontSize = da;
+        } else if (typeof ann.defaultAppearance === "string") {
+          const m = ann.defaultAppearance.match(/\/\S+\s+([\d.]+)\s+Tf/);
+          if (m) pdfFontSize = parseFloat(m[1]);
+        }
+
+        // A /DA font size of 0 means "auto" — pdf-lib/Acrobat picks a size
+        // that fits the field height. Fall back to a height-based estimate
+        // in that case (roughly matches pdf-lib's auto-size behavior).
+        const autoFontSizePdfUnits = height / fitScale * 0.65;
+        const effectivePdfFontSize = pdfFontSize > 0 ? pdfFontSize : autoFontSizePdfUnits;
+
+        // Convert from PDF point size to on-screen CSS pixels at the
+        // current fit scale — matches how the canvas is rendered.
+        const fontSize = effectivePdfFontSize * fitScale;
+
         next[ann.fieldName] = {
           x, y, width, height,
           type: ann.fieldType || "Tx", // 'Tx' text, 'Btn' checkbox/radio
           multiline: !!ann.multiLine,
+          fontSize,
         };
       }
 
@@ -126,8 +151,9 @@ export default function LiveFieldOverlay({ fieldRects, values, fitWidth, fitHeig
           );
         }
 
-        // Text field: show the value, roughly matching PDF text size.
-        const fontSize = Math.max(8, Math.min(rect.height * 0.7, 14)) * fontScale;
+        // Text field: use the same font size pdf-lib would render at in the
+        // flattened download, scaled to the current preview's fit scale.
+        const fontSize = Math.max(6, rect.fontSize || rect.height * 0.65) * fontScale;
 
         return (
           <div

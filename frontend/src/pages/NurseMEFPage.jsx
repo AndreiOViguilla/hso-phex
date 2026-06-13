@@ -362,7 +362,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
       const cssViewport = page.getViewport({ scale: fitScale });
 
       setOverlayDims({ width: fitWidth, height: fitHeight });
-      captureFieldRects(page, cssViewport);
+      captureFieldRects(page, cssViewport, fitScale);
 
       const annotationDiv = annotationLayerRef.current;
       if (annotationDiv && window.pdfjsViewer) {
