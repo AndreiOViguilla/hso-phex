@@ -63,23 +63,32 @@ export function useLiveFieldOverlay() {
           if (m) pdfFontSize = parseFloat(m[1]);
         }
 
-        // Pragmatic fixed size: the MEF template's actual rendered field
-        // text (in the flattened download) is consistently small relative
-        // to its box — formula-derived sizes were overshooting. Use a
-        // small fixed PDF-point size, scaled to the preview's fit scale.
-        // Tune BASE_FONT_SIZE_PT directly if it still doesn't match.
-        const BASE_FONT_SIZE_PT = 1;
-        const effectivePdfFontSize = pdfFontSize > 0 ? pdfFontSize : BASE_FONT_SIZE_PT;
+        // A /DA font size of 0 means "auto-size". pdf-lib defaults to 12pt
+        // for auto-size fields, shrinking to fit if the field's box is
+        // shorter than that. Cap by height so short single-line fields
+        // don't render oversized text.
+        const PDF_LIB_DEFAULT_AUTO_FONT_SIZE = 12;
+        const heightPdfUnits = height / fitScale;
+        const heightCappedSize = Math.max(4, heightPdfUnits - 2);
+        const effectivePdfFontSize = pdfFontSize > 0
+          ? pdfFontSize
+          : Math.min(PDF_LIB_DEFAULT_AUTO_FONT_SIZE, heightCappedSize);
 
         // Convert from PDF point size to on-screen CSS pixels at the
         // current fit scale — matches how the canvas is rendered.
-        const fontSize = effectivePdfFontSize * fitScale;
-
+        // Render at a fixed, comfortably-sized base font, then visually
+        // shrink with a CSS transform scale. Browsers enforce a minimum
+        // *font-size* (often ~9-12px) regardless of the computed value,
+        // but transform: scale() is NOT subject to that floor, so this is
+        // the only reliable way to render genuinely small text.
+        const BASE_RENDER_PX = 16; // arbitrary comfortable base size
+        const desiredPx = effectivePdfFontSize * fitScale;
+        const scale = desiredPx / BASE_RENDER_PX;
         next[ann.fieldName] = {
           x, y, width, height,
           type: ann.fieldType || "Tx", // 'Tx' text, 'Btn' checkbox/radio
           multiline: !!ann.multiLine,
-          fontSize,
+          scale,
         };
       }
 
@@ -153,23 +162,25 @@ export default function LiveFieldOverlay({ fieldRects, values, fitWidth, fitHeig
           );
         }
 
-        // Text field: use the same font size pdf-lib would render at in the
-        // flattened download, scaled to the current preview's fit scale.
-        let fontSize = Math.max(6, rect.fontSize || 12) * fontScale;
+        // Text field: render at a fixed base size, then visually scale down
+        // via CSS transform — bypasses the browser's minimum-font-size
+        // floor that clamps small `font-size` values.
+        const BASE_RENDER_PX = 16;
+        let scale = rect.scale || 1;
 
         // pdf-lib shrinks auto-size text to fit the field's width if it
         // would otherwise overflow. Roughly replicate that here using a
         // simple average-character-width estimate (Helvetica ~0.5 * fontSize
-        // per character), so long values don't visually overflow the field
-        // in the overlay either.
+        // per character at the BASE_RENDER_PX size), so long values don't
+        // visually overflow the field in the overlay either.
         const text = String(value);
         if (!rect.multiline && text.length > 0) {
-          const estCharWidth = fontSize * 0.5;
+          const renderedFontSize = BASE_RENDER_PX * scale;
+          const estCharWidth = renderedFontSize * 0.5;
           const estTextWidth = text.length * estCharWidth;
           const maxWidth = rect.width - 4;
           if (estTextWidth > maxWidth && maxWidth > 0) {
-            fontSize = fontSize * (maxWidth / estTextWidth);
-            fontSize = Math.max(6, fontSize);
+            scale = scale * (maxWidth / estTextWidth);
           }
         }
 
@@ -181,17 +192,19 @@ export default function LiveFieldOverlay({ fieldRects, values, fitWidth, fitHeig
               position: "absolute",
               left: rect.x + 2,
               top: rect.y,
-              width: rect.width - 4,
-              height: rect.height,
+              width: (rect.width - 4) / scale,
+              height: rect.height / scale,
               display: "flex",
               alignItems: "center",
-              fontSize,
+              fontSize: BASE_RENDER_PX,
               lineHeight: 1.1,
               color: "#111827",
               fontFamily: "Helvetica, Arial, sans-serif",
               whiteSpace: rect.multiline ? "pre-wrap" : "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
+              transform: `scale(${scale})`,
+              transformOrigin: "top left",
             }}
           >
             {String(value)}
