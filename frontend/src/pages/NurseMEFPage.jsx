@@ -17,7 +17,7 @@ const CONSULT_FIELDS = [
   { key: "Blood Type",       label: "Blood Type" },
   { key: "Blood Pressure",   label: "Blood Pressure" },
   { key: "Resp Rate",        label: "Respiratory Rate" },
-  { key: "Pulse Rate",       label: "Pulse Rate" },
+  { key: "Pulse Rate",        label: "Pulse Rate" },
   { key: "Temperature",      label: "Temperature" },
   { key: "Height Inches",    label: "Height (inches)" },
   { key: "Weight Pounds",    label: "Weight (lbs)" },
@@ -181,6 +181,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
   const tooltipLayerRef    = useRef(null);
   const pdfDocRef          = useRef(null);
   const scaleRef           = useRef(1);
+  const requestIdRef       = useRef(0);
   const [pdfReady, setPdfReady] = useState(false);
   const [pdfError, setPdfError] = useState(false);
   const [rendering, setRendering] = useState(false);
@@ -293,6 +294,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
 
   const loadFilledPdf = useCallback(async () => {
     if (!window.pdfjsLib) return;
+    const reqId = ++requestIdRef.current;
     setRendering(true);
     try {
       const payload = { ...form, ...checks };
@@ -303,20 +305,23 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
       });
       if (!resp.ok) throw new Error("not found");
       const buf = await resp.arrayBuffer();
-      pdfDocRef.current = await window.pdfjsLib.getDocument({ data: buf }).promise;
+      const doc = await window.pdfjsLib.getDocument({ data: buf }).promise;
+
+      if (reqId !== requestIdRef.current) return; // a newer request has started; discard this one
+
+      pdfDocRef.current = doc;
       setPdfReady(true);
       setPdfError(false);
     } catch (e) {
-      setPdfError(true);
+      if (reqId === requestIdRef.current) setPdfError(true);
     }
-    setRendering(false);
+    if (reqId === requestIdRef.current) setRendering(false);
   }, [form, checks, studentMongoId]);
 
-  // Debounced re-fetch of the filled PDF whenever form/checks change
+  // Re-fetch the filled PDF immediately whenever form/checks change
   useEffect(() => {
     if (loading) return;
-    const timer = setTimeout(() => { loadFilledPdf(); }, 500);
-    return () => clearTimeout(timer);
+    loadFilledPdf();
   }, [form, checks, loading, loadFilledPdf]);
 
   const renderPreview = useCallback(async () => {

@@ -90,6 +90,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
   const canvasRef = useRef(null);
   const tooltipLayerRef = useRef(null);
   const pdfDocRef = useRef(null);
+  const fieldElementsRef = useRef({});
   const scaleRef  = useRef(1);
   const [pdfReady, setPdfReady] = useState(false);
   const [pdfError, setPdfError] = useState(false);
@@ -207,11 +208,39 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
     setRendering(false);
   }, [form, checks, studentMongoId]);
 
+  // Initial load only — fetches the filled PDF once and renders the full
+  // preview (canvas + annotation layer + tooltips). Subsequent edits update
+  // the already-rendered annotation layer directly (see effect below) so
+  // there's no flicker or refetch while typing.
+  const initialLoadDoneRef = useRef(false);
   useEffect(() => {
-    if (loading) return;
-    const timer = setTimeout(() => { loadFilledPdf(); }, 600);
-    return () => clearTimeout(timer);
-  }, [form, checks, loading, loadFilledPdf]);
+    if (loading || initialLoadDoneRef.current) return;
+    initialLoadDoneRef.current = true;
+    loadFilledPdf();
+  }, [loading, loadFilledPdf]);
+
+  // Instant client-side sync: write form/checkbox values directly into the
+  // already-rendered AcroForm widgets as the user types. No network call,
+  // no re-render, no flicker.
+  useEffect(() => {
+    const map = fieldElementsRef.current;
+    if (!map || Object.keys(map).length === 0) return;
+
+    Object.entries(form).forEach(([name, value]) => {
+      const el = map[name];
+      if (!el) return;
+      if (el.type === "checkbox" || el.type === "radio") return;
+      if (el.value !== (value || "")) el.value = value || "";
+    });
+
+    Object.entries(checks).forEach(([name, value]) => {
+      const el = map[name];
+      if (!el) return;
+      if (el.type === "checkbox" || el.type === "radio") {
+        if (el.checked !== !!value) el.checked = !!value;
+      }
+    });
+  }, [form, checks]);
 
   const renderPreview = useCallback(async () => {
     if (!pdfDocRef.current || !canvasRef.current) return;
@@ -275,6 +304,20 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
           // pointer events on every rendered widget so hover passes through.
           annotationDiv.querySelectorAll("input, textarea, select, section")
             .forEach(el => { el.style.pointerEvents = "none"; });
+
+          // Build a map of PDF field name -> rendered <input>/<textarea>/<select>
+          // so we can write values into the preview instantly as the user
+          // types, without re-fetching or re-rendering the whole PDF.
+          // pdf.js wraps each widget in a <section data-annotation-id="...">,
+          // and annotations[i].id correlates 1:1 with annotations[i].fieldName.
+          const map = {};
+          annotations.forEach(ann => {
+            if (!ann.fieldName) return;
+            const section = annotationDiv.querySelector(`[data-annotation-id="${ann.id}"]`);
+            const input = section?.querySelector("input, textarea, select");
+            if (input) map[ann.fieldName] = input;
+          });
+          fieldElementsRef.current = map;
         } catch (_) {}
       }
 
@@ -440,7 +483,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
               Make sure <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>backend/public/dental-form.pdf</code> exists on the server with all DEF fields.
             </div>
           ) : (
-            <div style={{ position: "relative", display: "inline-block" }}>
+            <div style={{ position: "relative", display: "inline-block", opacity: rendering ? 0.6 : 1, transition: "opacity 0.2s ease" }}>
               <canvas ref={canvasRef} style={{ borderRadius: 4, display: "block" }} />
               <div
                 ref={annotationLayerRef}
