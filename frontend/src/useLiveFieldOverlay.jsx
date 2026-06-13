@@ -68,7 +68,7 @@ export function useLiveFieldOverlay() {
         // to its box — formula-derived sizes were overshooting. Use a
         // small fixed PDF-point size, scaled to the preview's fit scale.
         // Tune BASE_FONT_SIZE_PT directly if it still doesn't match.
-        const BASE_FONT_SIZE_PT = 5;
+        const BASE_FONT_SIZE_PT = 1;
         const effectivePdfFontSize = pdfFontSize > 0 ? pdfFontSize : BASE_FONT_SIZE_PT;
 
         // Convert from PDF point size to on-screen CSS pixels at the
