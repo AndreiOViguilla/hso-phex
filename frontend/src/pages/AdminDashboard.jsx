@@ -4,6 +4,7 @@ import { useTheme } from "../ThemeContext";
 import { useModal } from "../components/Modal";
 import { useIsMobile } from "../utils/useIsMobile";
 import NurseMEFPage from "./NurseMEFPage";
+import NurseDEFPage from "./NurseDEFPage";
 
 const TABS = ["Stats", "Slots", "Venues", "Students"];
 const MASTER_TABS = ["Stats", "Slots", "Venues", "Students", "Users"];
@@ -835,30 +836,45 @@ function NurseFormsTab({ t, dark }) {
           <div style={{ fontSize: 11, color: t.textSub }}>{student.studentId} · {student.email}</div>
           {appointmentDate && timeSlot && <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{formatDate(appointmentDate)} at {timeSlot}</div>}
         </div>
-        {student.filledMEF && (
+        {(type === "phex" ? student.filledMEF : student.filledDEF) && (
           <span style={{ padding: "6px 12px", borderRadius: 8, border: `1.5px solid #16a34a`, background: dark ? "#14532d33" : "#f0fdf4", color: "#16a34a", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            MEF Filled
+            {type === "phex" ? "MEF" : "DEF"} Filled
           </span>
         )}
         <button onClick={() => setSelectedStudent(student)}
           style={{ padding: "6px 12px", borderRadius: 8, border: `1.5px solid ${t.accent}`, background: t.accentBg, color: t.accent, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-          {student.filledMEF ? "Edit MEF" : "Fill MEF"}
+          {type === "phex"
+            ? (student.filledMEF ? "Edit MEF" : "Fill MEF")
+            : (student.filledDEF ? "Edit DEF" : "Fill DEF")}
         </button>
       </div>
     );
   };
 
-  // If a student is selected, show the NurseMEFPage
+  // If a student is selected, show the NurseMEFPage or NurseDEFPage based on type
   if (selectedStudent) {
+    if (type === "phex") {
+      return (
+        <NurseMEFPage
+          studentMongoId={selectedStudent._id}
+          onBack={() => setSelectedStudent(null)}
+          onSaved={() => {
+            setSelectedStudent(null);
+            load();
+            setAllStudents(prev => prev.map(s => s._id === selectedStudent._id ? { ...s, filledMEF: true } : s));
+          }}
+        />
+      );
+    }
     return (
-      <NurseMEFPage
+      <NurseDEFPage
         studentMongoId={selectedStudent._id}
         onBack={() => setSelectedStudent(null)}
         onSaved={() => {
           setSelectedStudent(null);
           load();
-          setAllStudents(prev => prev.map(s => s._id === selectedStudent._id ? { ...s, filledMEF: true } : s));
+          setAllStudents(prev => prev.map(s => s._id === selectedStudent._id ? { ...s, filledDEF: true } : s));
         }}
       />
     );

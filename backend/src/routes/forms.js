@@ -88,13 +88,16 @@ router.post("/mef", authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/forms/def
+// POST /api/forms/def — student saves Name/ID No (auto-filled from profile)
 router.post("/def", authMiddleware, async (req, res) => {
   const { name, idNo } = req.body;
   try {
+    const existing = await Form.findOne({ userId: req.user.id, formType: "def" });
+    const mergedData = { ...(existing?.formData || {}), "Name": name, "ID No": idNo };
+
     await Form.findOneAndUpdate(
       { userId: req.user.id, formType: "def" },
-      { userId: req.user.id, formType: "def", formData: req.body },
+      { userId: req.user.id, formType: "def", formData: mergedData },
       { upsert: true, new: true }
     );
 

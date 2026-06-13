@@ -197,54 +197,7 @@ router.put("/students/:id/mef", authMiddleware, requireRole("admin", "master", "
   }
 });
 
-// ── Shared field-name lists used by both PDF routes below ────────────────────
-
-const MEF_TEXT_FIELD_NAMES = [
-  "ID Number", "Date", "Last Name", "First Name", "MI", "Birthday",
-  "Contact Number", "College Section", "Academic Year", "Emergency Name",
-  "Relationship", "Emergency Contact", "Student Name Auth", "Student Age",
-  "Blood Type", "Blood Pressure", "Resp Rate", "Pulse Rate", "Temperature",
-  "Height Inches", "Weight Pounds", "BMI", "BMI Category", "LMP Female",
-  "Medical History 1", "Medical History 2", "Medical History 3", "Medical History 4",
-  "Present Medication 1", "Present Medication 2",
-  "Left Vision", "Right Vision", "Smoking Details", "Drinking Details",
-  "Exercising Details", "Type Of Disability", "Diagnosis Impression",
-  "EENT Findings", "Head Neck Findings", "Breast Findings", "Lungs Findings",
-  "Heart Findings", "Skin Findings", "Abdomen Findings", "Neurologic Findings",
-  "Chest Xray Findings", "Drug Test Findings",
-  "Restrictions Details", "Clearance Specialty Reason", "Examining Physician",
-  "Assigned Nurse", "License Number", "Encoded By",
-];
-
-const MEF_CHECKBOX_FIELD_NAMES = [
-  "Gender Female", "Gender Male", "With Corrective Lens",
-  "Disability No", "Disability Yes", "PWD Card No", "PWD Card Yes",
-  "Right Handed", "Left Handed", "Ambidextrous",
-  "Smoking No", "Smoking Yes", "Drinking No", "Drinking Yes",
-  "Exercising No", "Exercising Yes",
-  "EENT Normal", "Head Neck Normal", "Breast Normal", "Lungs Normal",
-  "Heart Normal", "Skin Normal", "Abdomen Normal", "Neurologic Normal",
-  "Chest Xray Normal", "Drug Test Normal",
-  "Fit For Academic Activities", "Fit With Restrictions", "Pending Classification",
-  "For Additional Xray", "For Clearance",
-];
-
-function fillMefForm(form, data) {
-  MEF_TEXT_FIELD_NAMES.forEach(name => {
-    try { form.getTextField(name).setText(data[name] || ""); } catch (_) {}
-  });
-  MEF_CHECKBOX_FIELD_NAMES.forEach(name => {
-    try {
-      const cb = form.getCheckBox(name);
-      data[name] ? cb.check() : cb.uncheck();
-    } catch (_) {}
-  });
-}
-
-// ── AcroForm-preserving PREVIEW route (used by the nurse PDF preview) ───────
-// POST /api/hso/students/:id/mef/pdf
-// Returns a PDF with the AcroForm fields/widgets filled but NOT flattened,
-// so pdf.js's annotation layer can render interactive fields in the preview.
+// POST /api/hso/students/:id/mef/pdf — generate full MEF PDF (student + nurse fields)
 router.post("/students/:id/mef/pdf", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
   try {
     const pdfPath = path.join(__dirname, "../../public/medical-examination-form.pdf");
@@ -256,14 +209,52 @@ router.post("/students/:id/mef/pdf", authMiddleware, requireRole("admin", "maste
     const pdfDoc = await PDFDocument.load(fs.readFileSync(pdfPath), { ignoreEncryption: true });
     const form   = pdfDoc.getForm();
 
-    fillMefForm(form, data);
+    // All text fields
+    const TEXT_FIELD_NAMES = [
+      "ID Number", "Date", "Last Name", "First Name", "MI", "Birthday",
+      "Contact Number", "College Section", "Academic Year", "Emergency Name",
+      "Relationship", "Emergency Contact", "Student Name Auth", "Student Age",
+      "Blood Type", "Blood Pressure", "Resp Rate", "Pulse Rate", "Temperature",
+      "Height Inches", "Weight Pounds", "BMI", "BMI Category", "LMP Female",
+      "Medical History 1", "Medical History 2", "Medical History 3", "Medical History 4",
+      "Present Medication 1", "Present Medication 2",
+      "Left Vision", "Right Vision", "Smoking Details", "Drinking Details",
+      "Exercising Details", "Type Of Disability", "Diagnosis Impression",
+      "EENT Findings", "Head Neck Findings", "Breast Findings", "Lungs Findings",
+      "Heart Findings", "Skin Findings", "Abdomen Findings", "Neurologic Findings",
+      "Chest Xray Findings", "Drug Test Findings",
+      "Restrictions Details", "Clearance Specialty Reason", "Examining Physician",
+      "Assigned Nurse", "License Number", "Encoded By",
+    ];
+    TEXT_FIELD_NAMES.forEach(name => {
+      try { form.getTextField(name).setText(data[name] || ""); } catch (_) {}
+    });
 
-    // Intentionally NOT calling form.flatten() — keeps the AcroForm alive
-    // so pdf.js can render the annotation/form-field layer for preview.
+    // All checkbox fields
+    const CHECKBOX_FIELD_NAMES = [
+      "Gender Female", "Gender Male", "With Corrective Lens",
+      "Disability No", "Disability Yes", "PWD Card No", "PWD Card Yes",
+      "Right Handed", "Left Handed", "Ambidextrous",
+      "Smoking No", "Smoking Yes", "Drinking No", "Drinking Yes",
+      "Exercising No", "Exercising Yes",
+      "EENT Normal", "Head Neck Normal", "Breast Normal", "Lungs Normal",
+      "Heart Normal", "Skin Normal", "Abdomen Normal", "Neurologic Normal",
+      "Chest Xray Normal", "Drug Test Normal",
+      "Fit For Academic Activities", "Fit With Restrictions", "Pending Classification",
+      "For Additional Xray", "For Clearance",
+    ];
+    CHECKBOX_FIELD_NAMES.forEach(name => {
+      try {
+        const cb = form.getCheckBox(name);
+        data[name] ? cb.check() : cb.uncheck();
+      } catch (_) {}
+    });
+
+    try { form.flatten(); } catch (_) {}
     const bytes = await pdfDoc.save({ updateFieldAppearances: true });
 
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="MEF_Full_${data["ID Number"] || "student"}.pdf"`);
+    res.setHeader("Content-Disposition", `attachment; filename="MEF_Full_${data["ID Number"] || "student"}.pdf"`);
     res.send(Buffer.from(bytes));
   } catch (err) {
     console.error(err);
@@ -271,27 +262,117 @@ router.post("/students/:id/mef/pdf", authMiddleware, requireRole("admin", "maste
   }
 });
 
-// ── FLATTENED DOWNLOAD route (used by the "Download filled MEF PDF" button) ─
-// POST /api/hso/students/:id/mef/pdf/download
-// Returns a flattened, static PDF (no AcroForm) for distribution/printing.
-router.post("/students/:id/mef/pdf/download", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
-  try {
-    const pdfPath = path.join(__dirname, "../../public/medical-examination-form.pdf");
-    if (!fs.existsSync(pdfPath)) return res.status(404).json({ error: "MEF PDF template not found on server." });
+// ── DEF (Dental Examination Form) routes ─────────────────────────────────────
 
-    const existing = await Form.findOne({ userId: req.params.id, formType: "mef" });
+const DEF_TEXT_FIELD_NAMES = [
+  "Name", "ID No", "Assigned Dentist", "Date", "Academic Year",
+  "Others Text", "Other Remarks 1", "Other Remarks 2", "Other Remarks 3", "Other Remarks 4",
+];
+
+const DEF_CHECKBOX_FIELD_NAMES = [
+  "Good oral hygiene", "Calcular deposits", "Gingivitis", "Pyorrheatic",
+  "Denture wearer up", "Denture wearer down",
+  "Ortho braces up", "Ortho braces down", "Hawleys retainers",
+];
+
+function fillDefForm(form, data) {
+  DEF_TEXT_FIELD_NAMES.forEach(name => {
+    try { form.getTextField(name).setText(data[name] || ""); } catch (_) {}
+  });
+  DEF_CHECKBOX_FIELD_NAMES.forEach(name => {
+    try {
+      const cb = form.getCheckBox(name);
+      data[name] ? cb.check() : cb.uncheck();
+    } catch (_) {}
+  });
+}
+
+// GET /api/hso/students/:id/def — get student's DEF form data (for nurse to view)
+router.get("/students/:id/def", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select("-passwordHash");
+    if (!user) return res.status(404).json({ error: "Student not found." });
+
+    const form = await Form.findOne({ userId: req.params.id, formType: "def" });
+    res.json({
+      student: user.toSafeObject ? user.toSafeObject() : user,
+      formData: form?.formData || {},
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/hso/students/:id/def — save nurse's DEF form data
+router.put("/students/:id/def", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: "Student not found." });
+
+    const existing = await Form.findOne({ userId: req.params.id, formType: "def" });
+    const mergedData = { ...(existing?.formData || {}), ...req.body };
+
+    await Form.findOneAndUpdate(
+      { userId: req.params.id, formType: "def" },
+      { userId: req.params.id, formType: "def", formData: mergedData },
+      { upsert: true, new: true }
+    );
+
+    user.filledDEF = true;
+    await user.save();
+
+    res.json({ message: "DEF saved.", formData: mergedData });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── AcroForm-preserving PREVIEW route (used by the nurse DEF preview) ───────
+// POST /api/hso/students/:id/def/pdf
+router.post("/students/:id/def/pdf", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
+  try {
+    const pdfPath = path.join(__dirname, "../../public/dental-form.pdf");
+    if (!fs.existsSync(pdfPath)) return res.status(404).json({ error: "DEF PDF template not found on server." });
+
+    const existing = await Form.findOne({ userId: req.params.id, formType: "def" });
     const data = { ...(existing?.formData || {}), ...req.body };
 
     const pdfDoc = await PDFDocument.load(fs.readFileSync(pdfPath), { ignoreEncryption: true });
     const form   = pdfDoc.getForm();
 
-    fillMefForm(form, data);
+    fillDefForm(form, data);
+
+    const bytes = await pdfDoc.save({ updateFieldAppearances: true });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="DEF_${data["ID No"] || "student"}.pdf"`);
+    res.send(Buffer.from(bytes));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── FLATTENED DOWNLOAD route (used by the "Download filled DEF PDF" button) ─
+// POST /api/hso/students/:id/def/pdf/download
+router.post("/students/:id/def/pdf/download", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
+  try {
+    const pdfPath = path.join(__dirname, "../../public/dental-form.pdf");
+    if (!fs.existsSync(pdfPath)) return res.status(404).json({ error: "DEF PDF template not found on server." });
+
+    const existing = await Form.findOne({ userId: req.params.id, formType: "def" });
+    const data = { ...(existing?.formData || {}), ...req.body };
+
+    const pdfDoc = await PDFDocument.load(fs.readFileSync(pdfPath), { ignoreEncryption: true });
+    const form   = pdfDoc.getForm();
+
+    fillDefForm(form, data);
 
     try { form.flatten(); } catch (_) {}
     const bytes = await pdfDoc.save({ updateFieldAppearances: true });
 
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="MEF_Full_${data["ID Number"] || "student"}.pdf"`);
+    res.setHeader("Content-Disposition", `attachment; filename="DEF_${data["ID No"] || "student"}.pdf"`);
     res.send(Buffer.from(bytes));
   } catch (err) {
     console.error(err);
