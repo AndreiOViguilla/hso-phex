@@ -374,6 +374,12 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
             downloadManager: null,
             imageResourcesPath: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/web/images/",
           });
+
+          // pdf.js's pdf_viewer.css gives form widgets pointer-events:auto,
+          // which would block our hover-tooltip layer underneath. Disable
+          // pointer events on every rendered widget so hover passes through.
+          annotationDiv.querySelectorAll("input, textarea, select, section")
+            .forEach(el => { el.style.pointerEvents = "none"; });
         } catch (_) {}
       }
 
