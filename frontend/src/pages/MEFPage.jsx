@@ -257,7 +257,8 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       const cssViewport = page.getViewport({ scale: fitScale });
 
       setOverlayDims({ width: fitWidth, height: fitHeight });
-      captureFieldRects(page, cssViewport, fitScale);
+      await captureFieldRects(page, cssViewport, fitScale);
+      console.log("[MEFPage-debug] captured field rects, count:", Object.keys(fieldRects).length);
 
       // AcroForm annotation layer (renders actual field widgets/values)
       const annotationDiv = annotationLayerRef.current;

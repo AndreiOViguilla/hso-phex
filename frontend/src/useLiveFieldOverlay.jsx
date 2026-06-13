@@ -92,8 +92,10 @@ export function useLiveFieldOverlay() {
         };
       }
 
+      console.log("[overlay-debug] captured", Object.keys(next).length, "field rects");
       setFieldRects(next);
-    } catch (_) {
+    } catch (err) {
+      console.error("[overlay-debug] captureFieldRects error:", err);
       // If annotations can't be read, overlay simply won't render anything —
       // the underlying PDF preview still works as before.
       setFieldRects({});
