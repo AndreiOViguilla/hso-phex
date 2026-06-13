@@ -239,12 +239,14 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
       canvas.style.margin  = zoom <= 1 ? "0 auto" : "0";
       await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
 
+      const fitHeight = pdfNatural.height * fitScale;
+      const cssViewport = page.getViewport({ scale: fitScale });
+
       const annotationDiv = annotationLayerRef.current;
       if (annotationDiv && window.pdfjsViewer) {
         annotationDiv.innerHTML = "";
-        const cssViewport = page.getViewport({ scale: fitScale });
         annotationDiv.style.width  = `${fitWidth}px`;
-        annotationDiv.style.height = `${pdfNatural.height * fitScale}px`;
+        annotationDiv.style.height = `${fitHeight}px`;
         annotationDiv.style.margin = zoom <= 1 ? "0 auto" : "0";
 
         try {

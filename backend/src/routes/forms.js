@@ -161,6 +161,62 @@ router.post("/mef", authMiddleware, async (req, res) => {
   }
 });
 
+// ── Shared field lists for the full DEF PDF (student + nurse/dentist fields) ──
+const DEF_TEXT_FIELD_NAMES = [
+  "Name", "ID No", "Assigned Dentist", "Date", "Academic Year",
+  "Others Text", "Other Remarks 1", "Other Remarks 2", "Other Remarks 3", "Other Remarks 4",
+];
+
+const DEF_CHECKBOX_FIELD_NAMES = [
+  "Good oral hygiene", "Calcular deposits", "Gingivitis", "Pyorrheatic",
+  "Denture wearer up", "Denture wearer down",
+  "Ortho braces up", "Ortho braces down", "Hawleys retainers",
+];
+
+function fillDefForm(form, data) {
+  DEF_TEXT_FIELD_NAMES.forEach(name => {
+    try { form.getTextField(name).setText(data[name] || ""); } catch (_) {}
+  });
+  DEF_CHECKBOX_FIELD_NAMES.forEach(name => {
+    try {
+      const cb = form.getCheckBox(name);
+      data[name] ? cb.check() : cb.uncheck();
+    } catch (_) {}
+  });
+}
+
+// POST /api/forms/def/preview — AcroForm-preserving preview for the STUDENT.
+// Merges saved Form.formData (includes nurse/dentist-filled fields, if any)
+// with the student's live Name/ID No, and returns a non-flattened PDF so
+// pdf.js can render the annotation layer.
+router.post("/def/preview", authMiddleware, async (req, res) => {
+  try {
+    const pdfPath = path.join(__dirname, "../../public/dental-form.pdf");
+    if (!fs.existsSync(pdfPath)) return res.status(404).json({ error: "DEF PDF template not found on server." });
+
+    const existing = await Form.findOne({ userId: req.user.id, formType: "def" });
+    const { name, idNo } = req.body;
+    const data = { ...(existing?.formData || {}) };
+    if (name !== undefined)  data["Name"]  = name;
+    if (idNo !== undefined)  data["ID No"] = idNo;
+
+    const pdfDoc = await PDFDocument.load(fs.readFileSync(pdfPath), { ignoreEncryption: true });
+    const form   = pdfDoc.getForm();
+
+    fillDefForm(form, data);
+
+    // Not flattened — keeps AcroForm alive for annotation layer rendering.
+    const bytes = await pdfDoc.save({ updateFieldAppearances: true });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="DEF_preview.pdf"`);
+    res.send(Buffer.from(bytes));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/forms/def — student saves Name/ID No (auto-filled from profile)
 router.post("/def", authMiddleware, async (req, res) => {
   const { name, idNo } = req.body;
