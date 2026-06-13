@@ -182,6 +182,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
   const pdfDocRef          = useRef(null);
   const scaleRef           = useRef(1);
   const requestIdRef       = useRef(0);
+  const [pdfVersion, setPdfVersion] = useState(0);
   const [pdfReady, setPdfReady] = useState(false);
   const [pdfError, setPdfError] = useState(false);
   const [rendering, setRendering] = useState(false);
@@ -312,6 +313,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
       pdfDocRef.current = doc;
       setPdfReady(true);
       setPdfError(false);
+      setPdfVersion(v => v + 1);
     } catch (e) {
       if (reqId === requestIdRef.current) setPdfError(true);
     }
@@ -407,7 +409,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
   useEffect(() => {
     if (!pdfReady) return;
     renderPreview();
-  }, [pdfReady, zoom, renderPreview]);
+  }, [pdfReady, pdfVersion, zoom, renderPreview]);
 
   useEffect(() => {
     if (!pdfReady) return;
