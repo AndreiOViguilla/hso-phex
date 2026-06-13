@@ -413,12 +413,28 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
           // Build a map of PDF field name -> rendered <input>/<textarea>/<select>
           // so we can write values into the preview instantly as the user
           // types, without re-fetching or re-rendering the whole PDF.
+          // pdf.js wraps each widget in a <section data-annotation-id="...">,
+          // and annotations[i].id correlates 1:1 with annotations[i].fieldName.
           const map = {};
-          annotationDiv.querySelectorAll("input, textarea, select").forEach(el => {
-            const name = el.name || el.getAttribute("data-element-id") || "";
-            if (name) map[name] = el;
+          annotations.forEach(ann => {
+            if (!ann.fieldName) return;
+            const section = annotationDiv.querySelector(`[data-annotation-id="${ann.id}"]`);
+            const input = section?.querySelector("input, textarea, select");
+            if (input) map[ann.fieldName] = input;
           });
           fieldElementsRef.current = map;
+
+          // DEBUG: inspect what pdf.js actually puts on widgets
+          console.log("[NurseMEF] field map keys:", Object.keys(map));
+          const sample = annotationDiv.querySelector("input, textarea, select");
+          if (sample) {
+            console.log("[NurseMEF] sample widget attrs:", {
+              name: sample.name,
+              id: sample.id,
+              dataElementId: sample.getAttribute("data-element-id"),
+              outerHTML: sample.outerHTML.slice(0, 200),
+            });
+          }
         } catch (_) {}
       }
 
