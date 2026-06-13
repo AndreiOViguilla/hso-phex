@@ -105,6 +105,7 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
 
   const annotationLayerRef = useRef(null);
   const tooltipLayerRef    = useRef(null);
+  const fieldElementsRef   = useRef({});
 
   // Fetch the live-filled, non-flattened PDF preview from the backend
   const loadFilledPdf = useCallback(async () => {
@@ -127,11 +128,31 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
     setRendering(false);
   }, [form]);
 
-  // Debounced re-fetch of the filled PDF whenever form changes
+  // Initial load only — fetches the filled PDF once and renders the full
+  // preview (canvas + annotation layer + tooltips). Subsequent edits update
+  // the already-rendered annotation layer directly (see effect below) so
+  // there's no flicker or refetch while typing.
+  const initialLoadDoneRef = useRef(false);
   useEffect(() => {
-    const timer = setTimeout(() => { loadFilledPdf(); }, 600);
-    return () => clearTimeout(timer);
-  }, [form, loadFilledPdf]);
+    if (initialLoadDoneRef.current) return;
+    initialLoadDoneRef.current = true;
+    loadFilledPdf();
+  }, [loadFilledPdf]);
+
+  // Instant client-side sync: write Name/ID No directly into the
+  // already-rendered AcroForm widgets as the user types. No network call,
+  // no re-render, no flicker.
+  useEffect(() => {
+    const map = fieldElementsRef.current;
+    if (!map || Object.keys(map).length === 0) return;
+
+    const fm = { "Name": form.name, "ID No": form.idNo };
+    Object.entries(fm).forEach(([name, value]) => {
+      const el = map[name];
+      if (!el) return;
+      if (el.value !== (value || "")) el.value = value || "";
+    });
+  }, [form]);
 
   const renderPreview = useCallback(async () => {
     if (!pdfDocRef.current || !canvasRef.current) return;
@@ -195,6 +216,16 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
           // pointer events on every rendered widget so hover passes through.
           annotationDiv.querySelectorAll("input, textarea, select, section")
             .forEach(el => { el.style.pointerEvents = "none"; });
+
+          // Build a map of PDF field name -> rendered <input>/<textarea>/<select>
+          // so we can write values into the preview instantly as the user
+          // types, without re-fetching or re-rendering the whole PDF.
+          const map = {};
+          annotationDiv.querySelectorAll("input, textarea, select").forEach(el => {
+            const name = el.name || el.getAttribute("data-element-id") || "";
+            if (name) map[name] = el;
+          });
+          fieldElementsRef.current = map;
         } catch (_) {}
       }
 
@@ -369,7 +400,7 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
             Make sure <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>backend/public/dental-form.pdf</code> exists on the server.
           </div>
         ) : (
-          <div style={{ position: "relative", display: "inline-block" }}>
+          <div style={{ position: "relative", display: "inline-block", opacity: rendering ? 0.6 : 1, transition: "opacity 0.2s ease" }}>
             <canvas ref={canvasRef} style={{ borderRadius: 4, display: "block" }} />
             <div ref={annotationLayerRef} className="annotationLayer" style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }} />
             <div ref={tooltipLayerRef} style={{ position: "absolute", top: 0, left: 0 }} />
