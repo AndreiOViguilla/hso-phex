@@ -92,10 +92,8 @@ export function useLiveFieldOverlay() {
         };
       }
 
-      console.log("[overlay-debug] captured", Object.keys(next).length, "field rects");
       setFieldRects(next);
-    } catch (err) {
-      console.error("[overlay-debug] captureFieldRects error:", err);
+    } catch (_) {
       // If annotations can't be read, overlay simply won't render anything —
       // the underlying PDF preview still works as before.
       setFieldRects({});
@@ -137,8 +135,11 @@ export default function LiveFieldOverlay({ fieldRects, values, fitWidth, fitHeig
         const isCheckbox = rect.type === "Btn";
 
         if (isCheckbox) {
-          // Only render a mark if the field is actually checked/true.
-          if (!value) return null;
+          // PDF checkbox values can be booleans (true/false) or AcroForm
+          // export-value strings ("Yes"/"Off", "Yes"/"No"). Normalize so
+          // "Off"/"No"/false/"" all mean unchecked.
+          const isChecked = value === true || value === "Yes" || value === "On";
+          if (!isChecked) return null;
           const size = Math.min(rect.width, rect.height);
           return (
             <div
