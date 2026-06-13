@@ -63,11 +63,14 @@ export function useLiveFieldOverlay() {
           if (m) pdfFontSize = parseFloat(m[1]);
         }
 
-        // A /DA font size of 0 means "auto" — pdf-lib/Acrobat picks a size
-        // that fits the field height. Fall back to a height-based estimate
-        // in that case (roughly matches pdf-lib's auto-size behavior).
-        const autoFontSizePdfUnits = height / fitScale * 0.65;
-        const effectivePdfFontSize = pdfFontSize > 0 ? pdfFontSize : autoFontSizePdfUnits;
+        // A /DA font size of 0 means "auto-size". pdf-lib's default text
+        // field appearance generator (used when updateFieldAppearances is
+        // called) defaults to a fixed 12pt for auto-size fields, only
+        // shrinking further if the text would overflow the field's width.
+        // Using 12pt here (rather than a height-based guess) keeps the
+        // overlay's font size consistent with the flattened download.
+        const PDF_LIB_DEFAULT_AUTO_FONT_SIZE = 12;
+        const effectivePdfFontSize = pdfFontSize > 0 ? pdfFontSize : PDF_LIB_DEFAULT_AUTO_FONT_SIZE;
 
         // Convert from PDF point size to on-screen CSS pixels at the
         // current fit scale — matches how the canvas is rendered.
@@ -153,7 +156,23 @@ export default function LiveFieldOverlay({ fieldRects, values, fitWidth, fitHeig
 
         // Text field: use the same font size pdf-lib would render at in the
         // flattened download, scaled to the current preview's fit scale.
-        const fontSize = Math.max(6, rect.fontSize || rect.height * 0.65) * fontScale;
+        let fontSize = Math.max(6, rect.fontSize || 12) * fontScale;
+
+        // pdf-lib shrinks auto-size text to fit the field's width if it
+        // would otherwise overflow. Roughly replicate that here using a
+        // simple average-character-width estimate (Helvetica ~0.5 * fontSize
+        // per character), so long values don't visually overflow the field
+        // in the overlay either.
+        const text = String(value);
+        if (!rect.multiline && text.length > 0) {
+          const estCharWidth = fontSize * 0.5;
+          const estTextWidth = text.length * estCharWidth;
+          const maxWidth = rect.width - 4;
+          if (estTextWidth > maxWidth && maxWidth > 0) {
+            fontSize = fontSize * (maxWidth / estTextWidth);
+            fontSize = Math.max(6, fontSize);
+          }
+        }
 
         return (
           <div
