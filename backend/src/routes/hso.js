@@ -197,7 +197,50 @@ router.put("/students/:id/mef", authMiddleware, requireRole("admin", "master", "
   }
 });
 
-// POST /api/hso/students/:id/mef/pdf — generate full MEF PDF (student + nurse fields)
+// ── Shared field lists for the full MEF PDF (student + nurse fields) ───────
+const MEF_TEXT_FIELD_NAMES = [
+  "ID Number", "Date", "Last Name", "First Name", "MI", "Birthday",
+  "Contact Number", "College Section", "Academic Year", "Emergency Name",
+  "Relationship", "Emergency Contact", "Student Name Auth", "Student Age",
+  "Blood Type", "Blood Pressure", "Resp Rate", "Pulse Rate", "Temperature",
+  "Height Inches", "Weight Pounds", "BMI", "BMI Category", "LMP Female",
+  "Medical History 1", "Medical History 2", "Medical History 3", "Medical History 4",
+  "Present Medication 1", "Present Medication 2",
+  "Left Vision", "Right Vision", "Smoking Details", "Drinking Details",
+  "Exercising Details", "Type Of Disability", "Diagnosis Impression",
+  "EENT Findings", "Head Neck Findings", "Breast Findings", "Lungs Findings",
+  "Heart Findings", "Skin Findings", "Abdomen Findings", "Neurologic Findings",
+  "Chest Xray Findings", "Drug Test Findings",
+  "Restrictions Details", "Clearance Specialty Reason", "Examining Physician",
+  "Assigned Nurse", "License Number", "Encoded By",
+];
+
+const MEF_CHECKBOX_FIELD_NAMES = [
+  "Gender Female", "Gender Male", "With Corrective Lens",
+  "Disability No", "Disability Yes", "PWD Card No", "PWD Card Yes",
+  "Right Handed", "Left Handed", "Ambidextrous",
+  "Smoking No", "Smoking Yes", "Drinking No", "Drinking Yes",
+  "Exercising No", "Exercising Yes",
+  "EENT Normal", "Head Neck Normal", "Breast Normal", "Lungs Normal",
+  "Heart Normal", "Skin Normal", "Abdomen Normal", "Neurologic Normal",
+  "Chest Xray Normal", "Drug Test Normal",
+  "Fit For Academic Activities", "Fit With Restrictions", "Pending Classification",
+  "For Additional Xray", "For Clearance",
+];
+
+function fillMefForm(form, data) {
+  MEF_TEXT_FIELD_NAMES.forEach(name => {
+    try { form.getTextField(name).setText(data[name] || ""); } catch (_) {}
+  });
+  MEF_CHECKBOX_FIELD_NAMES.forEach(name => {
+    try {
+      const cb = form.getCheckBox(name);
+      data[name] ? cb.check() : cb.uncheck();
+    } catch (_) {}
+  });
+}
+
+// POST /api/hso/students/:id/mef/pdf — AcroForm-PRESERVING PREVIEW (non-flattened)
 router.post("/students/:id/mef/pdf", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
   try {
     const pdfPath = path.join(__dirname, "../../public/medical-examination-form.pdf");
@@ -209,46 +252,33 @@ router.post("/students/:id/mef/pdf", authMiddleware, requireRole("admin", "maste
     const pdfDoc = await PDFDocument.load(fs.readFileSync(pdfPath), { ignoreEncryption: true });
     const form   = pdfDoc.getForm();
 
-    // All text fields
-    const TEXT_FIELD_NAMES = [
-      "ID Number", "Date", "Last Name", "First Name", "MI", "Birthday",
-      "Contact Number", "College Section", "Academic Year", "Emergency Name",
-      "Relationship", "Emergency Contact", "Student Name Auth", "Student Age",
-      "Blood Type", "Blood Pressure", "Resp Rate", "Pulse Rate", "Temperature",
-      "Height Inches", "Weight Pounds", "BMI", "BMI Category", "LMP Female",
-      "Medical History 1", "Medical History 2", "Medical History 3", "Medical History 4",
-      "Present Medication 1", "Present Medication 2",
-      "Left Vision", "Right Vision", "Smoking Details", "Drinking Details",
-      "Exercising Details", "Type Of Disability", "Diagnosis Impression",
-      "EENT Findings", "Head Neck Findings", "Breast Findings", "Lungs Findings",
-      "Heart Findings", "Skin Findings", "Abdomen Findings", "Neurologic Findings",
-      "Chest Xray Findings", "Drug Test Findings",
-      "Restrictions Details", "Clearance Specialty Reason", "Examining Physician",
-      "Assigned Nurse", "License Number", "Encoded By",
-    ];
-    TEXT_FIELD_NAMES.forEach(name => {
-      try { form.getTextField(name).setText(data[name] || ""); } catch (_) {}
-    });
+    fillMefForm(form, data);
 
-    // All checkbox fields
-    const CHECKBOX_FIELD_NAMES = [
-      "Gender Female", "Gender Male", "With Corrective Lens",
-      "Disability No", "Disability Yes", "PWD Card No", "PWD Card Yes",
-      "Right Handed", "Left Handed", "Ambidextrous",
-      "Smoking No", "Smoking Yes", "Drinking No", "Drinking Yes",
-      "Exercising No", "Exercising Yes",
-      "EENT Normal", "Head Neck Normal", "Breast Normal", "Lungs Normal",
-      "Heart Normal", "Skin Normal", "Abdomen Normal", "Neurologic Normal",
-      "Chest Xray Normal", "Drug Test Normal",
-      "Fit For Academic Activities", "Fit With Restrictions", "Pending Classification",
-      "For Additional Xray", "For Clearance",
-    ];
-    CHECKBOX_FIELD_NAMES.forEach(name => {
-      try {
-        const cb = form.getCheckBox(name);
-        data[name] ? cb.check() : cb.uncheck();
-      } catch (_) {}
-    });
+    // NOT flattened — keeps AcroForm alive so the annotation layer can render.
+    const bytes = await pdfDoc.save({ updateFieldAppearances: true });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="MEF_preview.pdf"`);
+    res.send(Buffer.from(bytes));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/hso/students/:id/mef/pdf/download — FLATTENED final PDF for download
+router.post("/students/:id/mef/pdf/download", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
+  try {
+    const pdfPath = path.join(__dirname, "../../public/medical-examination-form.pdf");
+    if (!fs.existsSync(pdfPath)) return res.status(404).json({ error: "MEF PDF template not found on server." });
+
+    const existing = await Form.findOne({ userId: req.params.id, formType: "mef" });
+    const data = { ...(existing?.formData || {}), ...req.body };
+
+    const pdfDoc = await PDFDocument.load(fs.readFileSync(pdfPath), { ignoreEncryption: true });
+    const form   = pdfDoc.getForm();
+
+    fillMefForm(form, data);
 
     try { form.flatten(); } catch (_) {}
     const bytes = await pdfDoc.save({ updateFieldAppearances: true });
