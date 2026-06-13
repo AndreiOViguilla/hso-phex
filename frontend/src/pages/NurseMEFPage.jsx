@@ -395,8 +395,14 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
           // pdf.js's pdf_viewer.css gives form widgets pointer-events:auto,
           // which would block our hover-tooltip layer underneath. Disable
           // pointer events on every rendered widget so hover passes through.
+          // Also make widget text transparent — LiveFieldOverlay now renders
+          // the visible text/checkmarks, so showing both would double up.
           annotationDiv.querySelectorAll("input, textarea, select, section")
-            .forEach(el => { el.style.pointerEvents = "none"; });
+            .forEach(el => {
+              el.style.pointerEvents = "none";
+              el.style.color = "transparent";
+              el.style.caretColor = "transparent";
+            });
         } catch (_) {}
       }
 

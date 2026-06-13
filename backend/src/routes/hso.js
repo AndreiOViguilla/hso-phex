@@ -255,7 +255,10 @@ router.post("/students/:id/mef/pdf", authMiddleware, requireRole("admin", "maste
     fillMefForm(form, data);
 
     // NOT flattened — keeps AcroForm alive so the annotation layer can render.
-    const bytes = await pdfDoc.save({ updateFieldAppearances: true });
+    // updateFieldAppearances: false — the canvas won't bake in field text,
+    // so it won't double up with the frontend's LiveFieldOverlay, which now
+    // shows live values instantly on top of the canvas.
+    const bytes = await pdfDoc.save({ updateFieldAppearances: false });
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename="MEF_preview.pdf"`);
@@ -400,7 +403,10 @@ router.post("/students/:id/def/pdf", authMiddleware, requireRole("admin", "maste
 
     fillDefForm(form, data);
 
-    const bytes = await pdfDoc.save({ updateFieldAppearances: true });
+    // NOT flattened — keeps AcroForm alive so the annotation layer can render.
+    // updateFieldAppearances: false — avoids baking field text onto the
+    // canvas so it won't double up with the frontend's LiveFieldOverlay.
+    const bytes = await pdfDoc.save({ updateFieldAppearances: false });
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename="DEF_${data["ID No"] || "student"}.pdf"`);
