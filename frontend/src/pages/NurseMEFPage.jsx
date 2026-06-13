@@ -4,6 +4,7 @@ import { useModal } from "../components/Modal";
 import { useIsMobile } from "../utils/useIsMobile";
 import { getFieldOwner } from "../mefFieldOwnership";
 import { renderFieldOwnerTooltips } from "../fieldOwnerTooltips";
+import LiveFieldOverlay, { useLiveFieldOverlay } from "../useLiveFieldOverlay";
 
 // ── Field name constants (must match PDF form field names exactly) ──────────
 
@@ -187,6 +188,8 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
   const [pdfError, setPdfError] = useState(false);
   const [rendering, setRendering] = useState(false);
   const [zoom, setZoom] = useState(1.0);
+  const [overlayDims, setOverlayDims] = useState({ width: 0, height: 0 });
+  const { fieldRects, captureFieldRects } = useLiveFieldOverlay();
 
   useEffect(() => {
     fetch(`/api/hso/students/${studentMongoId}/mef`, { credentials: "include" })
@@ -320,10 +323,13 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
     if (reqId === requestIdRef.current) setRendering(false);
   }, [form, checks, studentMongoId]);
 
-  // Re-fetch the filled PDF immediately whenever form/checks change
+  // Re-fetch the filled PDF shortly after form/checks settle (debounced
+  // so rapid typing doesn't fire a request per keystroke; UI state itself
+  // is still instant since it's separate from this fetch).
   useEffect(() => {
     if (loading) return;
-    loadFilledPdf();
+    const timer = setTimeout(() => { loadFilledPdf(); }, 350);
+    return () => clearTimeout(timer);
   }, [form, checks, loading, loadFilledPdf]);
 
   const renderPreview = useCallback(async () => {
@@ -354,6 +360,9 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
 
       const fitHeight = pdfNatural.height * fitScale;
       const cssViewport = page.getViewport({ scale: fitScale });
+
+      setOverlayDims({ width: fitWidth, height: fitHeight });
+      captureFieldRects(page, cssViewport);
 
       const annotationDiv = annotationLayerRef.current;
       if (annotationDiv && window.pdfjsViewer) {
@@ -404,7 +413,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
       }
     } catch (e) { console.error("[NurseMEF] Render error:", e); }
     setRendering(false);
-  }, [zoom]);
+  }, [zoom, captureFieldRects]);
 
   useEffect(() => {
     if (!pdfReady) return;
@@ -599,6 +608,12 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
             <div style={{ position: "relative", display: "inline-block", opacity: rendering ? 0.6 : 1, transition: "opacity 0.2s ease" }}>
               <canvas ref={canvasRef} style={{ borderRadius: 4, display: "block" }} />
               <div ref={annotationLayerRef} className="annotationLayer" style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }} />
+              <LiveFieldOverlay
+                fieldRects={fieldRects}
+                values={{ ...form, ...checks }}
+                fitWidth={overlayDims.width}
+                fitHeight={overlayDims.height}
+              />
               <div ref={tooltipLayerRef} style={{ position: "absolute", top: 0, left: 0 }} />
             </div>
           )}
