@@ -63,19 +63,13 @@ export function useLiveFieldOverlay() {
           if (m) pdfFontSize = parseFloat(m[1]);
         }
 
-        // A /DA font size of 0 means "auto-size". pdf-lib's default text
-        // field appearance generator defaults to 12pt for auto-size fields,
-        // but shrinks to fit if the field's box is shorter than 12pt would
-        // need (roughly font size <= box height in points, with some
-        // padding allowance). Cap by height here so short single-line
-        // fields don't render oversized text in the overlay.
-        const PDF_LIB_DEFAULT_AUTO_FONT_SIZE = 12;
-        const heightPdfUnits = height / fitScale;
-        const heightCappedSize = Math.max(4, heightPdfUnits - 2); // ~2pt padding allowance
-        const autoFontSize = pdfFontSize > 0
-          ? pdfFontSize
-          : Math.min(PDF_LIB_DEFAULT_AUTO_FONT_SIZE, heightCappedSize);
-        const effectivePdfFontSize = autoFontSize;
+        // Pragmatic fixed size: the MEF template's actual rendered field
+        // text (in the flattened download) is consistently small relative
+        // to its box — formula-derived sizes were overshooting. Use a
+        // small fixed PDF-point size, scaled to the preview's fit scale.
+        // Tune BASE_FONT_SIZE_PT directly if it still doesn't match.
+        const BASE_FONT_SIZE_PT = 5;
+        const effectivePdfFontSize = pdfFontSize > 0 ? pdfFontSize : BASE_FONT_SIZE_PT;
 
         // Convert from PDF point size to on-screen CSS pixels at the
         // current fit scale — matches how the canvas is rendered.
