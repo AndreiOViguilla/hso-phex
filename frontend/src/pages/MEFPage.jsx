@@ -3,6 +3,8 @@ import { useIsMobile } from "../utils/useIsMobile";
 import { NavBar, Btn } from "../components/UI";
 import { useTheme } from "../ThemeContext";
 import { useModal } from "../components/Modal";
+import { getFieldOwner } from "../mefFieldOwnership";
+import { renderFieldOwnerTooltips } from "../fieldOwnerTooltips";
 
 const EMPTY_FORM = {
   idNumber:        "",
@@ -72,7 +74,6 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
   const { show }    = useModal();
   const canvasRef   = useRef(null);
   const pdfDocRef   = useRef(null);
-  const pdfBytesRef = useRef(null);
   const renderTimeout = useRef(null);
   const scaleRef    = useRef(1);
 
@@ -151,149 +152,69 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     } catch (_) {}
   }, []);
 
-  const TEXT_FIELDS = [
-    { name: "ID Number",          x: 88,  y: 103, w: 125, h: 11 },
-    { name: "Date",               x: 458, y: 104, w: 90,  h: 11 },
-    { name: "Last Name",          x: 88,  y: 117, w: 125, h: 11 },
-    { name: "First Name",         x: 271, y: 116, w: 160, h: 11 },
-    { name: "MI",                 x: 449, y: 117, w: 99,  h: 11 },
-    { name: "Birthday",           x: 237, y: 131, w: 70,  h: 11 },
-    { name: "Contact Number",     x: 400, y: 131, w: 150, h: 11 },
-    { name: "College Section",    x: 161, y: 144, w: 210, h: 11 },
-    { name: "Academic Year",      x: 444, y: 145, w: 106, h: 10 },
-    { name: "Emergency Name",     x: 221, y: 158, w: 145, h: 11 },
-    { name: "Relationship",       x: 435, y: 158, w: 115, h: 11 },
-    { name: "Emergency Contact",  x: 182, y: 171, w: 367, h: 11 },
-    { name: "Student Name Auth",  x: 44,  y: 220, w: 109, h: 11 },
-    { name: "Student Age",        x: 161, y: 220, w: 20,  h: 11 },
-  ];
-  const CHECK_FIELDS = [
-    { name: "Gender Female", x: 89,  y: 134, w: 8, h: 8 },
-    { name: "Gender Male",   x: 141, y: 134, w: 8, h: 7 },
-  ];
-  const ALL_FIELDS = [...TEXT_FIELDS, ...CHECK_FIELDS];
-
-  const handleCanvasClick = useCallback((e) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
-    const cssW = parseFloat(canvas.style.width) || rect.width;
-    const cssH = parseFloat(canvas.style.height) || rect.height;
-    const pdfW = canvas.width / scaleRef.current;
-    const pdfH = canvas.height / scaleRef.current;
-    const px = (cx / cssW) * pdfW;
-    const py = (cy / cssH) * pdfH;
-
-    const hit = ALL_FIELDS.find(f =>
-      px >= f.x && px <= f.x + f.w &&
-      py >= f.y && py <= f.y + f.h
-    );
-
-    if (hit) {
-      setHighlighted(hit.name);
-      const inputId = FIELD_TO_INPUT_ID[hit.name];
-      if (inputId) {
-        const el = document.getElementById(inputId);
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
-          setTimeout(() => { el.focus(); el.select?.(); }, 300);
-        }
-      }
-    }
-  }, [ALL_FIELDS]);
-
+  // Ensure pdf.js + viewer (annotation layer) assets are loaded once
   useEffect(() => {
-    const load = async () => {
-      try {
-        if (!window.pdfjsLib) {
-          await new Promise((res, rej) => {
-            const s = document.createElement("script");
-            s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-            s.onload = res; s.onerror = rej;
-            document.head.appendChild(s);
-          });
-          window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-            "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-        }
-        const resp = await fetch("/medical-examination-form.pdf");
-        if (!resp.ok) throw new Error("not found");
-        const buf = await resp.arrayBuffer();
-        pdfBytesRef.current = buf.slice(0);
-        pdfDocRef.current = await window.pdfjsLib.getDocument({ data: buf }).promise;
-        setPdfReady(true);
-      } catch (e) { setPdfError(true); }
+    const ensurePdfJs = async () => {
+      if (!document.getElementById("pdfjs-annotation-css")) {
+        const link = document.createElement("link");
+        link.id = "pdfjs-annotation-css";
+        link.rel = "stylesheet";
+        link.href = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.css";
+        document.head.appendChild(link);
+      }
+      if (!window.pdfjsLib) {
+        await new Promise((res, rej) => {
+          const s = document.createElement("script");
+          s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+          s.onload = res; s.onerror = rej;
+          document.head.appendChild(s);
+        });
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      }
+      if (!window.pdfjsViewer) {
+        await new Promise((res, rej) => {
+          const s = document.createElement("script");
+          s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.js";
+          s.onload = res; s.onerror = rej;
+          document.head.appendChild(s);
+        });
+      }
     };
-    load();
+    ensurePdfJs();
   }, []);
 
-  const offscreenRef = useRef(null);
+  const annotationLayerRef = useRef(null);
+  const tooltipLayerRef    = useRef(null);
 
-  const drawOverlay = useCallback((ctx, f, hl, s) => {
-    const fm = buildFieldMap(f);
-    TEXT_FIELDS.forEach(({ name, x, y, w, h }) => {
-      const value = fm[name];
-      const isHl  = hl === name;
-      ctx.fillStyle = isHl ? "rgba(59,130,246,0.28)" : value ? "rgba(59,130,246,0.12)" : "rgba(59,130,246,0.05)";
-      ctx.fillRect(x * s, y * s, w * s, h * s);
-      ctx.strokeStyle = isHl ? "#1d4ed8" : value ? "#3b82f6" : "rgba(59,130,246,0.35)";
-      ctx.lineWidth = isHl ? 2 * s : value ? 1.2 * s : 0.7 * s;
-      ctx.strokeRect(x * s, y * s, w * s, h * s);
-      if (value) {
-        ctx.fillStyle = "#1d4ed8";
-        ctx.font = `${7 * s}px Arial`;
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(x * s, y * s, w * s, h * s);
-        ctx.clip();
-        ctx.fillText(String(value), (x + 1.5) * s, (y + h - 2.5) * s);
-        ctx.restore();
-      }
-    });
-    CHECK_FIELDS.forEach(({ name, x, y, w, h }) => {
-      const checked = name === "Gender Female" ? f.gender === "Female" : f.gender === "Male";
-      const isHl = hl === name;
-      ctx.fillStyle = isHl ? "rgba(59,130,246,0.3)" : checked ? "rgba(255, 255, 255, 0.85)" : "rgba(59,130,246,0.05)";
-      ctx.fillRect(x * s, y * s, w * s, h * s);
-      ctx.strokeStyle = isHl ? "#1d4ed8" : "#3b82f6";
-      ctx.lineWidth = isHl ? 2 * s : 1.2 * s;
-      ctx.strokeRect(x * s, y * s, w * s, h * s);
-      if (checked) {
-        const pad = 1.5;
-        const midX  = (x + w * 0.35) * s;
-        const midY  = (y + h - pad)   * s;
-        const startX = (x + pad)      * s;
-        const startY = (y + h * 0.55) * s;
-        const endX   = (x + w - pad)  * s;
-        const endY   = (y + pad)       * s;
-        ctx.save();
-        ctx.strokeStyle = "#3b82f6";
-        ctx.lineWidth   = 1.5 * s;
-        ctx.lineCap     = "round";
-        ctx.lineJoin    = "round";
-        ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        ctx.lineTo(midX,   midY);
-        ctx.lineTo(endX,   endY);
-        ctx.stroke();
-        ctx.restore();
-      }
-    });
-  }, []);
+  // Fetch the live-filled, non-flattened PDF preview from the backend
+  const loadFilledPdf = useCallback(async () => {
+    if (!window.pdfjsLib) return;
+    setRendering(true);
+    try {
+      const resp = await fetch("/api/forms/mef/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify(form),
+      });
+      if (!resp.ok) throw new Error("not found");
+      const buf = await resp.arrayBuffer();
+      pdfDocRef.current = await window.pdfjsLib.getDocument({ data: buf }).promise;
+      setPdfReady(true);
+      setPdfError(false);
+    } catch (e) {
+      setPdfError(true);
+    }
+    setRendering(false);
+  }, [form]);
 
-  const composite = useCallback((f, hl) => {
-    const canvas = canvasRef.current;
-    const offscreen = offscreenRef.current;
-    if (!canvas || !offscreen) return;
-    const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(offscreen, 0, 0);
-    drawOverlay(ctx, f, hl, scaleRef.current);
-  }, [drawOverlay]);
+  // Debounced re-fetch of the filled PDF whenever form changes
+  useEffect(() => {
+    const timer = setTimeout(() => { loadFilledPdf(); }, 600);
+    return () => clearTimeout(timer);
+  }, [form, loadFilledPdf]);
 
-  const renderPreview = useCallback(async (f, hl) => {
-    const zoomLevel = zoom;
+  const renderPreview = useCallback(async () => {
     if (!pdfDocRef.current || !canvasRef.current) return;
     setRendering(true);
     try {
@@ -302,83 +223,83 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       const container = canvas.parentElement;
       const dpr = window.devicePixelRatio || 1;
       const previewPanel = container?.parentElement;
-      const panelW = (previewPanel ? previewPanel.clientWidth : 700) - 24;
+      const panelW = (previewPanel?.clientWidth || canvas.parentElement?.clientWidth || 700) - 24;
       const pdfNatural = page.getViewport({ scale: 1 });
       const baseWidth = Math.max(panelW, 280);
-      const fitWidth = baseWidth * zoomLevel;
+      const fitWidth = baseWidth * zoom;
       const fitScale = fitWidth / pdfNatural.width;
       const renderScale = fitScale * Math.max(dpr, 2);
       scaleRef.current = renderScale;
+
       const viewport = page.getViewport({ scale: renderScale });
       canvas.width  = viewport.width;
       canvas.height = viewport.height;
       canvas.style.width   = `${fitWidth}px`;
       canvas.style.height  = `${pdfNatural.height * fitScale}px`;
       canvas.style.display = "block";
-      canvas.style.margin  = zoomLevel <= 1 ? "0 auto" : "0";
-      canvas.style.cursor  = "pointer";
-      const off = document.createElement("canvas");
-      off.width  = viewport.width;
-      off.height = viewport.height;
-      offscreenRef.current = off;
-      await page.render({ canvasContext: off.getContext("2d"), viewport }).promise;
-      composite(f, hl);
+      canvas.style.margin  = zoom <= 1 ? "0 auto" : "0";
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+
+      const fitHeight = pdfNatural.height * fitScale;
+      const cssViewport = page.getViewport({ scale: fitScale });
+
+      // AcroForm annotation layer (renders actual field widgets/values)
+      const annotationDiv = annotationLayerRef.current;
+      if (annotationDiv && window.pdfjsViewer) {
+        annotationDiv.innerHTML = "";
+        annotationDiv.style.width  = `${fitWidth}px`;
+        annotationDiv.style.height = `${fitHeight}px`;
+        annotationDiv.style.margin = zoom <= 1 ? "0 auto" : "0";
+        try {
+          const annotations = await page.getAnnotations({ intent: "display" });
+          const linkService = {
+            getDestinationHash: () => "#",
+            getAnchorUrl: () => "#",
+            addLinkAttributes: () => {},
+            executeNamedAction: () => {},
+            isPageVisible: () => true,
+            eventBus: new window.pdfjsViewer.EventBus(),
+          };
+          window.pdfjsViewer.AnnotationLayer.render({
+            viewport: cssViewport.clone({ dontFlip: true }),
+            div: annotationDiv,
+            annotations,
+            page,
+            renderForms: true,
+            linkService,
+            downloadManager: null,
+            imageResourcesPath: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/web/images/",
+          });
+        } catch (_) {}
+      }
+
+      // Hover tooltips: "Filled up by Student" / "Filled up by Nurse"
+      const tooltipDiv = tooltipLayerRef.current;
+      if (tooltipDiv) {
+        await renderFieldOwnerTooltips({
+          page,
+          cssViewport,
+          container: tooltipDiv,
+          fitWidth,
+          fitHeight,
+          getFieldOwner,
+        });
+      }
     } catch (e) { console.error("Render error:", e); }
     setRendering(false);
-  }, [composite, zoom]);
+  }, [zoom]);
 
   useEffect(() => {
     if (!pdfReady) return;
-    clearTimeout(renderTimeout.current);
-    const currentForm = form;
-    const currentHighlighted = highlighted;
-    const currentZoom = zoom;
-    renderTimeout.current = setTimeout(async () => {
-      const page = await pdfDocRef.current?.getPage(1);
-      const canvas = canvasRef.current;
-      if (!page || !canvas) return;
-      const container = canvas.parentElement;
-      const dpr = window.devicePixelRatio || 1;
-      const previewPanel = container?.parentElement;
-      const panelW = (previewPanel ? previewPanel.clientWidth : 700) - 24;
-      const pdfNatural = page.getViewport({ scale: 1 });
-      const baseWidth = Math.max(panelW, 280);
-      const fitWidth = baseWidth * currentZoom;
-      const fitScale = fitWidth / pdfNatural.width;
-      const renderScale = fitScale * Math.max(dpr, 2);
-      scaleRef.current = renderScale;
-      const viewport = page.getViewport({ scale: renderScale });
-      canvas.width  = viewport.width;
-      canvas.height = viewport.height;
-      canvas.style.width   = `${fitWidth}px`;
-      canvas.style.height  = `${pdfNatural.height * fitScale}px`;
-      canvas.style.display = "block";
-      canvas.style.margin  = currentZoom <= 1 ? "0 auto" : "0";
-      canvas.style.cursor  = "pointer";
-      const off = document.createElement("canvas");
-      off.width  = viewport.width;
-      off.height = viewport.height;
-      offscreenRef.current = off;
-      await page.render({ canvasContext: off.getContext("2d"), viewport }).promise;
-      composite(currentForm, currentHighlighted);
-    }, 150);
-    return () => clearTimeout(renderTimeout.current);
-  }, [form, pdfReady, zoom, composite, highlighted]);
+    renderPreview();
+  }, [pdfReady, zoom, renderPreview]);
 
   useEffect(() => {
     if (!pdfReady) return;
-    const onResize = () => {
-      clearTimeout(renderTimeout.current);
-      renderTimeout.current = setTimeout(() => renderPreview(form, highlighted), 200);
-    };
+    const onResize = () => renderPreview();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [pdfReady, form, renderPreview, zoom]);
-
-  useEffect(() => {
-    if (!pdfReady) return;
-    composite(form, highlighted);
-  }, [highlighted, pdfReady, composite, form]);
+  }, [pdfReady, renderPreview]);
 
   const handleDownload = async () => {
     // Validate — every field must be filled
@@ -572,11 +493,10 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
     <div style={{ background: "#374151", display: "flex", flexDirection: "column", flex: 1, minHeight: 320, overflow: "hidden", position: "relative" }}>
       <div style={{ background: "#1f2937", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {highlighted && <span style={{ fontSize: 11, color: "#93c5fd" }}>↑ {highlighted}</span>}
           {rendering   && <span style={{ fontSize: 11, color: t.textMuted }}>Updating…</span>}
           {!pdfReady && !pdfError && <span style={{ fontSize: 11, color: t.textMuted }}>Loading…</span>}
           {pdfError    && <span style={{ fontSize: 11, color: "#fca5a5" }}>PDF not found</span>}
-          {pdfReady && !rendering && !highlighted && <span style={{ fontSize: 11, color: "#6ee7b7" }}>Click a field to jump →</span>}
+          {pdfReady && !rendering && <span style={{ fontSize: 11, color: "#6ee7b7" }}>Hover a field to see who fills it →</span>}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, position: "absolute", left: "50%", transform: "translateX(-50%)" }}>
           <button onClick={() => setZoom(z => Math.max(0.5, parseFloat((z - 0.25).toFixed(2))))}
@@ -601,12 +521,15 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       <div style={{ flex: 1, overflow: "auto", padding: "12px" }}>
         {pdfError ? (
           <div style={{ color: "#d1d5db", fontSize: 13, padding: 20, lineHeight: 1.8 }}>
-            <strong>To enable preview:</strong><br /><br />
-            Place <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>medical-examination-form.pdf</code><br />
-            in your <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>public/</code> folder.
+            <strong>Preview unavailable</strong><br /><br />
+            Make sure <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>backend/public/medical-examination-form.pdf</code> exists on the server.
           </div>
         ) : (
-          <canvas ref={canvasRef} onClick={handleCanvasClick} style={{ borderRadius: 4, display: "block", cursor: "pointer" }} />
+          <div style={{ position: "relative", display: "inline-block" }}>
+            <canvas ref={canvasRef} style={{ borderRadius: 4, display: "block" }} />
+            <div ref={annotationLayerRef} className="annotationLayer" style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }} />
+            <div ref={tooltipLayerRef} style={{ position: "absolute", top: 0, left: 0 }} />
+          </div>
         )}
       </div>
     </div>

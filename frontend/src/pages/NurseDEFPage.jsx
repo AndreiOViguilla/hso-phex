@@ -2,6 +2,14 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useTheme } from "../ThemeContext";
 import { useModal } from "../components/Modal";
 import { useIsMobile } from "../utils/useIsMobile";
+import { renderFieldOwnerTooltips } from "../fieldOwnerTooltips";
+
+// DEF field ownership: Name/ID No come from the student, everything else is filled by the nurse/dentist.
+const DEF_STUDENT_FIELDS = new Set(["Name", "ID No"]);
+function getDefFieldOwner(fieldName) {
+  return DEF_STUDENT_FIELDS.has(fieldName) ? "Student" : "Nurse";
+}
+
 
 // ── Field name constants (must match PDF form field names exactly) ──────────
 
@@ -80,6 +88,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
   const [checks, setChecks] = useState({});   // checkbox fields
 
   const canvasRef = useRef(null);
+  const tooltipLayerRef = useRef(null);
   const pdfDocRef = useRef(null);
   const scaleRef  = useRef(1);
   const [pdfReady, setPdfReady] = useState(false);
@@ -260,6 +269,18 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
           });
         } catch (_) {}
       }
+
+      const tooltipDiv = tooltipLayerRef.current;
+      if (tooltipDiv) {
+        await renderFieldOwnerTooltips({
+          page,
+          cssViewport,
+          container: tooltipDiv,
+          fitWidth,
+          fitHeight,
+          getFieldOwner: getDefFieldOwner,
+        });
+      }
     } catch (e) { console.error("[NurseDEF] Render error:", e); }
     setRendering(false);
   }, [zoom]);
@@ -388,6 +409,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
             {rendering && <span style={{ fontSize: 11, color: "#9ca3af" }}>Updating…</span>}
             {!pdfReady && !pdfError && <span style={{ fontSize: 11, color: "#9ca3af" }}>Loading preview…</span>}
             {pdfError && <span style={{ fontSize: 11, color: "#fca5a5" }}>Preview PDF not found</span>}
+            {pdfReady && !rendering && <span style={{ fontSize: 11, color: "#6ee7b7" }}>Hover a field to see who fills it →</span>}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button onClick={() => setZoom(z => Math.max(0.5, parseFloat((z - 0.25).toFixed(2))))}
@@ -417,6 +439,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
                 className="annotationLayer"
                 style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }}
               />
+              <div ref={tooltipLayerRef} style={{ position: "absolute", top: 0, left: 0 }} />
             </div>
           )}
         </div>

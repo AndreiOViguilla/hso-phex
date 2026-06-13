@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useTheme } from "../ThemeContext";
 import { useModal } from "../components/Modal";
 import { useIsMobile } from "../utils/useIsMobile";
+import { getFieldOwner } from "../mefFieldOwnership";
+import { renderFieldOwnerTooltips } from "../fieldOwnerTooltips";
 
 // ── Field name constants (must match PDF form field names exactly) ──────────
 
@@ -118,7 +120,6 @@ function TextInput({ label, value, onChange, t, multiline, readOnly }) {
 }
 
 function YesNoToggle({ label, yes, no, value, onChange, t }) {
-  // value: "yes" | "no" | null
   return (
     <div>
       <label style={{ fontSize: 11, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 4 }}>{label}</label>
@@ -172,12 +173,14 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
   const [downloading, setDownloading] = useState(false);
   const [studentInfo, setStudentInfo] = useState(null);
   const [studentFields, setStudentFields] = useState({});
-  const [form, setForm] = useState({});       // text fields (nurse-editable)
-  const [checks, setChecks] = useState({});   // checkbox fields
+  const [form, setForm] = useState({});
+  const [checks, setChecks] = useState({});
 
-  const canvasRef   = useRef(null);
-  const pdfDocRef   = useRef(null);
-  const scaleRef    = useRef(1);
+  const canvasRef          = useRef(null);
+  const annotationLayerRef = useRef(null);
+  const tooltipLayerRef    = useRef(null);
+  const pdfDocRef          = useRef(null);
+  const scaleRef           = useRef(1);
   const [pdfReady, setPdfReady] = useState(false);
   const [pdfError, setPdfError] = useState(false);
   const [rendering, setRendering] = useState(false);
@@ -191,7 +194,6 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
         setStudentInfo(data.student);
         const fd = data.formData || {};
 
-        // Separate student text fields vs nurse fields/checkboxes
         const studentVals = {};
         STUDENT_TEXT_FIELDS.forEach(k => { studentVals[k] = fd[k] || ""; });
         setStudentFields(studentVals);
@@ -228,13 +230,11 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
   const setField = (key, value) => setForm(f => ({ ...f, [key]: value }));
   const setCheck = (key, value) => setChecks(c => ({ ...c, [key]: value }));
 
-  // Set a yes/no pair (e.g. Smoking Yes / Smoking No)
   const setPair = (yesKey, noKey, which) => {
     setChecks(c => ({ ...c, [yesKey]: which === "yes", [noKey]: which === "no" }));
   };
   const getPair = (yesKey, noKey) => checks[yesKey] ? "yes" : checks[noKey] ? "no" : null;
 
-  // Set a normal/abnormal pair for findings
   const setNormal = (normalKey, findingsKey, isNormal) => {
     setChecks(c => ({ ...c, [normalKey]: isNormal }));
     if (isNormal) setField(findingsKey, "");
@@ -260,9 +260,15 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
     setSaving(false);
   };
 
-  // Ensure pdf.js is loaded once
   useEffect(() => {
     const ensurePdfJs = async () => {
+      if (!document.getElementById("pdfjs-annotation-css")) {
+        const link = document.createElement("link");
+        link.id = "pdfjs-annotation-css";
+        link.rel = "stylesheet";
+        link.href = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.css";
+        document.head.appendChild(link);
+      }
       if (!window.pdfjsLib) {
         await new Promise((res, rej) => {
           const s = document.createElement("script");
@@ -273,13 +279,20 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
         window.pdfjsLib.GlobalWorkerOptions.workerSrc =
           "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
       }
+      if (!window.pdfjsViewer) {
+        await new Promise((res, rej) => {
+          const s = document.createElement("script");
+          s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.js";
+          s.onload = res; s.onerror = rej;
+          document.head.appendChild(s);
+        });
+      }
     };
     ensurePdfJs();
   }, []);
 
-  // Fetch the live-filled PDF from the backend and load it for preview
   const loadFilledPdf = useCallback(async () => {
-    if (!window.pdfjsLib) { console.log("[NurseMEF] pdfjsLib not ready"); return; }
+    if (!window.pdfjsLib) return;
     setRendering(true);
     try {
       const payload = { ...form, ...checks };
@@ -288,35 +301,28 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
         headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify(payload),
       });
-      console.log("[NurseMEF] PDF fetch status:", resp.status);
       if (!resp.ok) throw new Error("not found");
       const buf = await resp.arrayBuffer();
-      console.log("[NurseMEF] PDF bytes:", buf.byteLength);
       pdfDocRef.current = await window.pdfjsLib.getDocument({ data: buf }).promise;
-      console.log("[NurseMEF] PDF doc loaded, pages:", pdfDocRef.current.numPages);
       setPdfReady(true);
       setPdfError(false);
     } catch (e) {
-      console.error("[NurseMEF] loadFilledPdf error:", e);
       setPdfError(true);
     }
     setRendering(false);
   }, [form, checks, studentMongoId]);
 
-  // Debounced re-fetch of the filled PDF whenever form/checks change
   useEffect(() => {
-    if (loading) return; // wait until initial data loaded
+    if (loading) return;
     const timer = setTimeout(() => { loadFilledPdf(); }, 600);
     return () => clearTimeout(timer);
   }, [form, checks, loading, loadFilledPdf]);
 
   const renderPreview = useCallback(async () => {
-    console.log("[NurseMEF] renderPreview called. pdfDocRef:", !!pdfDocRef.current, "canvasRef:", !!canvasRef.current);
     if (!pdfDocRef.current || !canvasRef.current) return;
     setRendering(true);
     try {
       const page = await pdfDocRef.current.getPage(1);
-      console.log("[NurseMEF] page loaded");
       const canvas = canvasRef.current;
       const container = canvas.parentElement;
       const dpr = window.devicePixelRatio || 1;
@@ -328,6 +334,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
       const fitScale = fitWidth / pdfNatural.width;
       const renderScale = fitScale * Math.max(dpr, 2);
       scaleRef.current = renderScale;
+
       const viewport = page.getViewport({ scale: renderScale });
       canvas.width  = viewport.width;
       canvas.height = viewport.height;
@@ -335,9 +342,52 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
       canvas.style.height  = `${pdfNatural.height * fitScale}px`;
       canvas.style.display = "block";
       canvas.style.margin  = zoom <= 1 ? "0 auto" : "0";
-      console.log("[NurseMEF] canvas dims:", canvas.width, canvas.height, "style:", canvas.style.width, canvas.style.height);
       await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
-      console.log("[NurseMEF] render complete");
+
+      const fitHeight = pdfNatural.height * fitScale;
+      const cssViewport = page.getViewport({ scale: fitScale });
+
+      const annotationDiv = annotationLayerRef.current;
+      if (annotationDiv && window.pdfjsViewer) {
+        annotationDiv.innerHTML = "";
+        annotationDiv.style.width  = `${fitWidth}px`;
+        annotationDiv.style.height = `${fitHeight}px`;
+        annotationDiv.style.margin = zoom <= 1 ? "0 auto" : "0";
+
+        try {
+          const annotations = await page.getAnnotations({ intent: "display" });
+          const linkService = {
+            getDestinationHash: () => "#",
+            getAnchorUrl: () => "#",
+            addLinkAttributes: () => {},
+            executeNamedAction: () => {},
+            isPageVisible: () => true,
+            eventBus: new window.pdfjsViewer.EventBus(),
+          };
+          window.pdfjsViewer.AnnotationLayer.render({
+            viewport: cssViewport.clone({ dontFlip: true }),
+            div: annotationDiv,
+            annotations,
+            page,
+            renderForms: true,
+            linkService,
+            downloadManager: null,
+            imageResourcesPath: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/web/images/",
+          });
+        } catch (_) {}
+      }
+
+      const tooltipDiv = tooltipLayerRef.current;
+      if (tooltipDiv) {
+        await renderFieldOwnerTooltips({
+          page,
+          cssViewport,
+          container: tooltipDiv,
+          fitWidth,
+          fitHeight,
+          getFieldOwner,
+        });
+      }
     } catch (e) { console.error("[NurseMEF] Render error:", e); }
     setRendering(false);
   }, [zoom]);
@@ -354,12 +404,11 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
     return () => window.removeEventListener("resize", onResize);
   }, [pdfReady, renderPreview]);
 
-  // Download the fully filled PDF (student + nurse fields)
   const handleDownloadPDF = async () => {
     setDownloading(true);
     try {
       const payload = { ...form, ...checks };
-      const resp = await fetch(`/api/hso/students/${studentMongoId}/mef/pdf`, {
+      const resp = await fetch(`/api/hso/students/${studentMongoId}/mef/pdf/download`, {
         method: "POST",
         headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify(payload),
@@ -389,7 +438,6 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
 
   return (
     <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", background: t.bg }}>
-      {/* Slim back bar */}
       <div style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0, borderBottom: `1px solid ${t.divider}`, background: t.card }}>
         <button onClick={onBack} style={{ background: t.bg, border: `1px solid ${t.cardBorder}`, color: t.text, width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>←</button>
         <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{studentInfo?.firstName} {studentInfo?.lastName}</div>
@@ -399,7 +447,6 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
       <div style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", minHeight: 0, overflow: "hidden" }}>
         <div style={{ flex: isMobile ? "none" : "0 0 50%", minWidth: isMobile ? "none" : 380, maxWidth: isMobile ? "none" : 620, borderRight: isMobile ? "none" : `1px solid ${t.divider}`, overflowY: "auto", padding: isMobile ? "16px" : "24px 32px", boxSizing: "border-box" }}>
 
-        {/* Consultation details */}
         <SectionCard title="Consultation Details (Vitals)" t={t}>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr", gap: 10 }}>
             {CONSULT_FIELDS.map(({ key, label }) => (
@@ -408,7 +455,6 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
           </div>
         </SectionCard>
 
-        {/* Medical history / medications */}
         <SectionCard title="Medical History & Medications" t={t}>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
             {HISTORY_FIELDS.map(({ key, label }) => (
@@ -417,7 +463,6 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
           </div>
         </SectionCard>
 
-        {/* Vision */}
         <SectionCard title="Vision" t={t}>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
             <TextInput label="Left Eye Vision" value={form["Left Vision"]} onChange={v => setField("Left Vision", v)} t={t} />
@@ -427,7 +472,6 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
             onChange={v => setCheck("With Corrective Lens", v === "yes")} t={t} />
         </SectionCard>
 
-        {/* Social history */}
         <SectionCard title="Social History" t={t}>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
             {SOCIAL_CHECKBOX_PAIRS.map(({ label, yes, no }) => (
@@ -441,7 +485,6 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
           </div>
         </SectionCard>
 
-        {/* Disability / PWD / Laterality */}
         <SectionCard title="Disability, PWD & Laterality" t={t}>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 12 }}>
             {DISABILITY_CHECKBOX_PAIRS.map(({ label, yes, no }) => (
@@ -466,12 +509,10 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
           </div>
         </SectionCard>
 
-        {/* Diagnosis */}
         <SectionCard title="Diagnosis" t={t}>
           <TextInput label={DIAGNOSIS_FIELD.label} value={form[DIAGNOSIS_FIELD.key]} onChange={v => setField(DIAGNOSIS_FIELD.key, v)} t={t} multiline />
         </SectionCard>
 
-        {/* Physical findings */}
         <SectionCard title="Physical Examination Findings" t={t}>
           {FINDINGS_FIELDS.map(({ key, label, normalKey }) => (
             <NormalAbnormalField
@@ -486,7 +527,6 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
           ))}
         </SectionCard>
 
-        {/* Assessment / sign-off */}
         <SectionCard title="Assessment & Sign-off" t={t}>
           <div style={{ marginBottom: 12 }}>
             <label style={{ fontSize: 11, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 6 }}>Physician's Assessment</label>
@@ -507,20 +547,19 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
           </div>
         </SectionCard>
 
-        {/* Save button */}
         <button onClick={handleSave} disabled={saving}
           style={{ width: "100%", padding: "14px", background: t.accentBtn, color: "#fff", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: saving ? 0.7 : 1, marginBottom: 24 }}>
           {saving ? "Saving…" : "Save & Mark MEF as Filled"}
         </button>
         </div>
 
-      {/* PDF Preview panel */}
       <div style={{ flex: 1, height: isMobile ? "60vw" : "100%", minHeight: isMobile ? 280 : 0, background: "#374151", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <div style={{ background: "#1f2937", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {rendering && <span style={{ fontSize: 11, color: "#9ca3af" }}>Updating…</span>}
             {!pdfReady && !pdfError && <span style={{ fontSize: 11, color: "#9ca3af" }}>Loading preview…</span>}
             {pdfError && <span style={{ fontSize: 11, color: "#fca5a5" }}>Preview PDF not found</span>}
+            {pdfReady && !rendering && <span style={{ fontSize: 11, color: "#6ee7b7" }}>Hover a field to see who fills it →</span>}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button onClick={() => setZoom(z => Math.max(0.5, parseFloat((z - 0.25).toFixed(2))))}
@@ -543,7 +582,11 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
               Make sure <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>backend/public/medical-examination-form.pdf</code> exists on the server with all MEF fields.
             </div>
           ) : (
-            <canvas ref={canvasRef} style={{ borderRadius: 4, display: "block" }} />
+            <div style={{ position: "relative", display: "inline-block" }}>
+              <canvas ref={canvasRef} style={{ borderRadius: 4, display: "block" }} />
+              <div ref={annotationLayerRef} className="annotationLayer" style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }} />
+              <div ref={tooltipLayerRef} style={{ position: "absolute", top: 0, left: 0 }} />
+            </div>
           )}
         </div>
         <div style={{ padding: "12px 16px", background: "#1f2937" }}>

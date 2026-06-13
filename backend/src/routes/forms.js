@@ -58,6 +58,79 @@ function buildMefPdfFieldMap(body) {
   };
 }
 
+// ── Shared field lists for the full MEF PDF (student + nurse fields) ───────
+const MEF_TEXT_FIELD_NAMES = [
+  "ID Number", "Date", "Last Name", "First Name", "MI", "Birthday",
+  "Contact Number", "College Section", "Academic Year", "Emergency Name",
+  "Relationship", "Emergency Contact", "Student Name Auth", "Student Age",
+  "Blood Type", "Blood Pressure", "Resp Rate", "Pulse Rate", "Temperature",
+  "Height Inches", "Weight Pounds", "BMI", "BMI Category", "LMP Female",
+  "Medical History 1", "Medical History 2", "Medical History 3", "Medical History 4",
+  "Present Medication 1", "Present Medication 2",
+  "Left Vision", "Right Vision", "Smoking Details", "Drinking Details",
+  "Exercising Details", "Type Of Disability", "Diagnosis Impression",
+  "EENT Findings", "Head Neck Findings", "Breast Findings", "Lungs Findings",
+  "Heart Findings", "Skin Findings", "Abdomen Findings", "Neurologic Findings",
+  "Chest Xray Findings", "Drug Test Findings",
+  "Restrictions Details", "Clearance Specialty Reason", "Examining Physician",
+  "Assigned Nurse", "License Number", "Encoded By",
+];
+
+const MEF_CHECKBOX_FIELD_NAMES = [
+  "Gender Female", "Gender Male", "With Corrective Lens",
+  "Disability No", "Disability Yes", "PWD Card No", "PWD Card Yes",
+  "Right Handed", "Left Handed", "Ambidextrous",
+  "Smoking No", "Smoking Yes", "Drinking No", "Drinking Yes",
+  "Exercising No", "Exercising Yes",
+  "EENT Normal", "Head Neck Normal", "Breast Normal", "Lungs Normal",
+  "Heart Normal", "Skin Normal", "Abdomen Normal", "Neurologic Normal",
+  "Chest Xray Normal", "Drug Test Normal",
+  "Fit For Academic Activities", "Fit With Restrictions", "Pending Classification",
+  "For Additional Xray", "For Clearance",
+];
+
+function fillMefForm(form, data) {
+  MEF_TEXT_FIELD_NAMES.forEach(name => {
+    try { form.getTextField(name).setText(data[name] || ""); } catch (_) {}
+  });
+  MEF_CHECKBOX_FIELD_NAMES.forEach(name => {
+    try {
+      const cb = form.getCheckBox(name);
+      data[name] ? cb.check() : cb.uncheck();
+    } catch (_) {}
+  });
+}
+
+// POST /api/forms/mef/preview — AcroForm-preserving preview for the STUDENT.
+// Merges saved Form.formData (includes nurse-filled fields, if any) with the
+// student's live in-progress edits (req.body, PDF-field-name keyed), and
+// returns a non-flattened PDF so pdf.js can render the annotation layer.
+router.post("/mef/preview", authMiddleware, async (req, res) => {
+  try {
+    const pdfPath = path.join(__dirname, "../../public/medical-examination-form.pdf");
+    if (!fs.existsSync(pdfPath)) return res.status(404).json({ error: "MEF PDF template not found on server." });
+
+    const existing = await Form.findOne({ userId: req.user.id, formType: "mef" });
+    const liveStudentFields = buildMefPdfFieldMap(req.body);
+    const data = { ...(existing?.formData || {}), ...liveStudentFields };
+
+    const pdfDoc = await PDFDocument.load(fs.readFileSync(pdfPath), { ignoreEncryption: true });
+    const form   = pdfDoc.getForm();
+
+    fillMefForm(form, data);
+
+    // Not flattened — keeps AcroForm alive for annotation layer rendering.
+    const bytes = await pdfDoc.save({ updateFieldAppearances: true });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="MEF_preview.pdf"`);
+    res.send(Buffer.from(bytes));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/forms/mef
 router.post("/mef", authMiddleware, async (req, res) => {
   try {
