@@ -5,6 +5,7 @@ import { useTheme } from "../ThemeContext";
 import { useModal } from "../components/Modal";
 import { getFieldOwner } from "../mefFieldOwnership";
 import { renderFieldOwnerTooltips } from "../fieldOwnerTooltips";
+import LiveFieldOverlay, { useLiveFieldOverlay } from "../useLiveFieldOverlay";
 
 const EMPTY_FORM = {
   idNumber:        "",
@@ -76,6 +77,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
   const pdfDocRef   = useRef(null);
   const renderTimeout = useRef(null);
   const scaleRef    = useRef(1);
+  const requestIdRef = useRef(0);
 
   const [pdfReady,    setPdfReady]    = useState(false);
   const [pdfError,    setPdfError]    = useState(false);
@@ -84,6 +86,9 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
   const [downloaded,  setDownloaded]  = useState(false);
   const [highlighted, setHighlighted] = useState(null);
   const [zoom, setZoom] = useState(1.0);
+  const [pdfVersion, setPdfVersion] = useState(0);
+  const [overlayDims, setOverlayDims] = useState({ width: 0, height: 0 });
+  const { fieldRects, captureFieldRects } = useLiveFieldOverlay();
 
   const buildAuth = (fn, mi, ln) =>
     fn && ln ? `${fn}${mi ? " " + mi : ""} ${ln}` : "";
@@ -190,6 +195,7 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
   // Fetch the live-filled, non-flattened PDF preview from the backend
   const loadFilledPdf = useCallback(async () => {
     if (!window.pdfjsLib) return;
+    const reqId = ++requestIdRef.current;
     setRendering(true);
     try {
       const resp = await fetch("/api/forms/mef/preview", {
@@ -199,18 +205,25 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       });
       if (!resp.ok) throw new Error("not found");
       const buf = await resp.arrayBuffer();
-      pdfDocRef.current = await window.pdfjsLib.getDocument({ data: buf }).promise;
+      const doc = await window.pdfjsLib.getDocument({ data: buf }).promise;
+
+      if (reqId !== requestIdRef.current) return; // stale response, ignore
+
+      pdfDocRef.current = doc;
       setPdfReady(true);
       setPdfError(false);
+      setPdfVersion(v => v + 1);
     } catch (e) {
-      setPdfError(true);
+      if (reqId === requestIdRef.current) setPdfError(true);
     }
-    setRendering(false);
+    if (reqId === requestIdRef.current) setRendering(false);
   }, [form]);
 
-  // Debounced re-fetch of the filled PDF whenever form changes
+  // Re-fetch the filled PDF shortly after form settles (debounced so rapid
+  // typing doesn't fire a request per keystroke; UI state and the
+  // LiveFieldOverlay are still instant since they're separate from this fetch).
   useEffect(() => {
-    const timer = setTimeout(() => { loadFilledPdf(); }, 600);
+    const timer = setTimeout(() => { loadFilledPdf(); }, 350);
     return () => clearTimeout(timer);
   }, [form, loadFilledPdf]);
 
@@ -243,6 +256,9 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       const fitHeight = pdfNatural.height * fitScale;
       const cssViewport = page.getViewport({ scale: fitScale });
 
+      setOverlayDims({ width: fitWidth, height: fitHeight });
+      captureFieldRects(page, cssViewport, fitScale);
+
       // AcroForm annotation layer (renders actual field widgets/values)
       const annotationDiv = annotationLayerRef.current;
       if (annotationDiv && window.pdfjsViewer) {
@@ -274,8 +290,14 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
           // pdf.js's pdf_viewer.css gives form widgets pointer-events:auto,
           // which would block our hover-tooltip layer underneath. Disable
           // pointer events on every rendered widget so hover passes through.
+          // Also make widget text transparent — LiveFieldOverlay now renders
+          // the visible text/checkmarks, so showing both would double up.
           annotationDiv.querySelectorAll("input, textarea, select, section")
-            .forEach(el => { el.style.pointerEvents = "none"; });
+            .forEach(el => {
+              el.style.pointerEvents = "none";
+              el.style.color = "transparent";
+              el.style.caretColor = "transparent";
+            });
         } catch (_) {}
       }
 
@@ -293,12 +315,12 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
       }
     } catch (e) { console.error("Render error:", e); }
     setRendering(false);
-  }, [zoom]);
+  }, [zoom, captureFieldRects]);
 
   useEffect(() => {
     if (!pdfReady) return;
     renderPreview();
-  }, [pdfReady, zoom, renderPreview]);
+  }, [pdfReady, pdfVersion, zoom, renderPreview]);
 
   useEffect(() => {
     if (!pdfReady) return;
@@ -534,6 +556,12 @@ export default function MEFPage({ prefillId, prefillFirstName, prefillLastName, 
           <div style={{ position: "relative", display: "inline-block" }}>
             <canvas ref={canvasRef} style={{ borderRadius: 4, display: "block" }} />
             <div ref={annotationLayerRef} className="annotationLayer" style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }} />
+            <LiveFieldOverlay
+              fieldRects={fieldRects}
+              values={buildFieldMap(form)}
+              fitWidth={overlayDims.width}
+              fitHeight={overlayDims.height}
+            />
             <div ref={tooltipLayerRef} style={{ position: "absolute", top: 0, left: 0 }} />
           </div>
         )}
