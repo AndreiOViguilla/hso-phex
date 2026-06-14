@@ -1311,6 +1311,11 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
           page, cssViewport, container: tooltipDiv,
           fitWidth, fitHeight, getFieldOwner: getDefFieldOwner,
         });
+        // After rendering, disable pointer-events on each tooltip hitbox so
+        // they don't block clicks from reaching the annotation layer checkboxes.
+        tooltipDiv.querySelectorAll("div").forEach(el => {
+          el.style.pointerEvents = "none";
+        });
       }
     } catch (e) { console.error("[NurseDEF] Render error:", e); }
     setRendering(false);
@@ -1436,7 +1441,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
             {rendering && <span style={{ fontSize: 11, color: "#9ca3af" }}>Updating...</span>}
             {!pdfReady && !pdfError && <span style={{ fontSize: 11, color: "#9ca3af" }}>Loading preview...</span>}
             {pdfError && <span style={{ fontSize: 11, color: "#fca5a5" }}>Preview PDF not found</span>}
-            {pdfReady && !rendering && <span style={{ fontSize: 11, color: "#6ee7b7" }}>Click checkboxes in the preview to fill them</span>}
+            {pdfReady && !rendering && <span style={{ fontSize: 11, color: "#6ee7b7" }}>Hover a field to see who fills it · Click checkboxes to fill them →</span>}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button onClick={() => setZoom(z => Math.max(0.5, parseFloat((z - 0.25).toFixed(2))))}
@@ -1468,7 +1473,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
                 fitWidth={overlayDims.width}
                 fitHeight={overlayDims.height}
               />
-              <div ref={tooltipLayerRef} style={{ position: "absolute", top: 0, left: 0, zIndex: 6 }} />
+              <div ref={tooltipLayerRef} style={{ position: "absolute", top: 0, left: 0, zIndex: 6, pointerEvents: "none" }} />
             </div>
           )}
         </div>
