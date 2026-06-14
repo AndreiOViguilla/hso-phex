@@ -4,6 +4,7 @@ import { NavBar, Btn } from "../components/UI";
 import { useTheme } from "../ThemeContext";
 import { useModal } from "../components/Modal";
 import { renderFieldOwnerTooltips } from "../fieldOwnerTooltips";
+import LiveFieldOverlay, { useLiveFieldOverlay } from "../useLiveFieldOverlay";
 
 const EMPTY_FORM = {
   name: "",
@@ -23,6 +24,7 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
   const canvasRef     = useRef(null);
   const pdfDocRef     = useRef(null);
   const scaleRef      = useRef(1);
+  const requestIdRef  = useRef(0);
 
   const [pdfReady,    setPdfReady]    = useState(false);
   const [pdfError,    setPdfError]    = useState(false);
@@ -30,6 +32,9 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
   const [downloading, setDownloading] = useState(false);
   const [downloaded,  setDownloaded]  = useState(false);
   const [zoom, setZoom] = useState(1.0);
+  const [pdfVersion, setPdfVersion] = useState(0);
+  const [overlayDims, setOverlayDims] = useState({ width: 0, height: 0 });
+  const { fieldRects, captureFieldRects } = useLiveFieldOverlay();
 
   const [form, setForm] = useState({ ...EMPTY_FORM, idNo: prefillId || "", name: prefillName || "" });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -37,7 +42,6 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
   const [draftSaved, setDraftSaved] = useState(false);
   const draftTimer = useRef(null);
 
-  // Auto-save form to localStorage on every change
   useEffect(() => {
     localStorage.setItem("def_draft", JSON.stringify(form));
     setDraftSaved(true);
@@ -45,7 +49,6 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
     draftTimer.current = setTimeout(() => setDraftSaved(false), 1500);
   }, [form]);
 
-  // Restore draft from localStorage on mount
   useEffect(() => {
     try {
       const draft = localStorage.getItem("def_draft");
@@ -56,7 +59,6 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
     } catch (_) {}
   }, []);
 
-  // Fetch student profile to autofill Name / ID No
   useEffect(() => {
     fetch("/api/students/me", { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
@@ -71,7 +73,6 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       .catch(() => {});
   }, []);
 
-  // Ensure pdf.js + viewer (annotation layer) assets are loaded once
   useEffect(() => {
     const ensurePdfJs = async () => {
       if (!document.getElementById("pdfjs-annotation-css")) {
@@ -106,9 +107,9 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
   const annotationLayerRef = useRef(null);
   const tooltipLayerRef    = useRef(null);
 
-  // Fetch the live-filled, non-flattened PDF preview from the backend
   const loadFilledPdf = useCallback(async () => {
     if (!window.pdfjsLib) return;
+    const reqId = ++requestIdRef.current;
     setRendering(true);
     try {
       const resp = await fetch("/api/forms/def/preview", {
@@ -118,18 +119,22 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       });
       if (!resp.ok) throw new Error("not found");
       const buf = await resp.arrayBuffer();
-      pdfDocRef.current = await window.pdfjsLib.getDocument({ data: buf }).promise;
+      const doc = await window.pdfjsLib.getDocument({ data: buf }).promise;
+
+      if (reqId !== requestIdRef.current) return;
+
+      pdfDocRef.current = doc;
       setPdfReady(true);
       setPdfError(false);
+      setPdfVersion(v => v + 1);
     } catch (e) {
-      setPdfError(true);
+      if (reqId === requestIdRef.current) setPdfError(true);
     }
-    setRendering(false);
+    if (reqId === requestIdRef.current) setRendering(false);
   }, [form]);
 
-  // Debounced re-fetch of the filled PDF whenever form changes
   useEffect(() => {
-    const timer = setTimeout(() => { loadFilledPdf(); }, 600);
+    const timer = setTimeout(() => { loadFilledPdf(); }, 350);
     return () => clearTimeout(timer);
   }, [form, loadFilledPdf]);
 
@@ -162,7 +167,9 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       const fitHeight = pdfNatural.height * fitScale;
       const cssViewport = page.getViewport({ scale: fitScale });
 
-      // AcroForm annotation layer (renders actual field widgets/values)
+      setOverlayDims({ width: fitWidth, height: fitHeight });
+      await captureFieldRects(page, cssViewport, fitScale);
+
       const annotationDiv = annotationLayerRef.current;
       if (annotationDiv && window.pdfjsViewer) {
         annotationDiv.innerHTML = "";
@@ -189,16 +196,15 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
             downloadManager: null,
             imageResourcesPath: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/web/images/",
           });
-
-          // pdf.js's pdf_viewer.css gives form widgets pointer-events:auto,
-          // which would block our hover-tooltip layer underneath. Disable
-          // pointer events on every rendered widget so hover passes through.
           annotationDiv.querySelectorAll("input, textarea, select, section")
-            .forEach(el => { el.style.pointerEvents = "none"; });
+            .forEach(el => {
+              el.style.pointerEvents = "none";
+              el.style.color = "transparent";
+              el.style.caretColor = "transparent";
+            });
         } catch (_) {}
       }
 
-      // Hover tooltips: "Filled up by Student" / "Filled up by Nurse"
       const tooltipDiv = tooltipLayerRef.current;
       if (tooltipDiv) {
         await renderFieldOwnerTooltips({
@@ -212,12 +218,12 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
       }
     } catch (e) { console.error("Render error:", e); }
     setRendering(false);
-  }, [zoom]);
+  }, [zoom, captureFieldRects]);
 
   useEffect(() => {
     if (!pdfReady) return;
     renderPreview();
-  }, [pdfReady, zoom, renderPreview]);
+  }, [pdfReady, pdfVersion, zoom, renderPreview]);
 
   useEffect(() => {
     if (!pdfReady) return;
@@ -227,7 +233,6 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
   }, [pdfReady, renderPreview]);
 
   const handleDownload = async () => {
-    // Validate
     const missing = [];
     if (!form.name)  missing.push("Full name");
     if (!form.idNo)  missing.push("ID number");
@@ -269,6 +274,8 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
   const lbl = { fontSize: 12, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 4 };
   const sec = { fontSize: 11, fontWeight: 700, color: t.textSub, textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: `1.5px solid ${t.divider}`, paddingBottom: 8, marginBottom: 14 };
   const c2  = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 12, marginBottom: 12 };
+
+  const defValues = { "Name": form.name, "ID No": form.idNo };
 
   const formPanel = (
     <div style={{ overflowY: "auto", padding: isMobile ? "16px" : "24px 32px", flex: 1, background: t.bg }}>
@@ -350,9 +357,7 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/>
             </svg>
           </button>
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#d1d5db", minWidth: 40, textAlign: "center" }}>
-            {Math.round(zoom * 100)}%
-          </span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#d1d5db", minWidth: 40, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
           <button onClick={() => setZoom(z => Math.min(3.0, parseFloat((z + 0.25).toFixed(2))))}
             title="Zoom in" disabled={zoom >= 3.0}
             style={{ background: "none", border: "none", cursor: zoom >= 3.0 ? "not-allowed" : "pointer", color: zoom >= 3.0 ? "#4b5563" : "#d1d5db", padding: 4, display: "flex", alignItems: "center" }}>
@@ -372,6 +377,12 @@ export default function DEFPage({ prefillId, prefillName, onBack, onSuccess }) {
           <div style={{ position: "relative", display: "inline-block" }}>
             <canvas ref={canvasRef} style={{ borderRadius: 4, display: "block" }} />
             <div ref={annotationLayerRef} className="annotationLayer" style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }} />
+            <LiveFieldOverlay
+              fieldRects={fieldRects}
+              values={defValues}
+              fitWidth={overlayDims.width}
+              fitHeight={overlayDims.height}
+            />
             <div ref={tooltipLayerRef} style={{ position: "absolute", top: 0, left: 0 }} />
           </div>
         )}

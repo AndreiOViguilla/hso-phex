@@ -3,15 +3,12 @@ import { useTheme } from "../ThemeContext";
 import { useModal } from "../components/Modal";
 import { useIsMobile } from "../utils/useIsMobile";
 import { renderFieldOwnerTooltips } from "../fieldOwnerTooltips";
+import LiveFieldOverlay, { useLiveFieldOverlay } from "../useLiveFieldOverlay";
 
-// DEF field ownership: Name/ID No come from the student, everything else is filled by the nurse/dentist.
 const DEF_STUDENT_FIELDS = new Set(["Name", "ID No"]);
 function getDefFieldOwner(fieldName) {
   return DEF_STUDENT_FIELDS.has(fieldName) ? "Student" : "Nurse";
 }
-
-
-// ── Field name constants (must match PDF form field names exactly) ──────────
 
 const ASSESSMENT_TEXT_FIELDS = [
   { key: "Assigned Dentist", label: "Assigned Dentist" },
@@ -42,8 +39,6 @@ const DENTURE_PAIRS = [
 
 const HAWLEYS_CHECKBOX = "Hawleys retainers";
 
-// ── UI Helpers ────────────────────────────────────────────────────────────
-
 function SectionCard({ title, children, t }) {
   return (
     <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, padding: "16px", marginBottom: 14 }}>
@@ -72,8 +67,6 @@ function TextInput({ label, value, onChange, t, multiline, readOnly }) {
   );
 }
 
-// ── Main Component ───────────────────────────────────────────────────────
-
 export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
   const { t } = useTheme();
   const { show } = useModal();
@@ -84,18 +77,23 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
   const [downloading, setDownloading] = useState(false);
   const [studentInfo, setStudentInfo] = useState(null);
   const [studentFields, setStudentFields] = useState({});
-  const [form, setForm] = useState({});       // text fields (nurse-editable)
-  const [checks, setChecks] = useState({});   // checkbox fields
+  const [form, setForm] = useState({});
+  const [checks, setChecks] = useState({});
 
   const canvasRef = useRef(null);
+  const annotationLayerRef = useRef(null);
   const tooltipLayerRef = useRef(null);
   const pdfDocRef = useRef(null);
-  const fieldElementsRef = useRef({});
   const scaleRef  = useRef(1);
+  const requestIdRef = useRef(0);
+
   const [pdfReady, setPdfReady] = useState(false);
   const [pdfError, setPdfError] = useState(false);
   const [rendering, setRendering] = useState(false);
   const [zoom, setZoom] = useState(1.0);
+  const [pdfVersion, setPdfVersion] = useState(0);
+  const [overlayDims, setOverlayDims] = useState({ width: 0, height: 0 });
+  const { fieldRects, captureFieldRects } = useLiveFieldOverlay();
 
   useEffect(() => {
     fetch(`/api/hso/students/${studentMongoId}/def`, { credentials: "include" })
@@ -152,7 +150,6 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
     setSaving(false);
   };
 
-  // Ensure pdf.js + viewer (annotation layer) assets are loaded once
   useEffect(() => {
     const ensurePdfJs = async () => {
       if (!document.getElementById("pdfjs-annotation-css")) {
@@ -184,11 +181,9 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
     ensurePdfJs();
   }, []);
 
-  const annotationLayerRef = useRef(null);
-
-  // Fetch the live-filled PDF (with AcroForm intact) from the backend and load it for preview
   const loadFilledPdf = useCallback(async () => {
     if (!window.pdfjsLib) return;
+    const reqId = ++requestIdRef.current;
     setRendering(true);
     try {
       const payload = { ...form, ...checks };
@@ -199,48 +194,25 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
       });
       if (!resp.ok) throw new Error("not found");
       const buf = await resp.arrayBuffer();
-      pdfDocRef.current = await window.pdfjsLib.getDocument({ data: buf }).promise;
+      const doc = await window.pdfjsLib.getDocument({ data: buf }).promise;
+
+      if (reqId !== requestIdRef.current) return;
+
+      pdfDocRef.current = doc;
       setPdfReady(true);
       setPdfError(false);
+      setPdfVersion(v => v + 1);
     } catch (e) {
-      setPdfError(true);
+      if (reqId === requestIdRef.current) setPdfError(true);
     }
-    setRendering(false);
+    if (reqId === requestIdRef.current) setRendering(false);
   }, [form, checks, studentMongoId]);
 
-  // Initial load only — fetches the filled PDF once and renders the full
-  // preview (canvas + annotation layer + tooltips). Subsequent edits update
-  // the already-rendered annotation layer directly (see effect below) so
-  // there's no flicker or refetch while typing.
-  const initialLoadDoneRef = useRef(false);
   useEffect(() => {
-    if (loading || initialLoadDoneRef.current) return;
-    initialLoadDoneRef.current = true;
-    loadFilledPdf();
-  }, [loading, loadFilledPdf]);
-
-  // Instant client-side sync: write form/checkbox values directly into the
-  // already-rendered AcroForm widgets as the user types. No network call,
-  // no re-render, no flicker.
-  useEffect(() => {
-    const map = fieldElementsRef.current;
-    if (!map || Object.keys(map).length === 0) return;
-
-    Object.entries(form).forEach(([name, value]) => {
-      const el = map[name];
-      if (!el) return;
-      if (el.type === "checkbox" || el.type === "radio") return;
-      if (el.value !== (value || "")) el.value = value || "";
-    });
-
-    Object.entries(checks).forEach(([name, value]) => {
-      const el = map[name];
-      if (!el) return;
-      if (el.type === "checkbox" || el.type === "radio") {
-        if (el.checked !== !!value) el.checked = !!value;
-      }
-    });
-  }, [form, checks]);
+    if (loading) return;
+    const timer = setTimeout(() => { loadFilledPdf(); }, 350);
+    return () => clearTimeout(timer);
+  }, [form, checks, loading, loadFilledPdf]);
 
   const renderPreview = useCallback(async () => {
     if (!pdfDocRef.current || !canvasRef.current) return;
@@ -271,13 +243,15 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
       const fitHeight = pdfNatural.height * fitScale;
       const cssViewport = page.getViewport({ scale: fitScale });
 
+      setOverlayDims({ width: fitWidth, height: fitHeight });
+      await captureFieldRects(page, cssViewport, fitScale);
+
       const annotationDiv = annotationLayerRef.current;
       if (annotationDiv && window.pdfjsViewer) {
         annotationDiv.innerHTML = "";
         annotationDiv.style.width  = `${fitWidth}px`;
         annotationDiv.style.height = `${fitHeight}px`;
         annotationDiv.style.margin = zoom <= 1 ? "0 auto" : "0";
-
         try {
           const annotations = await page.getAnnotations({ intent: "display" });
           const linkService = {
@@ -298,26 +272,12 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
             downloadManager: null,
             imageResourcesPath: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/web/images/",
           });
-
-          // pdf.js's pdf_viewer.css gives form widgets pointer-events:auto,
-          // which would block our hover-tooltip layer underneath. Disable
-          // pointer events on every rendered widget so hover passes through.
           annotationDiv.querySelectorAll("input, textarea, select, section")
-            .forEach(el => { el.style.pointerEvents = "none"; });
-
-          // Build a map of PDF field name -> rendered <input>/<textarea>/<select>
-          // so we can write values into the preview instantly as the user
-          // types, without re-fetching or re-rendering the whole PDF.
-          // pdf.js wraps each widget in a <section data-annotation-id="...">,
-          // and annotations[i].id correlates 1:1 with annotations[i].fieldName.
-          const map = {};
-          annotations.forEach(ann => {
-            if (!ann.fieldName) return;
-            const section = annotationDiv.querySelector(`[data-annotation-id="${ann.id}"]`);
-            const input = section?.querySelector("input, textarea, select");
-            if (input) map[ann.fieldName] = input;
-          });
-          fieldElementsRef.current = map;
+            .forEach(el => {
+              el.style.pointerEvents = "none";
+              el.style.color = "transparent";
+              el.style.caretColor = "transparent";
+            });
         } catch (_) {}
       }
 
@@ -334,12 +294,12 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
       }
     } catch (e) { console.error("[NurseDEF] Render error:", e); }
     setRendering(false);
-  }, [zoom]);
+  }, [zoom, captureFieldRects]);
 
   useEffect(() => {
     if (!pdfReady) return;
     renderPreview();
-  }, [pdfReady, zoom, renderPreview]);
+  }, [pdfReady, pdfVersion, zoom, renderPreview]);
 
   useEffect(() => {
     if (!pdfReady) return;
@@ -380,9 +340,10 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
     </div>
   );
 
+  const overlayValues = { ...studentFields, ...form, ...checks };
+
   return (
     <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", background: t.bg }}>
-      {/* Slim back bar */}
       <div style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0, borderBottom: `1px solid ${t.divider}`, background: t.card }}>
         <button onClick={onBack} style={{ background: t.bg, border: `1px solid ${t.cardBorder}`, color: t.text, width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>←</button>
         <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{studentInfo?.firstName} {studentInfo?.lastName}</div>
@@ -392,7 +353,6 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
       <div style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", minHeight: 0, overflow: "hidden" }}>
         <div style={{ flex: isMobile ? "none" : "0 0 50%", minWidth: isMobile ? "none" : 380, maxWidth: isMobile ? "none" : 620, borderRight: isMobile ? "none" : `1px solid ${t.divider}`, overflowY: "auto", padding: isMobile ? "16px" : "24px 32px", boxSizing: "border-box" }}>
 
-        {/* Assigned details */}
         <SectionCard title="Examination Details" t={t}>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 10 }}>
             {ASSESSMENT_TEXT_FIELDS.map(({ key, label }) => (
@@ -401,7 +361,6 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
           </div>
         </SectionCard>
 
-        {/* Oral health checkboxes */}
         <SectionCard title="Oral Health Findings" t={t}>
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
             {ORAL_HEALTH_CHECKBOXES.map(opt => (
@@ -434,7 +393,6 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
           </label>
         </SectionCard>
 
-        {/* Other notes */}
         <SectionCard title="Other Notes" t={t}>
           <div style={{ marginBottom: 12 }}>
             <TextInput label={OTHERS_TEXT_FIELD.label} value={form[OTHERS_TEXT_FIELD.key]} onChange={v => setField(OTHERS_TEXT_FIELD.key, v)} t={t} />
@@ -446,14 +404,12 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
           </div>
         </SectionCard>
 
-        {/* Save button */}
         <button onClick={handleSave} disabled={saving}
           style={{ width: "100%", padding: "14px", background: t.accentBtn, color: "#fff", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: saving ? 0.7 : 1, marginBottom: 24 }}>
           {saving ? "Saving…" : "Save & Mark DEF as Filled"}
         </button>
         </div>
 
-      {/* PDF Preview panel */}
       <div style={{ flex: 1, height: isMobile ? "60vw" : "100%", minHeight: isMobile ? 280 : 0, background: "#374151", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <div style={{ background: "#1f2937", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -485,10 +441,12 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
           ) : (
             <div style={{ position: "relative", display: "inline-block", opacity: rendering ? 0.6 : 1, transition: "opacity 0.2s ease" }}>
               <canvas ref={canvasRef} style={{ borderRadius: 4, display: "block" }} />
-              <div
-                ref={annotationLayerRef}
-                className="annotationLayer"
-                style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }}
+              <div ref={annotationLayerRef} className="annotationLayer" style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }} />
+              <LiveFieldOverlay
+                fieldRects={fieldRects}
+                values={overlayValues}
+                fitWidth={overlayDims.width}
+                fitHeight={overlayDims.height}
               />
               <div ref={tooltipLayerRef} style={{ position: "absolute", top: 0, left: 0 }} />
             </div>
