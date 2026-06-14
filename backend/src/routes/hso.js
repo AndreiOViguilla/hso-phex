@@ -163,9 +163,27 @@ router.get("/students/:id/mef", authMiddleware, requireRole("admin", "master", "
     if (!user) return res.status(404).json({ error: "Student not found." });
 
     const form = await Form.findOne({ userId: req.params.id, formType: "mef" });
+
+    // Always populate student identity fields from the user record so the
+    // nurse preview is correct even if the student hasn't submitted their
+    // own MEF form yet.
+    const existing = form?.formData || {};
+    const formData = {
+      ...existing,
+      "ID Number":      user.studentId      || existing["ID Number"]      || "",
+      "First Name":     user.firstName      || existing["First Name"]      || "",
+      "Last Name":      user.lastName       || existing["Last Name"]       || "",
+      "MI":             user.middleInitial  || existing["MI"]              || "",
+      "Birthday":       user.birthday       || existing["Birthday"]        || "",
+      "Contact Number": user.contact        || existing["Contact Number"]  || "",
+      "College Section":user.college        || existing["College Section"] || "",
+      "Gender Female":  (user.gender === "Female") || !!existing["Gender Female"],
+      "Gender Male":    (user.gender === "Male")   || !!existing["Gender Male"],
+    };
+
     res.json({
       student: user.toSafeObject ? user.toSafeObject() : user,
-      formData: form?.formData || {},
+      formData,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -352,7 +370,18 @@ router.get("/students/:id/def", authMiddleware, requireRole("admin", "master", "
 
     const form = await Form.findOne({ userId: req.params.id, formType: "def" });
     const autofill = await autofillDefMeta(req);
-    const formData = { ...autofill, ...(form?.formData || {}) };
+
+    // Always populate Name/ID No from the student's actual user record,
+    // so the nurse preview shows the correct student even if the student
+    // hasn't submitted their own DEF form yet.
+    const studentName = [user.firstName, user.middleInitial, user.lastName]
+      .filter(Boolean).join(" ");
+    const formData = {
+      ...autofill,
+      ...(form?.formData || {}),
+      "Name":  studentName  || form?.formData?.["Name"]  || "",
+      "ID No": user.studentId || form?.formData?.["ID No"] || "",
+    };
 
     res.json({
       student: user.toSafeObject ? user.toSafeObject() : user,
