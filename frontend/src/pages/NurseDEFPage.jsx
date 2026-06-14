@@ -581,6 +581,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
   const scaleRef  = useRef(1);
   const requestIdRef = useRef(0);
   const checkboxElementsRef = useRef({});
+  const checksRef = useRef({});
 
   const [pdfReady, setPdfReady] = useState(false);
   const [pdfError, setPdfError] = useState(false);
@@ -1108,6 +1109,9 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
   const setField = (key, value) => setForm(f => ({ ...f, [key]: value }));
   const setCheck = useCallback((key, value) => setChecks(c => ({ ...c, [key]: value })), []);
 
+  // Keep checksRef current so click handlers don't capture stale closure
+  useEffect(() => { checksRef.current = checks; }, [checks]);
+
   // Sync checkbox DOM elements visual state instantly when checks state changes
   useEffect(() => {
     const map = checkboxElementsRef.current;
@@ -1277,10 +1281,18 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
                 // a transparent click hitbox only.
                 el.style.opacity = "0";
                 // Sync current checked state from React
-                el.checked = !!checks[fieldName];
-                el.addEventListener("change", (e) => {
-                  console.log("[DEF-debug] checkbox clicked:", fieldName, e.target.checked);
-                  setCheck(fieldName, e.target.checked);
+                el.checked = !!checksRef.current[fieldName];
+                // Use click on the section wrapper (more reliable than change
+                // on the input for pdf.js rendered widgets)
+                const sectionEl = el.closest("section") || el;
+                sectionEl.style.pointerEvents = "auto";
+                sectionEl.style.cursor = "pointer";
+                sectionEl.addEventListener("click", (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const newVal = !checksRef.current[fieldName];
+                  console.log("[DEF-debug] section clicked:", fieldName, newVal);
+                  setCheck(fieldName, newVal);
                 });
                 checkboxMap[fieldName] = el;
               } else {
@@ -1302,7 +1314,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
       }
     } catch (e) { console.error("[NurseDEF] Render error:", e); }
     setRendering(false);
-  }, [zoom, captureFieldRects, setCheck, checks]);
+  }, [zoom, captureFieldRects, setCheck]);
 
   useEffect(() => {
     if (!pdfReady) return;
