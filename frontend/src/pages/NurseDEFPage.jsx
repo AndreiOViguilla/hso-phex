@@ -1032,7 +1032,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
                 fitWidth={overlayDims.width}
                 fitHeight={overlayDims.height}
               />
-              <div ref={tooltipLayerRef} style={{ position: "absolute", top: 0, left: 0, zIndex: 6 }} />
+              <div ref={tooltipLayerRef} style={{ position: "absolute", top: 0, left: 0, zIndex: 4 }} />
               <div ref={clickLayerRef} style={{ position: "absolute", top: 0, left: 0, zIndex: 7 }} />
             </div>
           )}
