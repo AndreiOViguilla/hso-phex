@@ -577,6 +577,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
   const canvasRef = useRef(null);
   const annotationLayerRef = useRef(null);
   const tooltipLayerRef = useRef(null);
+  const clickLayerRef = useRef(null);
   const pdfDocRef = useRef(null);
   const scaleRef  = useRef(1);
   const requestIdRef = useRef(0);
@@ -1264,43 +1265,52 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
             imageResourcesPath: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/web/images/",
           });
 
-          // Wire up interactive checkboxes; disable everything else
-          const checkboxMap = {};
+          // Disable ALL annotation widgets — no clicking or typing in them
           annotationDiv.querySelectorAll("input, textarea, select, section")
             .forEach(el => {
-              const section = el.closest("section[data-annotation-id]");
-              const annId = section?.dataset?.annotationId;
-              const ann = annotations.find(a => String(a.id) === annId);
-              const fieldName = ann?.fieldName;
-
-              if (el.type === "checkbox" && fieldName && INTERACTIVE_CHECKBOXES.has(fieldName)) {
-                el.style.pointerEvents = "auto";
-                el.style.cursor = "pointer";
-                // Make the native checkbox invisible — LiveFieldOverlay renders
-                // the visible checkmark above this layer. The widget stays as
-                // a transparent click hitbox only.
-                el.style.opacity = "0";
-                // Sync current checked state from React
-                el.checked = !!checksRef.current[fieldName];
-                // Use click on the section wrapper (more reliable than change
-                // on the input for pdf.js rendered widgets)
-                const sectionEl = el.closest("section") || el;
-                sectionEl.style.pointerEvents = "auto";
-                sectionEl.style.cursor = "pointer";
-                sectionEl.addEventListener("click", (e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const newVal = !checksRef.current[fieldName];
-                  console.log("[DEF-debug] section clicked:", fieldName, newVal);
-                  setCheck(fieldName, newVal);
-                });
-                checkboxMap[fieldName] = el;
-              } else {
-                el.style.pointerEvents = "none";
-                el.style.color = "transparent";
-                el.style.caretColor = "transparent";
-              }
+              el.style.pointerEvents = "none";
+              el.style.color = "transparent";
+              el.style.caretColor = "transparent";
             });
+        } catch (_) {}
+      }
+
+      // Build a dedicated click layer with invisible hitbox divs ONLY over
+      // checkbox fields. This sits above tooltip layer so clicks are precise
+      // and don't bleed onto non-checkbox areas.
+      const clickDiv = clickLayerRef.current;
+      if (clickDiv) {
+        clickDiv.innerHTML = "";
+        clickDiv.style.width  = `${fitWidth}px`;
+        clickDiv.style.height = `${fitHeight}px`;
+        clickDiv.style.margin = zoom <= 1 ? "0 auto" : "0";
+
+        try {
+          const annotations = await page.getAnnotations({ intent: "display" });
+          const checkboxMap = {};
+
+          annotations.forEach(ann => {
+            if (!ann.fieldName || ann.fieldType !== "Btn") return;
+            if (!INTERACTIVE_CHECKBOXES.has(ann.fieldName)) return;
+
+            const [vx1, vy1, vx2, vy2] = cssViewport.convertToViewportRectangle(ann.rect);
+            const x = Math.min(vx1, vx2);
+            const y = Math.min(vy1, vy2);
+            const w = Math.abs(vx2 - vx1);
+            const h = Math.abs(vy2 - vy1);
+
+            const hitbox = document.createElement("div");
+            hitbox.style.cssText = `position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;cursor:pointer;z-index:1;`;
+            hitbox.title = ann.fieldName;
+            hitbox.addEventListener("click", () => {
+              const newVal = !checksRef.current[ann.fieldName];
+              console.log("[DEF-debug] clicked:", ann.fieldName, newVal);
+              setCheck(ann.fieldName, newVal);
+            });
+            clickDiv.appendChild(hitbox);
+            checkboxMap[ann.fieldName] = hitbox;
+          });
+
           checkboxElementsRef.current = checkboxMap;
         } catch (_) {}
       }
@@ -1310,11 +1320,6 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
         await renderFieldOwnerTooltips({
           page, cssViewport, container: tooltipDiv,
           fitWidth, fitHeight, getFieldOwner: getDefFieldOwner,
-        });
-        // After rendering, disable pointer-events on each tooltip hitbox so
-        // they don't block clicks from reaching the annotation layer checkboxes.
-        tooltipDiv.querySelectorAll("div").forEach(el => {
-          el.style.pointerEvents = "none";
         });
       }
     } catch (e) { console.error("[NurseDEF] Render error:", e); }
@@ -1473,7 +1478,8 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
                 fitWidth={overlayDims.width}
                 fitHeight={overlayDims.height}
               />
-              <div ref={tooltipLayerRef} style={{ position: "absolute", top: 0, left: 0, zIndex: 6, pointerEvents: "none" }} />
+              <div ref={tooltipLayerRef} style={{ position: "absolute", top: 0, left: 0, zIndex: 6 }} />
+              <div ref={clickLayerRef} style={{ position: "absolute", top: 0, left: 0, zIndex: 7 }} />
             </div>
           )}
         </div>
