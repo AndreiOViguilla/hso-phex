@@ -135,33 +135,22 @@ export default function LiveFieldOverlay({ fieldRects, values, fitWidth, fitHeig
         const isCheckbox = rect.type === "Btn";
 
         if (isCheckbox) {
-          // PDF checkbox values can be booleans (true/false) or AcroForm
-          // export-value strings ("Yes"/"Off", "Yes"/"No"). Normalize so
-          // "Off"/"No"/false/"" all mean unchecked.
           const isChecked = value === true || value === "Yes" || value === "On";
           if (!isChecked) return null;
-          const size = Math.min(rect.width, rect.height);
           return (
             <div
               key={fieldName}
               style={{
                 position: "absolute",
-                left: rect.x,
-                top: rect.y,
-                width: rect.width,
-                height: rect.height,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#111827",
-                fontSize: size * 0.8,
-                fontWeight: 700,
-                lineHeight: 1,
-                fontFamily: "Helvetica, Arial, sans-serif",
+                left: rect.x + rect.width * 0.1,
+                top: rect.y + rect.height * 0.1,
+                width: rect.width * 0.8,
+                height: rect.height * 0.8,
+                background: "#111827",
+                borderRadius: 1,
+                pointerEvents: "none",
               }}
-            >
-              ✓
-            </div>
+            />
           );
         }
 

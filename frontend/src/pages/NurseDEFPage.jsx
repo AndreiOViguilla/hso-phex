@@ -1279,6 +1279,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
                 // Sync current checked state from React
                 el.checked = !!checks[fieldName];
                 el.addEventListener("change", (e) => {
+                  console.log("[DEF-debug] checkbox clicked:", fieldName, e.target.checked);
                   setCheck(fieldName, e.target.checked);
                 });
                 checkboxMap[fieldName] = el;
