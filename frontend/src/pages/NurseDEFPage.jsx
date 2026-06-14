@@ -1272,6 +1272,10 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
               if (el.type === "checkbox" && fieldName && INTERACTIVE_CHECKBOXES.has(fieldName)) {
                 el.style.pointerEvents = "auto";
                 el.style.cursor = "pointer";
+                // Make the native checkbox invisible — LiveFieldOverlay renders
+                // the visible checkmark above this layer. The widget stays as
+                // a transparent click hitbox only.
+                el.style.opacity = "0";
                 // Sync current checked state from React
                 el.checked = !!checks[fieldName];
                 el.addEventListener("change", (e) => {
@@ -1444,14 +1448,14 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
           ) : (
             <div style={{ position: "relative", display: "inline-block", opacity: rendering ? 0.6 : 1, transition: "opacity 0.2s ease" }}>
               <canvas ref={canvasRef} style={{ borderRadius: 4, display: "block" }} />
+              <div ref={annotationLayerRef} className="annotationLayer" style={{ position: "absolute", top: 0, left: 0, zIndex: 3 }} />
               <LiveFieldOverlay
                 fieldRects={fieldRects}
                 values={overlayValues}
                 fitWidth={overlayDims.width}
                 fitHeight={overlayDims.height}
               />
-              <div ref={annotationLayerRef} className="annotationLayer" style={{ position: "absolute", top: 0, left: 0, zIndex: 3 }} />
-              <div ref={tooltipLayerRef} style={{ position: "absolute", top: 0, left: 0, zIndex: 4 }} />
+              <div ref={tooltipLayerRef} style={{ position: "absolute", top: 0, left: 0, zIndex: 6 }} />
             </div>
           )}
         </div>

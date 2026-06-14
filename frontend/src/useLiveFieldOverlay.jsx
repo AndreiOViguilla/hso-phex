@@ -125,7 +125,7 @@ export default function LiveFieldOverlay({ fieldRects, values, fitWidth, fitHeig
         width: fitWidth,
         height: fitHeight,
         pointerEvents: "none",
-        zIndex: 5, // sits above the canvas + pdf.js annotation layer
+        zIndex: 5, // above annotation layer (3) but below tooltip layer (6); pointerEvents none passes clicks through to annotation checkboxes
       }}
     >
       {Object.entries(fieldRects).map(([fieldName, rect]) => {
