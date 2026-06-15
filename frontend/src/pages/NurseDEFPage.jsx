@@ -320,7 +320,21 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
 
           <SectionCard title="Other Notes" t={t}>
             <div style={{ marginBottom: 12 }}>
-              <TextInput label={OTHERS_TEXT_FIELD.label} value={form[OTHERS_TEXT_FIELD.key]} onChange={v => setField(OTHERS_TEXT_FIELD.key, v)} t={t} />
+              <TextInput
+                label={OTHERS_TEXT_FIELD.label}
+                value={form[OTHERS_TEXT_FIELD.key]}
+                onChange={v => {
+                  setField(OTHERS_TEXT_FIELD.key, v);
+                  const shouldCheck = v.trim().length > 0;
+                  setCheck("Others", shouldCheck);
+                }}
+                t={t}
+              />
+              {checks["Others"] && (
+                <div style={{ fontSize: 11, color: t.accent, marginTop: 4 }}>
+                  ✓ "Others" checkbox will be checked in the PDF
+                </div>
+              )}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
               {REMARKS_FIELDS.map(({ key, label }) => (
