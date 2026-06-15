@@ -1524,8 +1524,17 @@ router.post("/students/:id/def/pdf/download", authMiddleware, requireRole("admin
 
     const existing = await Form.findOne({ userId: req.params.id, formType: "def" });
     const autofill = await autofillDefMeta(req);
-    // Use only saved MongoDB data — frontend saves before calling download
-    const data = { ...autofill, ...(existing?.formData || {}) };
+    // Merge saved data with any live req.body values (in case nurse hasn't saved yet)
+    const data = { ...autofill, ...(existing?.formData || {}), ...req.body };
+
+    // Debug: log how many checkboxes are checked
+    const checkedCount = DEF_CHECKBOX_FIELD_NAMES.filter(n => data[n]).length;
+    console.log(`[DEF download] checked boxes: ${checkedCount}/${DEF_CHECKBOX_FIELD_NAMES.length}`);
+    console.log(`[DEF download] sample:`, {
+      "Good oral hygiene": data["Good oral hygiene"],
+      "Checkbox_1": data["Checkbox_1"],
+      "Checkbox_2": data["Checkbox_2"],
+    });
 
     const pdfDoc = await PDFDocument.load(fs.readFileSync(pdfPath), { ignoreEncryption: true });
     const form   = pdfDoc.getForm();
