@@ -290,14 +290,6 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
         {/* Left panel */}
         <div style={{ flex: isMobile ? "none" : "0 0 50%", minWidth: isMobile ? "none" : 380, maxWidth: isMobile ? "none" : 620, borderRight: isMobile ? "none" : `1px solid ${t.divider}`, overflowY: "auto", padding: isMobile ? "16px" : "24px 32px", boxSizing: "border-box" }}>
 
-          <SectionCard title="Examination Details" t={t}>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 10 }}>
-              {ASSESSMENT_TEXT_FIELDS.map(({ key, label }) => (
-                <TextInput key={key} label={label} value={form[key]} onChange={v => setField(key, v)} t={t} />
-              ))}
-            </div>
-          </SectionCard>
-
           <SectionCard title="Oral Health Findings" t={t}>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
               {ORAL_HEALTH_CHECKBOXES.map(opt => (
