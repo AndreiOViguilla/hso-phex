@@ -869,16 +869,16 @@ function drawCheckmarksOnPage(page, pdfDoc, form, data, fieldNames) {
       const widgets = field.acroField.getWidgets();
       for (const widget of widgets) {
         const { x, y, width: w, height: h } = widget.getRectangle();
-        const thickness = Math.max(0.5, Math.min(w, h) * 0.1);
-        // ✓: short down-left leg then long up-right leg
+        const thickness = Math.max(1.0, Math.min(w, h) * 0.18);
+        // Same proportions as CSS border checkmark in the preview overlay
         page.drawLine({
-          start: { x: x + w * 0.1,  y: y + h * 0.4 },
+          start: { x: x + w * 0.1,  y: y + h * 0.45 },
           end:   { x: x + w * 0.4,  y: y + h * 0.15 },
           thickness, color: rgb(0, 0, 0),
         });
         page.drawLine({
           start: { x: x + w * 0.4,  y: y + h * 0.15 },
-          end:   { x: x + w * 0.9,  y: y + h * 0.8 },
+          end:   { x: x + w * 0.9,  y: y + h * 0.82 },
           thickness, color: rgb(0, 0, 0),
         });
       }
@@ -1003,7 +1003,8 @@ router.post("/students/:id/def/pdf/download", authMiddleware, requireRole("admin
 
     const existing = await Form.findOne({ userId: req.params.id, formType: "def" });
     const autofill = await autofillDefMeta(req);
-    const data = { ...autofill, ...(existing?.formData || {}), ...req.body };
+    // Use only saved MongoDB data — frontend saves before calling download
+    const data = { ...autofill, ...(existing?.formData || {}) };
 
     const pdfDoc = await PDFDocument.load(fs.readFileSync(pdfPath), { ignoreEncryption: true });
     const form   = pdfDoc.getForm();

@@ -115,10 +115,10 @@ function PdfFieldOverlay({ form, checks, studentFields, onFormChange, onCheckCha
         >
           {checks[f.name] && (
             <div style={{
-              width: f.w * fitScale * 0.55,
-              height: f.h * fitScale * 0.3,
-              borderLeft: `${Math.max(0.8, f.w * fitScale * 0.12)}px solid #111`,
-              borderBottom: `${Math.max(0.8, f.w * fitScale * 0.12)}px solid #111`,
+              width: f.w * fitScale * 0.6,
+              height: f.h * fitScale * 0.32,
+              borderLeft: `${Math.max(1.5, f.w * fitScale * 0.18)}px solid #111`,
+              borderBottom: `${Math.max(1.5, f.w * fitScale * 0.18)}px solid #111`,
               transform: "rotate(-45deg)",
               marginTop: `-${f.h * fitScale * 0.08}px`,
             }} />
@@ -146,10 +146,10 @@ function PdfFieldOverlay({ form, checks, studentFields, onFormChange, onCheckCha
         >
           {checks[f.name] && (
             <div style={{
-              width: f.w * fitScale * 0.55,
-              height: f.h * fitScale * 0.3,
-              borderLeft: `${Math.max(0.5, f.w * fitScale * 0.1)}px solid #111`,
-              borderBottom: `${Math.max(0.5, f.w * fitScale * 0.1)}px solid #111`,
+              width: f.w * fitScale * 0.6,
+              height: f.h * fitScale * 0.32,
+              borderLeft: `${Math.max(1.5, f.w * fitScale * 0.18)}px solid #111`,
+              borderBottom: `${Math.max(1.5, f.w * fitScale * 0.18)}px solid #111`,
               transform: "rotate(-45deg)",
               marginTop: `-${f.h * fitScale * 0.08}px`,
             }} />
