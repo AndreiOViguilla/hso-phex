@@ -841,6 +841,11 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
 
         try {
           const annotations = await page.getAnnotations({ intent: "display" });
+          console.log("[DEF-debug] first 3 annotations:", annotations.slice(0,3).map(a => ({
+            fieldName: a.fieldName, fieldType: a.fieldType, subtype: a.subtype
+          })));
+          const namedAnns = annotations.filter(a => a.fieldName && INTERACTIVE_CHECKBOXES.has(a.fieldName));
+          console.log("[DEF-debug] matching named checkboxes found:", namedAnns.length, namedAnns.map(a => a.fieldName));
           const checkboxMap = {};
 
           annotations.forEach(ann => {
