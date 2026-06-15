@@ -859,30 +859,54 @@ function fillDefForm(form, data) {
   });
 }
 
+// Hardcoded field positions extracted from dental-form.pdf (in PDF points, origin bottom-left).
+// fitz uses top-left origin, so PDF y = pageHeight - fitz_y - fieldHeight
+const DEF_FIELD_POSITIONS = {
+  "Good oral hygiene":    { x: 32.1, y: 792-294.9-18, w: 18, h: 18 },
+  "Calcular deposits":    { x: 31.3, y: 792-328.8-18, w: 18, h: 18 },
+  "Others":               { x: 32.6, y: 792-575.8-18, w: 18, h: 18 },
+  "Gingivitis":           { x: 32.6, y: 792-366.1-18, w: 18, h: 18 },
+  "Pyorrheatic":          { x: 31.8, y: 792-399.3-18, w: 18, h: 18 },
+  "Denture wearer up":    { x: 32.9, y: 792-423.4-18, w: 18, h: 18 },
+  "Denture wearer down":  { x: 32.1, y: 792-452.2-18, w: 18, h: 18 },
+  "Ortho braces up":      { x: 31.6, y: 792-484.3-18, w: 18, h: 18 },
+  "Ortho braces down":    { x: 32.7, y: 792-515.3-18, w: 18, h: 18 },
+  "Hawleys retainers":    { x: 31.9, y: 792-546.2-18, w: 18, h: 18 },
+};
+
 // Draw checkmarks manually on the PDF page for the download version,
 // bypassing the ZapfDingbats font that's unavailable in the server environment.
 function drawCheckmarksOnPage(page, pdfDoc, form, data, fieldNames) {
   for (const name of fieldNames) {
     if (!data[name]) continue;
     try {
-      const field = form.getCheckBox(name);
-      const widgets = field.acroField.getWidgets();
-      for (const widget of widgets) {
-        const { x, y, width: w, height: h } = widget.getRectangle();
-        const thickness = Math.max(1.0, Math.min(w, h) * 0.18);
-        // Same proportions as CSS border checkmark in the preview overlay
-        page.drawLine({
-          start: { x: x + w * 0.1,  y: y + h * 0.45 },
-          end:   { x: x + w * 0.4,  y: y + h * 0.15 },
-          thickness, color: rgb(0, 0, 0),
-        });
-        page.drawLine({
-          start: { x: x + w * 0.4,  y: y + h * 0.15 },
-          end:   { x: x + w * 0.9,  y: y + h * 0.82 },
-          thickness, color: rgb(0, 0, 0),
-        });
+      // Try using widget rect first
+      let x, y, w, h;
+      const pos = DEF_FIELD_POSITIONS[name];
+      if (pos) {
+        ({ x, y, w, h } = pos);
+      } else {
+        // For Checkbox_N fields, get from widget
+        const field = form.getCheckBox(name);
+        const widgets = field.acroField.getWidgets();
+        if (!widgets.length) continue;
+        const rect = widgets[0].getRectangle();
+        x = rect.x; y = rect.y; w = rect.width; h = rect.height;
       }
-    } catch (_) {}
+      const thickness = Math.max(1.0, Math.min(w, h) * 0.18);
+      page.drawLine({
+        start: { x: x + w * 0.1,  y: y + h * 0.45 },
+        end:   { x: x + w * 0.4,  y: y + h * 0.15 },
+        thickness, color: rgb(0, 0, 0),
+      });
+      page.drawLine({
+        start: { x: x + w * 0.4,  y: y + h * 0.15 },
+        end:   { x: x + w * 0.9,  y: y + h * 0.82 },
+        thickness, color: rgb(0, 0, 0),
+      });
+    } catch (e) {
+      console.error(`[DEF checkmark] failed for ${name}:`, e.message);
+    }
   }
 }
 
