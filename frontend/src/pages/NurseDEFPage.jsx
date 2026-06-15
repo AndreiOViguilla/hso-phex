@@ -829,45 +829,41 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
         } catch (_) {}
       }
 
-      // Build a dedicated click layer with invisible hitbox divs ONLY over
-      // checkbox fields. This sits above tooltip layer so clicks are precise
-      // and don't bleed onto non-checkbox areas.
-      const clickDiv = clickLayerRef.current;
-      if (clickDiv) {
-        clickDiv.innerHTML = "";
-        clickDiv.style.width  = `${fitWidth}px`;
-        clickDiv.style.height = `${fitHeight}px`;
-        clickDiv.style.margin = zoom <= 1 ? "0 auto" : "0";
+      // Store field rects for click handling directly on the container
+      const allAnnotations = await page.getAnnotations({ intent: "any" });
+      const allCheckAnnotations = allAnnotations.filter(a => a.fieldName);
+      const rectMap = {};
+      allCheckAnnotations.forEach(ann => {
+        if (!ann.rect) return;
+        const [vx1, vy1, vx2, vy2] = cssViewport.convertToViewportRectangle(ann.rect);
+        rectMap[ann.fieldName] = {
+          x: Math.min(vx1, vx2), y: Math.min(vy1, vy2),
+          w: Math.abs(vx2 - vx1), h: Math.abs(vy2 - vy1),
+        };
+      });
 
-        try {
-          const annotations = await page.getAnnotations({ intent: "any" });
-          const namedAnns = annotations.filter(a => a.fieldName && INTERACTIVE_CHECKBOXES.has(a.fieldName));
-          console.log("[DEF-debug] named checkboxes fieldTypes:", namedAnns.map(a => ({name: a.fieldName, type: a.fieldType})));
-          const checkboxMap = {};
-
-          annotations.forEach(ann => {
-            if (!ann.fieldName || !INTERACTIVE_CHECKBOXES.has(ann.fieldName)) return;
-
-            const [vx1, vy1, vx2, vy2] = cssViewport.convertToViewportRectangle(ann.rect);
-            const x = Math.min(vx1, vx2);
-            const y = Math.min(vy1, vy2);
-            const w = Math.abs(vx2 - vx1);
-            const h = Math.abs(vy2 - vy1);
-
-            const hitbox = document.createElement("div");
-            hitbox.style.cssText = `position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;cursor:pointer;z-index:1;`;
-            hitbox.title = ann.fieldName;
-            hitbox.addEventListener("click", () => {
-              const newVal = !checksRef.current[ann.fieldName];
-              console.log("[DEF-debug] clicked:", ann.fieldName, newVal);
-              setCheck(ann.fieldName, newVal);
-            });
-            clickDiv.appendChild(hitbox);
-            checkboxMap[ann.fieldName] = hitbox;
-          });
-
-          checkboxElementsRef.current = checkboxMap;
-        } catch (_) {}
+      // Attach a single click handler to the canvas wrapper
+      const wrapper = canvasRef.current?.parentElement;
+      if (wrapper) {
+        // Remove previous handler
+        if (wrapper._defClickHandler) {
+          wrapper.removeEventListener("click", wrapper._defClickHandler);
+        }
+        wrapper._defClickHandler = (e) => {
+          const wrapperRect = wrapper.getBoundingClientRect();
+          const clickX = e.clientX - wrapperRect.left;
+          const clickY = e.clientY - wrapperRect.top;
+          for (const [fieldName, r] of Object.entries(rectMap)) {
+            if (clickX >= r.x && clickX <= r.x + r.w &&
+                clickY >= r.y && clickY <= r.y + r.h) {
+              const newVal = !checksRef.current[fieldName];
+              console.log("[DEF-debug] hit:", fieldName, newVal);
+              setCheck(fieldName, newVal);
+              break;
+            }
+          }
+        };
+        wrapper.addEventListener("click", wrapper._defClickHandler);
       }
 
       const tooltipDiv = tooltipLayerRef.current;
@@ -1024,7 +1020,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
               Make sure <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 4 }}>backend/public/dental-form.pdf</code> exists on the server with all DEF fields.
             </div>
           ) : (
-            <div style={{ position: "relative", display: "inline-block", opacity: rendering ? 0.6 : 1, transition: "opacity 0.2s ease" }}>
+            <div style={{ position: "relative", display: "inline-block", opacity: rendering ? 0.6 : 1, transition: "opacity 0.2s ease", cursor: "pointer" }}>
               <canvas ref={canvasRef} style={{ borderRadius: 4, display: "block" }} />
               <div ref={annotationLayerRef} className="annotationLayer" style={{ position: "absolute", top: 0, left: 0, zIndex: 3 }} />
               <LiveFieldOverlay
@@ -1034,7 +1030,6 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
                 fitHeight={overlayDims.height}
               />
               <div ref={tooltipLayerRef} style={{ position: "absolute", top: 0, left: 0, zIndex: 4 }} />
-              <div ref={clickLayerRef} style={{ position: "absolute", top: 0, left: 0, zIndex: 7 }} />
             </div>
           )}
         </div>
