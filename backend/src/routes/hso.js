@@ -845,7 +845,7 @@ const DEF_CHECKBOX_FIELD_NAMES = [
   "Checkbox_512"
 ];
 
-const { rgb, degrees } = require("pdf-lib");
+const { rgb } = require("pdf-lib");
 
 function fillDefForm(form, data) {
   DEF_TEXT_FIELD_NAMES.forEach(name => {
@@ -868,23 +868,18 @@ function drawCheckmarksOnPage(page, pdfDoc, form, data, fieldNames) {
       const field = form.getCheckBox(name);
       const widgets = field.acroField.getWidgets();
       for (const widget of widgets) {
-        const rect = widget.getRectangle();
-        const x = rect.x;
-        const y = rect.y;
-        const w = rect.width;
-        const h = rect.height;
-        // Draw a simple ✓ using two lines
+        const { x, y, width: w, height: h } = widget.getRectangle();
+        const thickness = Math.max(0.5, Math.min(w, h) * 0.1);
+        // ✓: short down-left leg then long up-right leg
         page.drawLine({
-          start: { x: x + w * 0.15, y: y + h * 0.45 },
-          end:   { x: x + w * 0.4,  y: y + h * 0.2  },
-          thickness: Math.max(0.8, Math.min(w, h) * 0.12),
-          color: rgb(0, 0, 0),
+          start: { x: x + w * 0.1,  y: y + h * 0.4 },
+          end:   { x: x + w * 0.4,  y: y + h * 0.15 },
+          thickness, color: rgb(0, 0, 0),
         });
         page.drawLine({
-          start: { x: x + w * 0.4,  y: y + h * 0.2  },
-          end:   { x: x + w * 0.85, y: y + h * 0.75 },
-          thickness: Math.max(0.8, Math.min(w, h) * 0.12),
-          color: rgb(0, 0, 0),
+          start: { x: x + w * 0.4,  y: y + h * 0.15 },
+          end:   { x: x + w * 0.9,  y: y + h * 0.8 },
+          thickness, color: rgb(0, 0, 0),
         });
       }
     } catch (_) {}
