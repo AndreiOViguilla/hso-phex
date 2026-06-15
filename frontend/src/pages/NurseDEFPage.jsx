@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useTheme } from "../ThemeContext";
 import { useModal } from "../components/Modal";
 import { useIsMobile } from "../utils/useIsMobile";
-import { DEF_PDF_FIELDS, DEF_PDF_WIDTH, DEF_PDF_HEIGHT } from "../defPdfFields";
+import { DEF_PDF_FIELDS, DEF_PDF_WIDTH, DEF_PDF_HEIGHT } from "../utils/defPdfFields";
 
 // Field ownership
 const DEF_STUDENT_FIELDS = new Set(["Name", "ID No"]);
