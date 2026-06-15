@@ -845,6 +845,8 @@ const DEF_CHECKBOX_FIELD_NAMES = [
   "Checkbox_512"
 ];
 
+const { rgb, degrees } = require("pdf-lib");
+
 function fillDefForm(form, data) {
   DEF_TEXT_FIELD_NAMES.forEach(name => {
     try { form.getTextField(name).setText(data[name] || ""); } catch (_) {}
@@ -855,6 +857,38 @@ function fillDefForm(form, data) {
       data[name] ? cb.check() : cb.uncheck();
     } catch (_) {}
   });
+}
+
+// Draw checkmarks manually on the PDF page for the download version,
+// bypassing the ZapfDingbats font that's unavailable in the server environment.
+function drawCheckmarksOnPage(page, pdfDoc, form, data, fieldNames) {
+  for (const name of fieldNames) {
+    if (!data[name]) continue;
+    try {
+      const field = form.getCheckBox(name);
+      const widgets = field.acroField.getWidgets();
+      for (const widget of widgets) {
+        const rect = widget.getRectangle();
+        const x = rect.x;
+        const y = rect.y;
+        const w = rect.width;
+        const h = rect.height;
+        // Draw a simple ✓ using two lines
+        page.drawLine({
+          start: { x: x + w * 0.15, y: y + h * 0.45 },
+          end:   { x: x + w * 0.4,  y: y + h * 0.2  },
+          thickness: Math.max(0.8, Math.min(w, h) * 0.12),
+          color: rgb(0, 0, 0),
+        });
+        page.drawLine({
+          start: { x: x + w * 0.4,  y: y + h * 0.2  },
+          end:   { x: x + w * 0.85, y: y + h * 0.75 },
+          thickness: Math.max(0.8, Math.min(w, h) * 0.12),
+          color: rgb(0, 0, 0),
+        });
+      }
+    } catch (_) {}
+  }
 }
 
 // Auto-fills "Assigned Dentist" (logged-in nurse's name), "Date" (today),
@@ -979,10 +1013,17 @@ router.post("/students/:id/def/pdf/download", authMiddleware, requireRole("admin
     const pdfDoc = await PDFDocument.load(fs.readFileSync(pdfPath), { ignoreEncryption: true });
     const form   = pdfDoc.getForm();
 
-    fillDefForm(form, data);
+    // Fill text fields
+    DEF_TEXT_FIELD_NAMES.forEach(name => {
+      try { form.getTextField(name).setText(data[name] || ""); } catch (_) {}
+    });
+
+    // Draw checkmarks manually — avoids ZapfDingbats font dependency
+    const page = pdfDoc.getPages()[0];
+    drawCheckmarksOnPage(page, pdfDoc, form, data, DEF_CHECKBOX_FIELD_NAMES);
 
     try { form.flatten(); } catch (_) {}
-    const bytes = await pdfDoc.save({ updateFieldAppearances: true });
+    const bytes = await pdfDoc.save({ updateFieldAppearances: false });
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="DEF_${data["ID No"] || "student"}.pdf"`);
