@@ -137,20 +137,31 @@ export default function LiveFieldOverlay({ fieldRects, values, fitWidth, fitHeig
         if (isCheckbox) {
           const isChecked = value === true || value === "Yes" || value === "On";
           if (!isChecked) return null;
+          const size = Math.min(rect.width, rect.height);
           return (
             <div
               key={fieldName}
               style={{
                 position: "absolute",
-                left: rect.x + rect.width * 0.1,
-                top: rect.y + rect.height * 0.1,
-                width: rect.width * 0.8,
-                height: rect.height * 0.8,
-                background: "#111827",
-                borderRadius: 1,
+                left: rect.x,
+                top: rect.y,
+                width: rect.width,
+                height: rect.height,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
                 pointerEvents: "none",
               }}
-            />
+            >
+              <div style={{
+                width: size * 0.5,
+                height: size * 0.28,
+                borderLeft: `${size * 0.13}px solid #111827`,
+                borderBottom: `${size * 0.13}px solid #111827`,
+                transform: "rotate(-45deg)",
+                marginTop: `-${size * 0.08}px`,
+              }} />
+            </div>
           );
         }
 
