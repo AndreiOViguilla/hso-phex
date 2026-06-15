@@ -840,20 +840,13 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
         clickDiv.style.margin = zoom <= 1 ? "0 auto" : "0";
 
         try {
-          const annotations = await page.getAnnotations({ intent: "display" });
-          console.log("[DEF-debug] first 3 annotations:", annotations.slice(0,3).map(a => ({
-            fieldName: a.fieldName, fieldType: a.fieldType, subtype: a.subtype
-          })));
+          const annotations = await page.getAnnotations({ intent: "any" });
           const namedAnns = annotations.filter(a => a.fieldName && INTERACTIVE_CHECKBOXES.has(a.fieldName));
-          console.log("[DEF-debug] matching named checkboxes found:", namedAnns.length, namedAnns.map(a => a.fieldName));
-          // Log a Checkbox_N annotation to see its fieldType
-          const checkN = annotations.find(a => a.fieldName && a.fieldName.startsWith('Checkbox_'));
-          console.log("[DEF-debug] sample Checkbox_N:", checkN ? {fieldName: checkN.fieldName, fieldType: checkN.fieldType, subtype: checkN.subtype} : 'none found');
+          console.log("[DEF-debug] named checkboxes fieldTypes:", namedAnns.map(a => ({name: a.fieldName, type: a.fieldType})));
           const checkboxMap = {};
 
           annotations.forEach(ann => {
-            if (!ann.fieldName || ann.fieldType !== "Btn") return;
-            if (!INTERACTIVE_CHECKBOXES.has(ann.fieldName)) return;
+            if (!ann.fieldName || !INTERACTIVE_CHECKBOXES.has(ann.fieldName)) return;
 
             const [vx1, vy1, vx2, vy2] = cssViewport.convertToViewportRectangle(ann.rect);
             const x = Math.min(vx1, vx2);
