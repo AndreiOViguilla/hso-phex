@@ -1431,38 +1431,6 @@ async function autofillDefMeta(req) {
   return meta;
 }
 
-// GET /api/hso/students/:id/def — get student's DEF form data (for nurse to view)
-router.get("/students/:id/def", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id).select("-passwordHash");
-    if (!user) return res.status(404).json({ error: "Student not found." });
-
-    const form = await Form.findOne({ userId: req.params.id, formType: "def" });
-    const autofill = await autofillDefMeta(req);
-
-    const studentName = [user.firstName, user.middleInitial, user.lastName].filter(Boolean).join(" ");
-    const { toothChart, ...otherFormData } = form?.formData || {};
-
-    // Expand structured toothChart back to flat Checkbox_N for the frontend
-    const flatCheckboxes = toothChart ? structuredToFlat(toothChart) : {};
-
-    const formData = {
-      ...autofill,
-      ...otherFormData,
-      ...flatCheckboxes,
-      "Name":  studentName  || otherFormData["Name"]  || "",
-      "ID No": user.studentId || otherFormData["ID No"] || "",
-    };
-
-    res.json({
-      student: user.toSafeObject ? user.toSafeObject() : user,
-      formData,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // ── Tooth chart structured data helpers ─────────────────────────────────────
 // Maps Checkbox_N -> { quadrant, row, tooth } using sequential math:
 // Checkbox 1..240 = upper section, 241..480 = lower section
@@ -1514,6 +1482,38 @@ function structuredToFlat(toothChart) {
   }
   return result;
 }
+
+// GET /api/hso/students/:id/def — get student's DEF form data (for nurse to view)
+router.get("/students/:id/def", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select("-passwordHash");
+    if (!user) return res.status(404).json({ error: "Student not found." });
+
+    const form = await Form.findOne({ userId: req.params.id, formType: "def" });
+    const autofill = await autofillDefMeta(req);
+
+    const studentName = [user.firstName, user.middleInitial, user.lastName].filter(Boolean).join(" ");
+    const { toothChart, ...otherFormData } = form?.formData || {};
+
+    // Expand structured toothChart back to flat Checkbox_N for the frontend
+    const flatCheckboxes = toothChart ? structuredToFlat(toothChart) : {};
+
+    const formData = {
+      ...autofill,
+      ...otherFormData,
+      ...flatCheckboxes,
+      "Name":  studentName  || otherFormData["Name"]  || "",
+      "ID No": user.studentId || otherFormData["ID No"] || "",
+    };
+
+    res.json({
+      student: user.toSafeObject ? user.toSafeObject() : user,
+      formData,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // PUT /api/hso/students/:id/def — save nurse's DEF form data
 router.put("/students/:id/def", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
