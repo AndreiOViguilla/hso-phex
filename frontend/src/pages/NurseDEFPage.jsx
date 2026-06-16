@@ -67,104 +67,59 @@ function TextInput({ label, value, onChange, t, multiline, readOnly }) {
   );
 }
 
-// The live editable overlay — positioned inputs/checkboxes exactly over PDF fields
 function PdfFieldOverlay({ form, checks, studentFields, onFormChange, onCheckChange, fitScale, fitWidth, fitHeight }) {
   const allValues = { ...studentFields, ...form };
 
+  const renderCheck = (f, isNurse) => (
+    <div key={f.name}
+      onClick={isNurse ? () => onCheckChange(f.name, !checks[f.name]) : undefined}
+      style={{
+        position: "absolute",
+        left: f.x * fitScale, top: f.y * fitScale,
+        width: f.w * fitScale, height: f.h * fitScale,
+        cursor: isNurse ? "pointer" : "default",
+        pointerEvents: isNurse ? "auto" : "none",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}
+    >
+      {(isNurse ? checks[f.name] : studentFields[f.name]) && (
+        <div style={{
+          width: f.w * fitScale * 0.6,
+          height: f.h * fitScale * 0.32,
+          borderLeft: `${Math.max(1.5, f.w * fitScale * 0.18)}px solid #111`,
+          borderBottom: `${Math.max(1.5, f.w * fitScale * 0.18)}px solid #111`,
+          transform: "rotate(-45deg)",
+          marginTop: `-${f.h * fitScale * 0.08}px`,
+        }} />
+      )}
+    </div>
+  );
+
   return (
     <div style={{ position: "absolute", top: 0, left: 0, width: fitWidth, height: fitHeight, pointerEvents: "none" }}>
-      {/* Text fields */}
       {TEXT_FIELDS.map(f => {
         const isStudent = DEF_STUDENT_FIELDS.has(f.name);
-        const value = allValues[f.name] || "";
         return (
-          <input
-            key={f.name}
-            value={value}
+          <input key={f.name} value={allValues[f.name] || ""}
             readOnly={isStudent}
             onChange={e => onFormChange(f.name, e.target.value)}
             style={{
               position: "absolute",
-              left: f.x * fitScale,
-              top: f.y * fitScale,
-              width: f.w * fitScale,
-              height: f.h * fitScale,
+              left: f.x * fitScale, top: f.y * fitScale,
+              width: f.w * fitScale, height: f.h * fitScale,
               fontSize: Math.max(5, Math.min(f.h * fitScale * 0.7, 11)),
               fontFamily: "Helvetica, Arial, sans-serif",
-              border: "none",
-              outline: "none",
+              border: "none", outline: "none",
               background: isStudent ? "transparent" : "rgba(255,255,240,0.85)",
-              color: "#111",
-              padding: "0 2px",
-              boxSizing: "border-box",
+              color: "#111", padding: "0 2px", boxSizing: "border-box",
               pointerEvents: isStudent ? "none" : "auto",
               cursor: isStudent ? "default" : "text",
             }}
           />
         );
       })}
-
-      {/* Named checkboxes (oral health) */}
-      {NAMED_CHECKBOXES.map(f => (
-        <div
-          key={f.name}
-          onClick={() => onCheckChange(f.name, !checks[f.name])}
-          style={{
-            position: "absolute",
-            left: f.x * fitScale,
-            top: f.y * fitScale,
-            width: f.w * fitScale,
-            height: f.h * fitScale,
-            cursor: "pointer",
-            pointerEvents: "auto",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {checks[f.name] && (
-            <div style={{
-              width: f.w * fitScale * 0.6,
-              height: f.h * fitScale * 0.32,
-              borderLeft: `${Math.max(1.5, f.w * fitScale * 0.18)}px solid #111`,
-              borderBottom: `${Math.max(1.5, f.w * fitScale * 0.18)}px solid #111`,
-              transform: "rotate(-45deg)",
-              marginTop: `-${f.h * fitScale * 0.08}px`,
-            }} />
-          )}
-        </div>
-      ))}
-
-      {/* Tooth chart checkboxes (Checkbox_N) — clickable */}
-      {TOOTH_CHECKBOXES.map(f => (
-        <div
-          key={f.name}
-          onClick={() => onCheckChange(f.name, !checks[f.name])}
-          style={{
-            position: "absolute",
-            left: f.x * fitScale,
-            top: f.y * fitScale,
-            width: f.w * fitScale,
-            height: f.h * fitScale,
-            cursor: "pointer",
-            pointerEvents: "auto",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {checks[f.name] && (
-            <div style={{
-              width: f.w * fitScale * 0.6,
-              height: f.h * fitScale * 0.32,
-              borderLeft: `${Math.max(1.5, f.w * fitScale * 0.18)}px solid #111`,
-              borderBottom: `${Math.max(1.5, f.w * fitScale * 0.18)}px solid #111`,
-              transform: "rotate(-45deg)",
-              marginTop: `-${f.h * fitScale * 0.08}px`,
-            }} />
-          )}
-        </div>
-      ))}
+      {NAMED_CHECKBOXES.map(f => renderCheck(f, true))}
+      {TOOTH_CHECKBOXES.map(f => renderCheck(f, true))}
     </div>
   );
 }
@@ -186,31 +141,34 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
   const [fitWidth, setFitWidth] = useState(0);
   const [fitHeight, setFitHeight] = useState(0);
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const initialLoadRef = useRef(true);
   const containerRef = useRef(null);
   const imgRef = useRef(null);
 
-  // Calculate fitScale from image's displayed size vs PDF natural size
   const updateScale = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
     const panelW = (container.clientWidth || 700) - 24;
-    const baseWidth = Math.max(panelW, 280);
-    const fw = baseWidth * zoom;
+    const fw = Math.max(panelW, 280) * zoom;
     const fs = fw / DEF_PDF_WIDTH;
-    const fh = DEF_PDF_HEIGHT * fs;
     setFitScale(fs);
     setFitWidth(fw);
-    setFitHeight(fh);
+    setFitHeight(DEF_PDF_HEIGHT * fs);
   }, [zoom]);
 
   useEffect(() => { updateScale(); }, [zoom, imgLoaded, updateScale]);
-
   useEffect(() => {
     window.addEventListener("resize", updateScale);
     return () => window.removeEventListener("resize", updateScale);
   }, [updateScale]);
 
-  // Load student data
+  // Track dirty state
+  useEffect(() => {
+    if (initialLoadRef.current) return;
+    setIsDirty(true);
+  }, [form, checks]);
+
   useEffect(() => {
     fetch(`/api/hso/students/${studentMongoId}/def`, { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
@@ -229,12 +187,18 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
         ALL_CHECKBOX_NAMES.forEach(k => { checkVals[k] = !!fd[k]; });
         setChecks(checkVals);
         setLoading(false);
+        setTimeout(() => { initialLoadRef.current = false; }, 100);
       })
       .catch(() => setLoading(false));
   }, [studentMongoId]);
 
   const setField = (key, value) => setForm(f => ({ ...f, [key]: value }));
   const setCheck = useCallback((key, value) => setChecks(c => ({ ...c, [key]: value })), []);
+
+  const handleBack = () => {
+    if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to go back?")) return;
+    onBack();
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -247,6 +211,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
       });
       if (r.ok) {
         show({ type: "success", message: "DEF saved and marked as filled." });
+        setIsDirty(false);
         if (onSaved) onSaved();
       } else {
         show({ type: "error", message: "Failed to save DEF." });
@@ -269,8 +234,8 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
         throw new Error(errData.error || "Failed to generate PDF");
       }
       const blob = await resp.blob();
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
       a.href = url; a.download = `DEF_${studentFields["ID No"] || studentInfo?.studentId || "student"}.pdf`;
       a.click(); URL.revokeObjectURL(url);
     } catch (e) {
@@ -288,16 +253,19 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
   );
 
   return (
-    <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", background: t.bg }}>
+    <div style={{ display: "flex", flexDirection: "column", background: t.bg, overflow: "hidden", position: "absolute", inset: 0 }}>
+      {/* Header */}
       <div style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0, borderBottom: `1px solid ${t.divider}`, background: t.card }}>
-        <button onClick={onBack} style={{ background: t.bg, border: `1px solid ${t.cardBorder}`, color: t.text, width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>←</button>
+        <button onClick={handleBack} style={{ background: t.bg, border: `1px solid ${t.cardBorder}`, color: t.text, width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>←</button>
         <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{studentInfo?.firstName} {studentInfo?.lastName}</div>
         <div style={{ fontSize: 12, color: t.textSub }}>· {studentInfo?.studentId}</div>
       </div>
 
+      {/* Main panels */}
       <div style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", minHeight: 0, overflow: "hidden" }}>
-        {/* Left panel */}
-        <div style={{ flex: isMobile ? "none" : "0 0 50%", minWidth: isMobile ? "none" : 380, maxWidth: isMobile ? "none" : 620, borderRight: isMobile ? "none" : `1px solid ${t.divider}`, overflowY: "auto", padding: isMobile ? "16px" : "24px 32px", boxSizing: "border-box" }}>
+
+        {/* Left panel — scrollable */}
+        <div style={{ flex: isMobile ? "none" : "0 0 50%", minWidth: isMobile ? "none" : 380, maxWidth: isMobile ? "none" : 620, borderRight: isMobile ? "none" : `1px solid ${t.divider}`, overflowY: "auto", overflowX: "hidden", padding: isMobile ? "16px" : "16px 24px", boxSizing: "border-box", height: "100%" }}>
 
           <SectionCard title="Oral Health Findings" t={t} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2C9 2 4 4 4 9c0 3 1 5 2 7 .5 1 1 3 2 4h8c1-1 1.5-3 2-4 1-2 2-4 2-7 0-5-5-7-8-7z"/></svg>}>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
@@ -334,8 +302,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
                 value={form[OTHERS_TEXT_FIELD.key]}
                 onChange={v => {
                   setField(OTHERS_TEXT_FIELD.key, v);
-                  const shouldCheck = v.trim().length > 0;
-                  setCheck("Others", shouldCheck);
+                  setCheck("Others", v.trim().length > 0);
                 }}
                 t={t}
               />
@@ -352,15 +319,12 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
             </div>
           </SectionCard>
 
-          <button onClick={handleSave} disabled={saving}
-            style={{ width: "100%", padding: "14px", background: t.accentBtn, color: "#fff", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: saving ? 0.7 : 1, marginBottom: 24 }}>
-            {saving ? "Saving…" : "Save & Mark DEF as Filled"}
-          </button>
+          <div style={{ height: 8 }} />
         </div>
 
-        {/* Right panel — static PDF canvas + live HTML overlay */}
-        <div ref={containerRef} style={{ flex: 1, height: isMobile ? "60vw" : "100%", minHeight: isMobile ? 280 : 0, background: "#374151", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <div style={{ background: "#1f2937", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        {/* Right panel — PDF preview with own scroll */}
+        <div ref={containerRef} style={{ flex: 1, minHeight: 0, background: "#374151", display: "flex", flexDirection: "column", overflow: "hidden", height: "100%" }}>
+          <div style={{ background: "#1f2937", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {!imgLoaded && <span style={{ fontSize: 11, color: "#9ca3af" }}>Loading…</span>}
               {imgLoaded && <span style={{ fontSize: 11, color: "#6ee7b7" }}>Click checkboxes directly in the preview →</span>}
@@ -380,43 +344,34 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
 
           <div style={{ flex: 1, overflow: "auto", padding: "12px" }}>
             <div style={{ position: "relative", display: "inline-block" }}>
-              <img
-                ref={imgRef}
-                src="/dental-form.png"
-                alt="Dental Examination Form"
-                width={fitWidth || undefined}
+              <img ref={imgRef} src="/dental-form.png" alt="Dental Examination Form"
                 onLoad={() => { setImgLoaded(true); updateScale(); }}
-                style={{
-                  display: "block",
-                  width: fitWidth ? `${fitWidth}px` : "100%",
-                  height: fitWidth ? `${fitHeight}px` : "auto",
-                  borderRadius: 4,
-                  margin: zoom <= 1 ? "0 auto" : "0",
-                }}
+                style={{ display: "block", width: fitWidth ? `${fitWidth}px` : "100%", height: fitWidth ? `${fitHeight}px` : "auto", borderRadius: 4, margin: zoom <= 1 ? "0 auto" : "0" }}
               />
               {imgLoaded && fitScale > 0 && (
                 <PdfFieldOverlay
-                  form={form}
-                  checks={checks}
-                  studentFields={studentFields}
-                  onFormChange={setField}
-                  onCheckChange={setCheck}
-                  fitScale={fitScale}
-                  fitWidth={fitWidth}
-                  fitHeight={fitHeight}
+                  form={form} checks={checks} studentFields={studentFields}
+                  onFormChange={setField} onCheckChange={setCheck}
+                  fitScale={fitScale} fitWidth={fitWidth} fitHeight={fitHeight}
                 />
               )}
             </div>
           </div>
-
-          <div style={{ padding: "12px 16px", background: "#1f2937" }}>
-            <button onClick={handleDownloadPDF} disabled={downloading}
-              style={{ width: "100%", padding: "11px", background: t.accentBtn, color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: downloading ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              {downloading ? "Generating…" : "Download filled DEF PDF"}
-            </button>
-          </div>
         </div>
+      </div>
+
+      {/* Shared bottom button bar */}
+      <div style={{ flexShrink: 0, borderTop: `1px solid ${t.divider}`, background: t.card, padding: "12px 16px", display: "flex", gap: 12 }}>
+        <button onClick={handleSave} disabled={saving}
+          style={{ flex: 1, padding: "13px", background: isDirty ? t.accentBtn : t.cardBorder, color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: saving ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "background 0.2s" }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          {saving ? "Saving…" : isDirty ? "Save & Mark DEF as Filled" : "Saved ✓"}
+        </button>
+        <button onClick={handleDownloadPDF} disabled={downloading}
+          style={{ flex: 1, padding: "13px", background: "#1f2937", color: "#fff", border: `1px solid ${t.cardBorder}`, borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: downloading ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: downloading ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          {downloading ? "Generating…" : "Download filled DEF PDF"}
+        </button>
       </div>
     </div>
   );
