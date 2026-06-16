@@ -89,11 +89,19 @@ const STUDENT_TEXT_FIELDS_OVERLAY = MEF_PDF_FIELDS.filter(f => f.type === "text"
 const STUDENT_CHECK_FIELDS_OVERLAY = MEF_PDF_FIELDS.filter(f => f.type === "checkbox" && STUDENT_FIELDS.has(f.name));
 
 // ── UI Helpers ────────────────────────────────────────────────────────────────
-function SectionCard({ title, children, t }) {
+function SectionCard({ title, children, t, defaultOpen = true }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, padding: "16px", marginBottom: 14 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>{title}</div>
-      {children}
+    <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, marginBottom: 10, overflow: "hidden" }}>
+      <button onClick={() => setOpen(o => !o)}
+        style={{ width: "100%", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "none", border: "none", cursor: "pointer", color: t.text, fontFamily: "inherit" }}>
+        <span style={{ fontSize: 13, fontWeight: 700 }}>{title}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textSub} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+      {open && <div style={{ padding: "0 16px 16px" }}>{children}</div>}
     </div>
   );
 }
@@ -349,19 +357,19 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
         {/* Left panel */}
         <div style={{ flex:isMobile?"none":"0 0 50%", minWidth:isMobile?"none":380, maxWidth:isMobile?"none":620, borderRight:isMobile?"none":`1px solid ${t.divider}`, overflowY:"auto", padding:isMobile?"16px":"24px 32px", boxSizing:"border-box" }}>
 
-          <SectionCard title="Consultation Details (Vitals)" t={t}>
+          <SectionCard title="Consultation Details (Vitals)" t={t} defaultOpen={true}>
             <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 1fr", gap:10 }}>
               {CONSULT_FIELDS.map(({key,label}) => <TextInput key={key} label={label} value={form[key]} onChange={v=>setField(key,v)} t={t}/>)}
             </div>
           </SectionCard>
 
-          <SectionCard title="Medical History & Medications" t={t}>
+          <SectionCard title="Medical History & Medications" t={t} defaultOpen={false}>
             <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:10 }}>
               {HISTORY_FIELDS.map(({key,label}) => <TextInput key={key} label={label} value={form[key]} onChange={v=>setField(key,v)} t={t}/>)}
             </div>
           </SectionCard>
 
-          <SectionCard title="Vision" t={t}>
+          <SectionCard title="Vision" t={t} defaultOpen={false}>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
               <TextInput label="Left Eye Vision" value={form["Left Vision"]} onChange={v=>setField("Left Vision",v)} t={t}/>
               <TextInput label="Right Eye Vision" value={form["Right Vision"]} onChange={v=>setField("Right Vision",v)} t={t}/>
@@ -369,7 +377,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
             <YesNoToggle label="With Corrective Lens" value={checks["With Corrective Lens"]?"yes":"no"} onChange={v=>setCheck("With Corrective Lens",v==="yes")} t={t}/>
           </SectionCard>
 
-          <SectionCard title="Social History" t={t}>
+          <SectionCard title="Social History" t={t} defaultOpen={false}>
             <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr", gap:10, marginBottom:12 }}>
               {SOCIAL_CHECKBOX_PAIRS.map(({label,yes,no}) => <YesNoToggle key={yes} label={label} value={getPair(yes,no)} onChange={v=>setPair(yes,no,v)} t={t}/>)}
             </div>
@@ -380,7 +388,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
             </div>
           </SectionCard>
 
-          <SectionCard title="Disability, PWD & Laterality" t={t}>
+          <SectionCard title="Disability, PWD & Laterality" t={t} defaultOpen={false}>
             <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:10, marginBottom:12 }}>
               {DISABILITY_CHECKBOX_PAIRS.map(({label,yes,no}) => <YesNoToggle key={yes} label={label} value={getPair(yes,no)} onChange={v=>setPair(yes,no,v)} t={t}/>)}
             </div>
@@ -398,18 +406,18 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
             </div>
           </SectionCard>
 
-          <SectionCard title="Diagnosis" t={t}>
+          <SectionCard title="Diagnosis" t={t} defaultOpen={false}>
             <TextInput label="Diagnosis / Impression" value={form["Diagnosis Impression"]} onChange={v=>setField("Diagnosis Impression",v)} t={t} multiline/>
           </SectionCard>
 
-          <SectionCard title="Physical Examination Findings" t={t}>
+          <SectionCard title="Physical Examination Findings" t={t} defaultOpen={false}>
             {FINDINGS_FIELDS.map(({key,label,normalKey}) => (
               <NormalAbnormalField key={key} label={label} normal={getNormal(normalKey)} findings={form[key]}
                 onNormalChange={v=>setNormal(normalKey,key,v)} onFindingsChange={v=>setField(key,v)} t={t}/>
             ))}
           </SectionCard>
 
-          <SectionCard title="Assessment & Sign-off" t={t}>
+          <SectionCard title="Assessment & Sign-off" t={t} defaultOpen={false}>
             <div style={{ marginBottom:12 }}>
               <label style={{ fontSize:11, fontWeight:600, color:t.textSub, display:"block", marginBottom:6 }}>Physician's Assessment</label>
               <div style={{ display:"flex", flexDirection:"column", gap:6 }}>

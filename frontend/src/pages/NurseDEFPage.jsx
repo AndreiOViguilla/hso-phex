@@ -32,11 +32,19 @@ const DENTURE_PAIRS = [
 ];
 const HAWLEYS_CHECKBOX = "Hawleys retainers";
 
-function SectionCard({ title, children, t }) {
+function SectionCard({ title, children, t, defaultOpen = true }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, padding: "16px", marginBottom: 14 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>{title}</div>
-      {children}
+    <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, marginBottom: 10, overflow: "hidden" }}>
+      <button onClick={() => setOpen(o => !o)}
+        style={{ width: "100%", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "none", border: "none", cursor: "pointer", color: t.text, fontFamily: "inherit" }}>
+        <span style={{ fontSize: 13, fontWeight: 700 }}>{title}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textSub} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+      {open && <div style={{ padding: "0 16px 16px" }}>{children}</div>}
     </div>
   );
 }
@@ -318,7 +326,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
             </label>
           </SectionCard>
 
-          <SectionCard title="Other Notes" t={t}>
+          <SectionCard title="Other Notes" t={t} defaultOpen={false}>
             <div style={{ marginBottom: 12 }}>
               <TextInput
                 label={OTHERS_TEXT_FIELD.label}
