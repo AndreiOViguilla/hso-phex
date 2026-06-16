@@ -374,7 +374,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
       <div style={{ flex:1, display:"flex", flexDirection:isMobile?"column":"row", minHeight:0, overflow:"hidden" }}>
 
         {/* Left panel — sections with own scroll */}
-        <div style={{ flex:isMobile?"none":"0 0 50%", minWidth:isMobile?"none":380, maxWidth:isMobile?"none":620, borderRight:isMobile?"none":`1px solid ${t.divider}`, overflowY:"auto", padding:isMobile?"16px":"16px 24px", boxSizing:"border-box" }}>
+        <div style={{ flex:isMobile?"none":"0 0 50%", minWidth:isMobile?"none":380, maxWidth:isMobile?"none":620, borderRight:isMobile?"none":`1px solid ${t.divider}`, overflowY:"auto", overflowX:"hidden", padding:isMobile?"16px":"16px 24px", boxSizing:"border-box", height:"100%" }}>
 
           <SectionCard title="Consultation Details (Vitals)" t={t} defaultOpen={true} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>}>
             <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 1fr", gap:10 }}>
@@ -461,7 +461,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
         </div>
 
         {/* Right panel — static PNG + live HTML overlay, own scroll */}
-        <div ref={containerRef} style={{ flex:1, minHeight:isMobile?280:0, background:"#374151", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+        <div ref={containerRef} style={{ flex:1, minHeight:0, background:"#374151", display:"flex", flexDirection:"column", overflow:"hidden", height:"100%" }}>
           <div style={{ background:"#1f2937", padding:"10px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
             <div style={{ display:"flex", alignItems:"center", gap:8 }}>
               {!imgLoaded && <span style={{ fontSize:11, color:"#9ca3af" }}>Loading…</span>}
