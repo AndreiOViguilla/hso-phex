@@ -362,7 +362,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
   );
 
   return (
-    <div style={{ flex:1, display:"flex", flexDirection:"column", background:t.bg, overflow:"hidden" }}>
+    <div style={{ display:"flex", flexDirection:"column", background:t.bg, overflow:"hidden", position:"absolute", inset:0 }}>
       {/* Header */}
       <div style={{ padding:"10px 16px", display:"flex", alignItems:"center", gap:10, flexShrink:0, borderBottom:`1px solid ${t.divider}`, background:t.card }}>
         <button onClick={handleBack} style={{ background:t.bg, border:`1px solid ${t.cardBorder}`, color:t.text, width:32, height:32, borderRadius:8, cursor:"pointer", fontSize:15, display:"flex", alignItems:"center", justifyContent:"center" }}>←</button>
