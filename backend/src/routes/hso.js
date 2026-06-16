@@ -235,12 +235,12 @@ const MEF_TEXT_FIELD_NAMES = [
 
 const MEF_CHECKBOX_FIELD_NAMES = [
   "Gender Female", "Gender Male", "With Corrective Lens",
-  "Disability No", "Disability Yes", "PWD Card No", "PWD Card Yes",
-  "Right Handed", "Left Handed", "Ambidextrous",
+  "Disability No", "Disability Yes", "With PWD card No", "With PWD card Yes",
+  "Right Handed", "Left handed", "Ambidextrous",
   "Smoking No", "Smoking Yes", "Drinking No", "Drinking Yes",
   "Exercising No", "Exercising Yes",
   "EENT Normal", "Head Neck Normal", "Breast Normal", "Lungs Normal",
-  "Heart Normal", "Skin Normal", "Abdomen Normal", "Neurologic Normal",
+  "Heart Normal", "Skin Normal", "Abdomen", "Neurologic Normal",
   "Chest Xray Normal", "Drug Test Normal",
   "Fit For Academic Activities", "Fit With Restrictions", "Pending Classification",
   "For Additional Xray", "For Clearance",
@@ -287,6 +287,59 @@ router.post("/students/:id/mef/pdf", authMiddleware, requireRole("admin", "maste
   }
 });
 
+// Hardcoded MEF checkbox positions (PDF user space, origin bottom-left)
+const MEF_CHECKBOX_POSITIONS = {
+  "Gender Female": { x: 88.7, y: 650.5, w: 8.3, h: 7.7 },
+  "Gender Male": { x: 141.3, y: 650.9, w: 8.5, h: 7.4 },
+  "EENT Normal": { x: 345.0, y: 407.0, w: 9.0, h: 9.0 },
+  "Head Neck Normal": { x: 345.0, y: 376.0, w: 9.0, h: 9.0 },
+  "Breast Normal": { x: 345.0, y: 347.0, w: 9.0, h: 9.0 },
+  "Lungs Normal": { x: 345.0, y: 318.0, w: 9.0, h: 9.0 },
+  "Heart Normal": { x: 345.0, y: 291.0, w: 9.0, h: 9.0 },
+  "Smoking No": { x: 226.0, y: 264.0, w: 9.0, h: 9.0 },
+  "Smoking Yes": { x: 255.0, y: 263.0, w: 9.0, h: 9.0 },
+  "Skin Normal": { x: 345.0, y: 263.0, w: 9.0, h: 9.0 },
+  "Drinking No": { x: 226.0, y: 250.0, w: 9.0, h: 9.0 },
+  "Drinking Yes": { x: 256.0, y: 250.0, w: 9.0, h: 9.0 },
+  "With Corrective Lens": { x: 37.0, y: 238.0, w: 9.0, h: 9.0 },
+  "Exercising No": { x: 226.0, y: 236.0, w: 9.0, h: 9.0 },
+  "Exercising Yes": { x: 257.0, y: 238.0, w: 9.0, h: 9.0 },
+  "Abdomen": { x: 345.0, y: 237.0, w: 9.0, h: 9.0 },
+  "Disability No": { x: 78.0, y: 212.0, w: 9.0, h: 9.0 },
+  "Disability Yes": { x: 107.0, y: 212.0, w: 9.0, h: 9.0 },
+  "Right Handed": { x: 182.0, y: 212.0, w: 9.0, h: 9.0 },
+  "Neurologic Normal": { x: 345.0, y: 210.0, w: 9.0, h: 9.0 },
+  "With PWD card No": { x: 103.0, y: 198.0, w: 9.0, h: 9.0 },
+  "With PWD card Yes": { x: 132.0, y: 198.0, w: 9.0, h: 9.0 },
+  "Left handed": { x: 182.0, y: 197.0, w: 9.0, h: 9.0 },
+  "Ambidextrous": { x: 182.0, y: 185.0, w: 9.0, h: 9.0 },
+  "Chest Xray Normal": { x: 345.0, y: 183.0, w: 9.0, h: 9.0 },
+  "Drug Test Normal": { x: 345.0, y: 156.0, w: 9.0, h: 9.0 },
+  "Fit For Academic Activities": { x: 47.0, y: 105.0, w: 9.0, h: 9.0 },
+  "Fit With Restrictions": { x: 47.0, y: 94.0, w: 9.0, h: 9.0 },
+  "Pending Classification": { x: 47.0, y: 82.0, w: 9.0, h: 9.0 },
+  "For Additional Xray": { x: 158.0, y: 81.0, w: 9.0, h: 9.0 },
+  "For Clearance": { x: 257.0, y: 82.0, w: 9.0, h: 9.0 },
+};
+
+function drawMefCheckmarks(page, data) {
+  for (const [name, pos] of Object.entries(MEF_CHECKBOX_POSITIONS)) {
+    if (!data[name]) continue;
+    const { x, y, w, h } = pos;
+    const thickness = Math.max(0.8, Math.min(w, h) * 0.18);
+    page.drawLine({
+      start: { x: x + w * 0.1, y: y + h * 0.45 },
+      end:   { x: x + w * 0.4, y: y + h * 0.15 },
+      thickness, color: rgb(0, 0, 0),
+    });
+    page.drawLine({
+      start: { x: x + w * 0.4, y: y + h * 0.15 },
+      end:   { x: x + w * 0.9, y: y + h * 0.82 },
+      thickness, color: rgb(0, 0, 0),
+    });
+  }
+}
+
 // POST /api/hso/students/:id/mef/pdf/download — FLATTENED final PDF for download
 router.post("/students/:id/mef/pdf/download", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
   try {
@@ -299,10 +352,17 @@ router.post("/students/:id/mef/pdf/download", authMiddleware, requireRole("admin
     const pdfDoc = await PDFDocument.load(fs.readFileSync(pdfPath), { ignoreEncryption: true });
     const form   = pdfDoc.getForm();
 
-    fillMefForm(form, data);
+    // Fill text fields only
+    MEF_TEXT_FIELD_NAMES.forEach(name => {
+      try { form.getTextField(name).setText(data[name] || ""); } catch (_) {}
+    });
+
+    // Draw checkmarks manually — avoids ZapfDingbats font dependency
+    const page = pdfDoc.getPages()[0];
+    drawMefCheckmarks(page, data);
 
     try { form.flatten(); } catch (_) {}
-    const bytes = await pdfDoc.save({ updateFieldAppearances: true });
+    const bytes = await pdfDoc.save({ updateFieldAppearances: false });
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="MEF_Full_${data["ID Number"] || "student"}.pdf"`);
