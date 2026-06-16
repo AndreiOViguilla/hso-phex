@@ -1440,16 +1440,18 @@ router.get("/students/:id/def", authMiddleware, requireRole("admin", "master", "
     const form = await Form.findOne({ userId: req.params.id, formType: "def" });
     const autofill = await autofillDefMeta(req);
 
-    // Always populate Name/ID No from the student's actual user record,
-    // so the nurse preview shows the correct student even if the student
-    // hasn't submitted their own DEF form yet.
-    const studentName = [user.firstName, user.middleInitial, user.lastName]
-      .filter(Boolean).join(" ");
+    const studentName = [user.firstName, user.middleInitial, user.lastName].filter(Boolean).join(" ");
+    const { toothChart, ...otherFormData } = form?.formData || {};
+
+    // Expand structured toothChart back to flat Checkbox_N for the frontend
+    const flatCheckboxes = toothChart ? structuredToFlat(toothChart) : {};
+
     const formData = {
       ...autofill,
-      ...(form?.formData || {}),
-      "Name":  studentName  || form?.formData?.["Name"]  || "",
-      "ID No": user.studentId || form?.formData?.["ID No"] || "",
+      ...otherFormData,
+      ...flatCheckboxes,
+      "Name":  studentName  || otherFormData["Name"]  || "",
+      "ID No": user.studentId || otherFormData["ID No"] || "",
     };
 
     res.json({
@@ -1461,6 +1463,58 @@ router.get("/students/:id/def", authMiddleware, requireRole("admin", "master", "
   }
 });
 
+// ── Tooth chart structured data helpers ─────────────────────────────────────
+// Maps Checkbox_N -> { quadrant, row, tooth } using sequential math:
+// Checkbox 1..240 = upper section, 241..480 = lower section
+// Every 16 = one condition row; 1..8 = right quadrant, 9..16 = left quadrant
+const TOOTH_ROW_LABELS = ["WithCaries","Amalgam","LC","OtherRestoMat","PLJC","PoJC",
+  "Pontic","Missing","RF","Unerupted","ForExo","TF","Abutment","RCT","Impacted"];
+const TOOTH_QUADRANTS = ["upperRight","upperLeft","lowerRight","lowerLeft"];
+
+function getCheckboxInfo(n) {
+  if (n < 1 || n > 480) return null;
+  const idx = n - 1;
+  const isUpper = idx < 240;
+  const sectionIdx = isUpper ? idx : idx - 240;
+  const rowIdx = Math.floor(sectionIdx / 16);
+  const posInRow = sectionIdx % 16;
+  const quadrant = (isUpper ? "upper" : "lower") + (posInRow < 8 ? "Right" : "Left");
+  const tooth = posInRow < 8 ? 8 - posInRow : posInRow - 8 + 1;
+  return { quadrant, row: TOOTH_ROW_LABELS[rowIdx], tooth };
+}
+
+function emptyToothChart() {
+  const result = {};
+  for (const q of TOOTH_QUADRANTS) {
+    result[q] = {};
+    for (const r of TOOTH_ROW_LABELS) result[q][r] = Array(8).fill(false);
+  }
+  return result;
+}
+
+// Convert flat { Checkbox_1: true, ... } to structured toothChart
+function flatToStructured(checks) {
+  const tc = emptyToothChart();
+  for (let n = 1; n <= 480; n++) {
+    const val = checks[`Checkbox_${n}`];
+    if (!val) continue;
+    const info = getCheckboxInfo(n);
+    if (info) tc[info.quadrant][info.row][info.tooth - 1] = true;
+  }
+  return tc;
+}
+
+// Convert structured toothChart back to flat { Checkbox_1: true, ... }
+function structuredToFlat(toothChart) {
+  const result = {};
+  for (let n = 1; n <= 480; n++) {
+    const info = getCheckboxInfo(n);
+    if (!info) continue;
+    result[`Checkbox_${n}`] = !!(toothChart?.[info.quadrant]?.[info.row]?.[info.tooth - 1]);
+  }
+  return result;
+}
+
 // PUT /api/hso/students/:id/def — save nurse's DEF form data
 router.put("/students/:id/def", authMiddleware, requireRole("admin", "master", "nurse"), async (req, res) => {
   try {
@@ -1468,7 +1522,31 @@ router.put("/students/:id/def", authMiddleware, requireRole("admin", "master", "
     if (!user) return res.status(404).json({ error: "Student not found." });
 
     const existing = await Form.findOne({ userId: req.params.id, formType: "def" });
-    const mergedData = { ...(existing?.formData || {}), ...req.body };
+
+    // Separate tooth chart checkboxes from other form fields
+    const { toothChart: existingToothChart, ...existingOther } = existing?.formData || {};
+    const checkboxFields = {};
+    const otherFields = {};
+    for (const [k, v] of Object.entries(req.body)) {
+      if (k.startsWith("Checkbox_")) checkboxFields[k] = v;
+      else otherFields[k] = v;
+    }
+
+    // Convert flat Checkbox_N to structured toothChart for clean MongoDB storage
+    const incomingToothChart = flatToStructured(checkboxFields);
+
+    // Merge toothChart deeply (per quadrant/row)
+    const mergedToothChart = existingToothChart ? { ...existingToothChart } : emptyToothChart();
+    for (const q of TOOTH_QUADRANTS) {
+      for (const r of TOOTH_ROW_LABELS) {
+        if (incomingToothChart[q]?.[r]) {
+          mergedToothChart[q] = mergedToothChart[q] || {};
+          mergedToothChart[q][r] = incomingToothChart[q][r];
+        }
+      }
+    }
+
+    const mergedData = { ...existingOther, ...otherFields, toothChart: mergedToothChart };
 
     await Form.findOneAndUpdate(
       { userId: req.params.id, formType: "def" },
@@ -1524,17 +1602,11 @@ router.post("/students/:id/def/pdf/download", authMiddleware, requireRole("admin
 
     const existing = await Form.findOne({ userId: req.params.id, formType: "def" });
     const autofill = await autofillDefMeta(req);
-    // Merge saved data with any live req.body values (in case nurse hasn't saved yet)
-    const data = { ...autofill, ...(existing?.formData || {}), ...req.body };
 
-    // Debug: log how many checkboxes are checked
-    const checkedCount = DEF_CHECKBOX_FIELD_NAMES.filter(n => data[n]).length;
-    console.log(`[DEF download] checked boxes: ${checkedCount}/${DEF_CHECKBOX_FIELD_NAMES.length}`);
-    console.log(`[DEF download] sample:`, {
-      "Good oral hygiene": data["Good oral hygiene"],
-      "Checkbox_1": data["Checkbox_1"],
-      "Checkbox_2": data["Checkbox_2"],
-    });
+    // Expand structured toothChart to flat Checkbox_N, merge with req.body
+    const { toothChart, ...savedOther } = existing?.formData || {};
+    const savedFlat = toothChart ? structuredToFlat(toothChart) : {};
+    const data = { ...autofill, ...savedOther, ...savedFlat, ...req.body };
 
     const pdfDoc = await PDFDocument.load(fs.readFileSync(pdfPath), { ignoreEncryption: true });
     const form   = pdfDoc.getForm();
