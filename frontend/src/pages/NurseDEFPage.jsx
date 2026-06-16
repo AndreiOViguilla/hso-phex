@@ -32,15 +32,16 @@ const DENTURE_PAIRS = [
 ];
 const HAWLEYS_CHECKBOX = "Hawleys retainers";
 
-function SectionCard({ title, children, t, defaultOpen = true }) {
+function SectionCard({ title, children, t, defaultOpen = true, icon }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, marginBottom: 10, overflow: "hidden" }}>
       <button onClick={() => setOpen(o => !o)}
-        style={{ width: "100%", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "none", border: "none", cursor: "pointer", color: t.text, fontFamily: "inherit" }}>
-        <span style={{ fontSize: 13, fontWeight: 700 }}>{title}</span>
+        style={{ width: "100%", padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", color: t.text, fontFamily: "inherit" }}>
+        {icon && <span style={{ color: t.accent, display: "flex", alignItems: "center", flexShrink: 0 }}>{icon}</span>}
+        <span style={{ fontSize: 13, fontWeight: 700, flex: 1, textAlign: "left" }}>{title}</span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textSub} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
+          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}>
           <polyline points="6 9 12 15 18 9"/>
         </svg>
       </button>
@@ -298,7 +299,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
         {/* Left panel */}
         <div style={{ flex: isMobile ? "none" : "0 0 50%", minWidth: isMobile ? "none" : 380, maxWidth: isMobile ? "none" : 620, borderRight: isMobile ? "none" : `1px solid ${t.divider}`, overflowY: "auto", padding: isMobile ? "16px" : "24px 32px", boxSizing: "border-box" }}>
 
-          <SectionCard title="Oral Health Findings" t={t}>
+          <SectionCard title="Oral Health Findings" t={t} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2C9 2 4 4 4 9c0 3 1 5 2 7 .5 1 1 3 2 4h8c1-1 1.5-3 2-4 1-2 2-4 2-7 0-5-5-7-8-7z"/></svg>}>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
               {ORAL_HEALTH_CHECKBOXES.map(opt => (
                 <label key={opt} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, color: t.text, padding: "8px 12px", border: `1.5px solid ${checks[opt] ? t.accent : t.cardBorder}`, borderRadius: 8, background: checks[opt] ? t.accentBg : t.card }}>
@@ -326,7 +327,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
             </label>
           </SectionCard>
 
-          <SectionCard title="Other Notes" t={t} defaultOpen={false}>
+          <SectionCard title="Other Notes" t={t} defaultOpen={false} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>}>
             <div style={{ marginBottom: 12 }}>
               <TextInput
                 label={OTHERS_TEXT_FIELD.label}

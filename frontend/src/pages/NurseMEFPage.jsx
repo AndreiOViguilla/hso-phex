@@ -89,15 +89,16 @@ const STUDENT_TEXT_FIELDS_OVERLAY = MEF_PDF_FIELDS.filter(f => f.type === "text"
 const STUDENT_CHECK_FIELDS_OVERLAY = MEF_PDF_FIELDS.filter(f => f.type === "checkbox" && STUDENT_FIELDS.has(f.name));
 
 // ── UI Helpers ────────────────────────────────────────────────────────────────
-function SectionCard({ title, children, t, defaultOpen = true }) {
+function SectionCard({ title, children, t, defaultOpen = true, icon }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, marginBottom: 10, overflow: "hidden" }}>
       <button onClick={() => setOpen(o => !o)}
-        style={{ width: "100%", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "none", border: "none", cursor: "pointer", color: t.text, fontFamily: "inherit" }}>
-        <span style={{ fontSize: 13, fontWeight: 700 }}>{title}</span>
+        style={{ width: "100%", padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", color: t.text, fontFamily: "inherit" }}>
+        {icon && <span style={{ color: t.accent, display: "flex", alignItems: "center", flexShrink: 0 }}>{icon}</span>}
+        <span style={{ fontSize: 13, fontWeight: 700, flex: 1, textAlign: "left" }}>{title}</span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textSub} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
+          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}>
           <polyline points="6 9 12 15 18 9"/>
         </svg>
       </button>
@@ -357,19 +358,19 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
         {/* Left panel */}
         <div style={{ flex:isMobile?"none":"0 0 50%", minWidth:isMobile?"none":380, maxWidth:isMobile?"none":620, borderRight:isMobile?"none":`1px solid ${t.divider}`, overflowY:"auto", padding:isMobile?"16px":"24px 32px", boxSizing:"border-box" }}>
 
-          <SectionCard title="Consultation Details (Vitals)" t={t} defaultOpen={true}>
+          <SectionCard title="Consultation Details (Vitals)" t={t} defaultOpen={true} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>}>
             <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 1fr", gap:10 }}>
               {CONSULT_FIELDS.map(({key,label}) => <TextInput key={key} label={label} value={form[key]} onChange={v=>setField(key,v)} t={t}/>)}
             </div>
           </SectionCard>
 
-          <SectionCard title="Medical History & Medications" t={t} defaultOpen={false}>
+          <SectionCard title="Medical History & Medications" t={t} defaultOpen={false} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12h6m-3-3v6m9-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>}>
             <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:10 }}>
               {HISTORY_FIELDS.map(({key,label}) => <TextInput key={key} label={label} value={form[key]} onChange={v=>setField(key,v)} t={t}/>)}
             </div>
           </SectionCard>
 
-          <SectionCard title="Vision" t={t} defaultOpen={false}>
+          <SectionCard title="Vision" t={t} defaultOpen={false} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
               <TextInput label="Left Eye Vision" value={form["Left Vision"]} onChange={v=>setField("Left Vision",v)} t={t}/>
               <TextInput label="Right Eye Vision" value={form["Right Vision"]} onChange={v=>setField("Right Vision",v)} t={t}/>
@@ -377,7 +378,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
             <YesNoToggle label="With Corrective Lens" value={checks["With Corrective Lens"]?"yes":"no"} onChange={v=>setCheck("With Corrective Lens",v==="yes")} t={t}/>
           </SectionCard>
 
-          <SectionCard title="Social History" t={t} defaultOpen={false}>
+          <SectionCard title="Social History" t={t} defaultOpen={false} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}>
             <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr", gap:10, marginBottom:12 }}>
               {SOCIAL_CHECKBOX_PAIRS.map(({label,yes,no}) => <YesNoToggle key={yes} label={label} value={getPair(yes,no)} onChange={v=>setPair(yes,no,v)} t={t}/>)}
             </div>
@@ -388,7 +389,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
             </div>
           </SectionCard>
 
-          <SectionCard title="Disability, PWD & Laterality" t={t} defaultOpen={false}>
+          <SectionCard title="Disability, PWD & Laterality" t={t} defaultOpen={false} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>}>
             <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:10, marginBottom:12 }}>
               {DISABILITY_CHECKBOX_PAIRS.map(({label,yes,no}) => <YesNoToggle key={yes} label={label} value={getPair(yes,no)} onChange={v=>setPair(yes,no,v)} t={t}/>)}
             </div>
@@ -406,18 +407,18 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
             </div>
           </SectionCard>
 
-          <SectionCard title="Diagnosis" t={t} defaultOpen={false}>
+          <SectionCard title="Diagnosis" t={t} defaultOpen={false} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>}>
             <TextInput label="Diagnosis / Impression" value={form["Diagnosis Impression"]} onChange={v=>setField("Diagnosis Impression",v)} t={t} multiline/>
           </SectionCard>
 
-          <SectionCard title="Physical Examination Findings" t={t} defaultOpen={false}>
+          <SectionCard title="Physical Examination Findings" t={t} defaultOpen={false} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>}>
             {FINDINGS_FIELDS.map(({key,label,normalKey}) => (
               <NormalAbnormalField key={key} label={label} normal={getNormal(normalKey)} findings={form[key]}
                 onNormalChange={v=>setNormal(normalKey,key,v)} onFindingsChange={v=>setField(key,v)} t={t}/>
             ))}
           </SectionCard>
 
-          <SectionCard title="Assessment & Sign-off" t={t} defaultOpen={false}>
+          <SectionCard title="Assessment & Sign-off" t={t} defaultOpen={false} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>}>
             <div style={{ marginBottom:12 }}>
               <label style={{ fontSize:11, fontWeight:600, color:t.textSub, display:"block", marginBottom:6 }}>Physician's Assessment</label>
               <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
