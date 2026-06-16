@@ -290,6 +290,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
         ALL_CHECK_KEYS.forEach(k => { cv[k] = !!fd[k]; });
         setChecks(cv);
         setLoading(false);
+        setTimeout(() => { initialLoadRef.current = false; }, 100);
       })
       .catch(() => setLoading(false));
   }, [studentMongoId]);
@@ -312,7 +313,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
         headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ ...form, ...checks }),
       });
-      if (r.ok) { show({ type: "success", message: "MEF saved." }); if (onSaved) onSaved(); }
+      if (r.ok) { show({ type: "success", message: "MEF saved." }); setIsDirty(false); if (onSaved) onSaved(); }
       else show({ type: "error", message: "Failed to save MEF." });
     } catch (_) { show({ type: "error", message: "Server error." }); }
     setSaving(false);
@@ -336,6 +337,22 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
     setDownloading(false);
   };
 
+  // Track unsaved changes
+  const [isDirty, setIsDirty] = useState(false);
+  const initialLoadRef = useRef(true);
+
+  useEffect(() => {
+    if (initialLoadRef.current) return;
+    setIsDirty(true);
+  }, [form, checks]);
+
+  const handleBack = () => {
+    if (isDirty) {
+      if (!window.confirm("You have unsaved changes. Are you sure you want to go back?")) return;
+    }
+    onBack();
+  };
+
   if (loading) return (
     <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12 }}>
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation:"spin 0.8s linear infinite" }}><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>
@@ -345,18 +362,19 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
   );
 
   return (
-    <div style={{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column", background:t.bg }}>
+    <div style={{ flex:1, display:"flex", flexDirection:"column", background:t.bg, overflow:"hidden" }}>
       {/* Header */}
       <div style={{ padding:"10px 16px", display:"flex", alignItems:"center", gap:10, flexShrink:0, borderBottom:`1px solid ${t.divider}`, background:t.card }}>
-        <button onClick={onBack} style={{ background:t.bg, border:`1px solid ${t.cardBorder}`, color:t.text, width:32, height:32, borderRadius:8, cursor:"pointer", fontSize:15, display:"flex", alignItems:"center", justifyContent:"center" }}>←</button>
+        <button onClick={handleBack} style={{ background:t.bg, border:`1px solid ${t.cardBorder}`, color:t.text, width:32, height:32, borderRadius:8, cursor:"pointer", fontSize:15, display:"flex", alignItems:"center", justifyContent:"center" }}>←</button>
         <div style={{ fontSize:13, fontWeight:700, color:t.text }}>{studentInfo?.firstName} {studentInfo?.lastName}</div>
         <div style={{ fontSize:12, color:t.textSub }}>· {studentInfo?.studentId}</div>
       </div>
 
+      {/* Main content: left + right panels, same height, own scroll */}
       <div style={{ flex:1, display:"flex", flexDirection:isMobile?"column":"row", minHeight:0, overflow:"hidden" }}>
 
-        {/* Left panel */}
-        <div style={{ flex:isMobile?"none":"0 0 50%", minWidth:isMobile?"none":380, maxWidth:isMobile?"none":620, borderRight:isMobile?"none":`1px solid ${t.divider}`, overflowY:"auto", padding:isMobile?"16px":"24px 32px", boxSizing:"border-box" }}>
+        {/* Left panel — sections with own scroll */}
+        <div style={{ flex:isMobile?"none":"0 0 50%", minWidth:isMobile?"none":380, maxWidth:isMobile?"none":620, borderRight:isMobile?"none":`1px solid ${t.divider}`, overflowY:"auto", padding:isMobile?"16px":"16px 24px", boxSizing:"border-box" }}>
 
           <SectionCard title="Consultation Details (Vitals)" t={t} defaultOpen={true} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>}>
             <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 1fr", gap:10 }}>
@@ -438,15 +456,13 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
             </div>
           </SectionCard>
 
-          <button onClick={handleSave} disabled={saving}
-            style={{ width:"100%", padding:"14px", background:t.accentBtn, color:"#fff", border:"none", borderRadius:12, fontSize:15, fontWeight:700, cursor:"pointer", fontFamily:"inherit", opacity:saving?0.7:1, marginBottom:24 }}>
-            {saving ? "Saving…" : "Save & Mark MEF as Filled"}
-          </button>
+          {/* Spacer so last card isn't flush against bottom */}
+          <div style={{ height: 8 }} />
         </div>
 
-        {/* Right panel — static PNG + live HTML overlay */}
-        <div ref={containerRef} style={{ flex:1, height:isMobile?"60vw":"100%", minHeight:isMobile?280:0, background:"#374151", display:"flex", flexDirection:"column", overflow:"hidden" }}>
-          <div style={{ background:"#1f2937", padding:"10px 16px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        {/* Right panel — static PNG + live HTML overlay, own scroll */}
+        <div ref={containerRef} style={{ flex:1, minHeight:isMobile?280:0, background:"#374151", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+          <div style={{ background:"#1f2937", padding:"10px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
             <div style={{ display:"flex", alignItems:"center", gap:8 }}>
               {!imgLoaded && <span style={{ fontSize:11, color:"#9ca3af" }}>Loading…</span>}
               {imgLoaded && <span style={{ fontSize:11, color:"#6ee7b7" }}>Type directly in the preview fields →</span>}
@@ -480,15 +496,21 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
               )}
             </div>
           </div>
-
-          <div style={{ padding:"12px 16px", background:"#1f2937" }}>
-            <button onClick={handleDownload} disabled={downloading}
-              style={{ width:"100%", padding:"11px", background:t.accentBtn, color:"#fff", border:"none", borderRadius:10, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit", opacity:downloading?0.7:1, display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              {downloading ? "Generating…" : "Download filled MEF PDF"}
-            </button>
-          </div>
         </div>
+      </div>
+
+      {/* Shared bottom button bar — always visible, never detached */}
+      <div style={{ flexShrink:0, borderTop:`1px solid ${t.divider}`, background:t.card, padding:"12px 16px", display:"flex", gap:12 }}>
+        <button onClick={handleSave} disabled={saving}
+          style={{ flex:1, padding:"13px", background:isDirty ? t.accentBtn : t.cardBorder, color:"#fff", border:"none", borderRadius:10, fontSize:13, fontWeight:700, cursor:saving?"not-allowed":"pointer", fontFamily:"inherit", opacity:saving?0.7:1, display:"flex", alignItems:"center", justifyContent:"center", gap:8, transition:"background 0.2s" }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          {saving ? "Saving…" : isDirty ? "Save & Mark MEF as Filled" : "Saved ✓"}
+        </button>
+        <button onClick={handleDownload} disabled={downloading}
+          style={{ flex:1, padding:"13px", background:"#1f2937", color:"#fff", border:`1px solid ${t.cardBorder}`, borderRadius:10, fontSize:13, fontWeight:700, cursor:downloading?"not-allowed":"pointer", fontFamily:"inherit", opacity:downloading?0.7:1, display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          {downloading ? "Generating…" : "Download filled MEF PDF"}
+        </button>
       </div>
     </div>
   );
