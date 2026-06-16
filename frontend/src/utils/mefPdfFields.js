@@ -82,6 +82,7 @@ export const MEF_PDF_FIELDS = [
   { name: "Examining Physician", type: "text", x: 133.0, y: 723.0, w: 200.0, h: 11.0 },
   { name: "Assigned Nurse", type: "text", x: 399.0, y: 723.0, w: 169.0, h: 11.0 },
   { name: "License Number", type: "text", x: 113.0, y: 737.0, w: 218.0, h: 11.0 },
+  { name: "Heart Findings", type: "text", x: 425.6, y: 478.5, w: 159.4, h: 24.4 },
 ];
 export const MEF_PDF_WIDTH = 612;
 export const MEF_PDF_HEIGHT = 792;
