@@ -3,6 +3,7 @@ const express      = require("express");
 const helmet       = require("helmet");
 const rateLimit    = require("express-rate-limit");
 const cors         = require("cors");
+const mongoSanitize = require("express-mongo-sanitize");
 const path         = require("path");
 const session      = require("express-session");
 const MongoStore   = require("connect-mongo");
@@ -41,26 +42,37 @@ async function start() {
     credentials: true,
   }));
 
-  app.use(express.json());
-
   app.set("trust proxy", 1);
 
-  // Security headers
+  // ── Security headers ──────────────────────────────────────────────────────
   app.use(helmet({
-    contentSecurityPolicy: false, // Disabled to not break React
+    contentSecurityPolicy: false, // keep disabled so React build works
   }));
 
-  // Rate limiting
+  // ── Body parsing ──────────────────────────────────────────────────────────
+  app.use(express.json({ limit: "2mb" })); // cap payload size
+
+  // ── NoSQL injection prevention ────────────────────────────────────────────
+  // Strips $ and . from req.body, req.params, req.query so attackers
+  // can't inject MongoDB operators like { "$gt": "" }
+  app.use(mongoSanitize({
+    replaceWith: "_",        // replace instead of delete so fields aren't silently dropped
+    onSanitize: ({ req, key }) => {
+      console.warn(`[SECURITY] Sanitized key "${key}" from ${req.ip} ${req.path}`);
+    },
+  }));
+
+  // ── Rate limiting ─────────────────────────────────────────────────────────
   const globalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // 100 requests per 15 min globally
+    windowMs: 15 * 60 * 1000,
+    max: 100,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: "Too many requests, please try again later." },
   });
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 10, // 10 login/register attempts per 15 min
+    max: 10,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: "Too many attempts. Please wait 15 minutes and try again." },
@@ -69,23 +81,28 @@ async function start() {
   app.use("/api/auth/login",    authLimiter);
   app.use("/api/auth/register", authLimiter);
 
+  // ── Session ───────────────────────────────────────────────────────────────
+  if (!process.env.SESSION_SECRET) {
+    console.warn("[SECURITY] SESSION_SECRET not set — using insecure fallback. Set it in .env!");
+  }
   app.use(session({
     secret: process.env.SESSION_SECRET || "hso_phex_session_secret_2026",
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
       mongoUrl: process.env.MONGODB_URI,
-      ttl: 7 * 24 * 60 * 60,
+      ttl: 8 * 60 * 60,          // 8 hours (down from 7 days)
       autoRemove: "native",
     }),
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      sameSite: "strict",         // upgraded from "lax" — blocks cross-site requests
+      maxAge: 8 * 60 * 60 * 1000, // 8 hours
     },
   }));
 
+  // ── Routes ────────────────────────────────────────────────────────────────
   app.use("/api/auth",         authRoutes);
   app.use("/api/students",     studentRoutes);
   app.use("/api/appointments", appointmentRoutes);
@@ -94,7 +111,7 @@ async function start() {
 
   app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
-  // Serve React frontend in production
+  // ── Serve React frontend in production ────────────────────────────────────
   if (process.env.NODE_ENV === "production") {
     const frontendPath = path.join(__dirname, "../../frontend/build");
     app.use(express.static(frontendPath));
@@ -102,6 +119,13 @@ async function start() {
       res.sendFile(path.join(frontendPath, "index.html"));
     });
   }
+
+  // ── Global error handler ──────────────────────────────────────────────────
+  app.use((err, req, res, next) => {
+    // Never leak stack traces to the client
+    console.error(`[ERROR] ${req.method} ${req.path}:`, err.message);
+    res.status(err.status || 500).json({ error: "Something went wrong." });
+  });
 
   startAutoCancel();
 
