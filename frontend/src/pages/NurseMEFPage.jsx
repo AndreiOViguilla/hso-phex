@@ -353,6 +353,8 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
     onBack();
   };
 
+  const [mobileTab, setMobileTab] = useState("form"); // "form" | "preview"
+
   if (loading) return (
     <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12 }}>
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation:"spin 0.8s linear infinite" }}><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>
@@ -364,17 +366,40 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", background:t.bg, overflow:"hidden", position:"absolute", inset:0 }}>
       {/* Header */}
-      <div style={{ padding:"10px 16px", display:"flex", alignItems:"center", gap:10, flexShrink:0, borderBottom:`1px solid ${t.divider}`, background:t.card }}>
-        <button onClick={handleBack} style={{ background:t.bg, border:`1px solid ${t.cardBorder}`, color:t.text, width:32, height:32, borderRadius:8, cursor:"pointer", fontSize:15, display:"flex", alignItems:"center", justifyContent:"center" }}>←</button>
-        <div style={{ fontSize:13, fontWeight:700, color:t.text }}>{studentInfo?.firstName} {studentInfo?.lastName}</div>
-        <div style={{ fontSize:12, color:t.textSub }}>· {studentInfo?.studentId}</div>
+      <div style={{ padding:"10px 16px", display:"flex", alignItems:"center", gap:10, flexShrink:0, background: dark ? t.card : "#1e3a8a", borderBottom:`1px solid ${dark ? t.divider : "transparent"}` }}>
+        <button onClick={handleBack} style={{ background: dark ? t.bg : "rgba(255,255,255,0.15)", border: dark ? `1px solid ${t.cardBorder}` : "none", color: dark ? t.text : "#fff", width:32, height:32, borderRadius:8, cursor:"pointer", fontSize:15, display:"flex", alignItems:"center", justifyContent:"center" }}>←</button>
+        <div style={{ fontSize:13, fontWeight:700, color: dark ? t.text : "#fff", flex:1 }}>{studentInfo?.firstName} {studentInfo?.lastName} <span style={{ fontSize:12, fontWeight:400, opacity:0.7 }}>· {studentInfo?.studentId}</span></div>
+        {isMobile && (
+          <div style={{ display:"flex", background: dark ? t.bg : "rgba(255,255,255,0.15)", borderRadius:8, padding:2, gap:2 }}>
+            {["form","preview"].map(tab => (
+              <button key={tab} onClick={() => setMobileTab(tab)}
+                style={{ padding:"4px 10px", borderRadius:6, border:"none", cursor:"pointer", fontSize:11, fontWeight:700, fontFamily:"inherit",
+                  background: mobileTab===tab ? (dark ? t.card : "#fff") : "transparent",
+                  color: mobileTab===tab ? (dark ? t.text : "#1e3a8a") : (dark ? t.textSub : "rgba(255,255,255,0.8)") }}>
+                {tab === "form" ? "Form" : "Preview"}
+              </button>
+            ))}
+          </div>
+        )}
+        <button onClick={toggle} title={dark ? "Light mode" : "Dark mode"}
+          style={{ background: dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)", border:"none", color: dark ? "#d1d5db" : "#fff", width:32, height:32, borderRadius:8, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+          {dark
+            ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          }
+        </button>
       </div>
 
       {/* Main content: left + right panels, same height, own scroll */}
-      <div style={{ flex:1, display:"flex", flexDirection:isMobile?"column":"row", minHeight:0, overflow:"hidden" }}>
+      <div style={{ flex:1, display:"flex", flexDirection:"row", minHeight:0, overflow:"hidden" }}>
 
-        {/* Left panel — sections with own scroll */}
-        <div style={{ flex:isMobile?"none":"0 0 50%", minWidth:isMobile?"none":380, maxWidth:isMobile?"none":620, borderRight:isMobile?"none":`1px solid ${t.divider}`, overflowY:"auto", overflowX:"hidden", padding:isMobile?"16px":"16px 24px", boxSizing:"border-box", height:"100%" }}>
+        {/* Left panel — scrollable, hidden on mobile when preview tab active */}
+        <div style={{ flex:"0 0 50%", minWidth:380, maxWidth:620, borderRight:`1px solid ${t.divider}`, overflowY:"auto", overflowX:"hidden", padding:"16px 24px", boxSizing:"border-box", height:"100%",
+          display: isMobile ? (mobileTab === "form" ? "block" : "none") : "block",
+          flex: isMobile ? "1" : "0 0 50%",
+          minWidth: isMobile ? 0 : 380,
+          maxWidth: isMobile ? "none" : 620,
+        }}>
 
           <SectionCard title="Consultation Details (Vitals)" t={t} defaultOpen={true} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>}>
             <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 1fr", gap:10 }}>
@@ -461,7 +486,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
         </div>
 
         {/* Right panel — static PNG + live HTML overlay, own scroll */}
-        <div ref={containerRef} style={{ flex:1, minHeight:0, background:"#374151", display:"flex", flexDirection:"column", overflow:"hidden", height:"100%" }}>
+        <div ref={containerRef} style={{ flex:1, minHeight:0, background:"#374151", display: isMobile ? (mobileTab === "preview" ? "flex" : "none") : "flex", flexDirection:"column", overflow:"hidden", height:"100%" }}>
           <div style={{ background:"#1f2937", padding:"10px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
             <div style={{ display:"flex", alignItems:"center", gap:8 }}>
               {!imgLoaded && <span style={{ fontSize:11, color:"#9ca3af" }}>Loading…</span>}
