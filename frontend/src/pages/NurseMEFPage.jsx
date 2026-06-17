@@ -235,6 +235,13 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
   const { t, dark, toggle } = useTheme();
   const { show } = useModal();
   const isMobile = useIsMobile();
+  const [mobileTab, setMobileTab] = useState("form");
+  const [isNarrow, setIsNarrow] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const onResize = () => setIsNarrow(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -354,8 +361,6 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
     onBack();
   };
 
-  const [mobileTab, setMobileTab] = useState("form"); // "form" | "preview"
-
   if (loading) return (
     <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12 }}>
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation:"spin 0.8s linear infinite" }}><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>
@@ -396,7 +401,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
 
         {/* Left panel — scrollable, hidden on mobile when preview tab active */}
         <div style={{ flex:"0 0 50%", minWidth:380, maxWidth:620, borderRight:`1px solid ${t.divider}`, overflowY:"auto", overflowX:"hidden", padding:"16px 24px", boxSizing:"border-box", height:"100%",
-          display: isMobile ? (mobileTab === "form" ? "block" : "none") : "block",
+          display: isNarrow ? (mobileTab === "form" ? "block" : "none") : "block",
           flex: isMobile ? "1" : "0 0 50%",
           minWidth: isMobile ? 0 : 380,
           maxWidth: isMobile ? "none" : 620,
@@ -487,7 +492,7 @@ export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
         </div>
 
         {/* Right panel — static PNG + live HTML overlay, own scroll */}
-        <div ref={containerRef} style={{ flex:1, minHeight:0, background:"#374151", display: isMobile ? (mobileTab === "preview" ? "flex" : "none") : "flex", flexDirection:"column", overflow:"hidden", height:"100%" }}>
+        <div ref={containerRef} style={{ flex:1, minHeight:0, background:"#374151", display: isNarrow ? (mobileTab === "preview" ? "flex" : "none") : "flex", flexDirection:"column", overflow:"hidden", height:"100%" }}>
           <div style={{ background:"#1f2937", padding:"10px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
             <div style={{ display:"flex", alignItems:"center", gap:8 }}>
               {!imgLoaded && <span style={{ fontSize:11, color:"#9ca3af" }}>Loading…</span>}

@@ -128,6 +128,13 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
   const { t, dark, toggle } = useTheme();
   const { show } = useModal();
   const isMobile = useIsMobile();
+  const [mobileTab, setMobileTab] = useState("form");
+  const [isNarrow, setIsNarrow] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const onResize = () => setIsNarrow(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -245,8 +252,6 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
     setDownloading(false);
   };
 
-  const [mobileTab, setMobileTab] = useState("form");
-
   if (loading) return (
     <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12 }}>
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "spin 0.8s linear infinite" }}><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>
@@ -261,7 +266,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
       <div style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0, background: dark ? t.card : "#1e3a8a", borderBottom: `1px solid ${dark ? t.divider : "transparent"}` }}>
         <button onClick={handleBack} style={{ background: dark ? t.bg : "rgba(255,255,255,0.15)", border: dark ? `1px solid ${t.cardBorder}` : "none", color: dark ? t.text : "#fff", width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>←</button>
         <div style={{ fontSize: 13, fontWeight: 700, color: dark ? t.text : "#fff", flex: 1 }}>{studentInfo?.firstName} {studentInfo?.lastName} <span style={{ fontSize: 12, fontWeight: 400, opacity: 0.7 }}>· {studentInfo?.studentId}</span></div>
-        {isMobile && (
+        {isNarrow && (
           <div style={{ display: "flex", background: dark ? t.bg : "rgba(255,255,255,0.15)", borderRadius: 8, padding: 2, gap: 2 }}>
             {["form", "preview"].map(tab => (
               <button key={tab} onClick={() => { setMobileTab(tab); if (tab === "preview") setTimeout(updateScale, 50); }}
@@ -283,7 +288,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
       <div style={{ flex: 1, display: "flex", flexDirection: "row", minHeight: 0, overflow: "hidden" }}>
 
         {/* Left panel — scrollable */}
-        <div style={{ flex: isMobile ? "1" : "0 0 50%", minWidth: isMobile ? 0 : 380, maxWidth: isMobile ? "none" : 620, borderRight: `1px solid ${t.divider}`, overflowY: "auto", overflowX: "hidden", padding: "16px 24px", boxSizing: "border-box", height: "100%", display: isMobile ? (mobileTab === "form" ? "block" : "none") : "block" }}>
+        <div style={{ flex: isNarrow ? "1" : "0 0 50%", minWidth: isNarrow ? 0 : 380, maxWidth: isNarrow ? "none" : 620, borderRight: `1px solid ${t.divider}`, overflowY: "auto", overflowX: "hidden", padding: "16px 24px", boxSizing: "border-box", height: "100%", display: isNarrow ? (mobileTab === "form" ? "block" : "none") : "block" }}>
 
           <SectionCard title="Oral Health Findings" t={t} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2C9 2 4 4 4 9c0 3 1 5 2 7 .5 1 1 3 2 4h8c1-1 1.5-3 2-4 1-2 2-4 2-7 0-5-5-7-8-7z"/></svg>}>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
@@ -341,7 +346,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
         </div>
 
         {/* Right panel — PDF preview with own scroll */}
-        <div ref={containerRef} style={{ flex: 1, minHeight: 0, background: "#374151", display: isMobile ? (mobileTab === "preview" ? "flex" : "none") : "flex", flexDirection: "column", overflow: "hidden", height: "100%" }}>
+        <div ref={containerRef} style={{ flex: 1, minHeight: 0, background: "#374151", display: isNarrow ? (mobileTab === "preview" ? "flex" : "none") : "flex", flexDirection: "column", overflow: "hidden", height: "100%" }}>
           <div style={{ background: "#1f2937", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {!imgLoaded && <span style={{ fontSize: 11, color: "#9ca3af" }}>Loading…</span>}
