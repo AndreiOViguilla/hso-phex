@@ -158,6 +158,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
   }, [zoom]);
 
   useEffect(() => { updateScale(); }, [zoom, imgLoaded, updateScale]);
+  useEffect(() => { if (mobileTab === "preview") setTimeout(updateScale, 50); }, [mobileTab, updateScale]);
   useEffect(() => {
     window.addEventListener("resize", updateScale);
     return () => window.removeEventListener("resize", updateScale);
@@ -255,7 +256,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", background: t.bg, overflow: "hidden", position: "absolute", inset: 0 }}>
+    <div style={{ display: "flex", flexDirection: "column", background: t.bg, overflow: "hidden", position: "fixed", inset: 0, zIndex: 10 }}>
       {/* Header */}
       <div style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0, background: dark ? t.card : "#1e3a8a", borderBottom: `1px solid ${dark ? t.divider : "transparent"}` }}>
         <button onClick={handleBack} style={{ background: dark ? t.bg : "rgba(255,255,255,0.15)", border: dark ? `1px solid ${t.cardBorder}` : "none", color: dark ? t.text : "#fff", width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>←</button>
@@ -263,7 +264,7 @@ export default function NurseDEFPage({ studentMongoId, onBack, onSaved }) {
         {isMobile && (
           <div style={{ display: "flex", background: dark ? t.bg : "rgba(255,255,255,0.15)", borderRadius: 8, padding: 2, gap: 2 }}>
             {["form", "preview"].map(tab => (
-              <button key={tab} onClick={() => setMobileTab(tab)}
+              <button key={tab} onClick={() => { setMobileTab(tab); if (tab === "preview") setTimeout(updateScale, 50); }}
                 style={{ padding: "4px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit",
                   background: mobileTab === tab ? (dark ? t.card : "#fff") : "transparent",
                   color: mobileTab === tab ? (dark ? t.text : "#1e3a8a") : (dark ? t.textSub : "rgba(255,255,255,0.8)") }}>
