@@ -232,7 +232,7 @@ function PdfFieldOverlay({ form, checks, studentFields, onFormChange, onCheckCha
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function NurseMEFPage({ studentMongoId, onBack, onSaved }) {
-  const { t } = useTheme();
+  const { t, dark, toggle } = useTheme();
   const { show } = useModal();
   const isMobile = useIsMobile();
 
