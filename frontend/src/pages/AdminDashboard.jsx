@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { getAuthHeader } from "../App";
 import { useTheme } from "../ThemeContext";
 import { useModal } from "../components/Modal";
@@ -18,7 +18,28 @@ function formatDate(str) {
   return d.toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 }
 
-// ── Stats Tab ────────────────────────────────────────────────────────────────
+// ── Offline queue helpers ─────────────────────────────────────────────────────
+const OFFLINE_QUEUE_KEY = "hso_offline_queue";
+
+function getOfflineQueue() {
+  try { return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || "[]"); } catch { return []; }
+}
+function saveOfflineQueue(q) {
+  localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(q));
+}
+function addToOfflineQueue(item) {
+  const q = getOfflineQueue();
+  // Replace existing entry for same student+type
+  const filtered = q.filter(i => !(i.studentId === item.studentId && i.formType === item.formType));
+  filtered.push({ ...item, queuedAt: Date.now() });
+  saveOfflineQueue(filtered);
+}
+function removeFromOfflineQueue(studentId, formType) {
+  const q = getOfflineQueue().filter(i => !(i.studentId === studentId && i.formType === formType));
+  saveOfflineQueue(q);
+}
+
+// ── Stats Tab ─────────────────────────────────────────────────────────────────
 function StatsTab({ t, dark }) {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -50,48 +71,24 @@ function StatsTab({ t, dark }) {
   const Sparkline = ({ values, color, width = 120, height = 36 }) => {
     if (!values || values.length < 2) return null;
     const max = Math.max(...values, 1);
-    const pts = values.map((v, i) => [
-      (i / (values.length - 1)) * width,
-      height - (v / max) * (height - 4) - 2,
-    ]);
-    const path = pts.map((p, i) => {
-      if (i === 0) return `M ${p[0]},${p[1]}`;
-      const prev = pts[i - 1];
-      const cx = (prev[0] + p[0]) / 2;
-      return `C ${cx},${prev[1]} ${cx},${p[1]} ${p[0]},${p[1]}`;
-    }).join(" ");
-    const fill = pts.map((p, i) => {
-      if (i === 0) return `M ${p[0]},${height} L ${p[0]},${p[1]}`;
-      const prev = pts[i - 1];
-      const cx = (prev[0] + p[0]) / 2;
-      return `C ${cx},${prev[1]} ${cx},${p[1]} ${p[0]},${p[1]}`;
-    }).join(" ") + ` L ${pts[pts.length-1][0]},${height} Z`;
+    const pts = values.map((v, i) => [(i / (values.length - 1)) * width, height - (v / max) * (height - 4) - 2]);
+    const path = pts.map((p, i) => { if (i === 0) return `M ${p[0]},${p[1]}`; const prev = pts[i-1]; const cx = (prev[0]+p[0])/2; return `C ${cx},${prev[1]} ${cx},${p[1]} ${p[0]},${p[1]}`; }).join(" ");
+    const fill = pts.map((p, i) => { if (i === 0) return `M ${p[0]},${height} L ${p[0]},${p[1]}`; const prev = pts[i-1]; const cx = (prev[0]+p[0])/2; return `C ${cx},${prev[1]} ${cx},${p[1]} ${p[0]},${p[1]}`; }).join(" ") + ` L ${pts[pts.length-1][0]},${height} Z`;
     return (
       <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: "block" }}>
-        <defs>
-          <linearGradient id={`sg-${color.replace("#","")}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-            <stop offset="100%" stopColor={color} stopOpacity="0.02" />
-          </linearGradient>
-        </defs>
-        <path d={fill} fill={`url(#sg-${color.replace("#","")})`} />
-        <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <defs><linearGradient id={`sg-${color.replace("#","")}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity="0.25"/><stop offset="100%" stopColor={color} stopOpacity="0.02"/></linearGradient></defs>
+        <path d={fill} fill={`url(#sg-${color.replace("#","")})`}/>
+        <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     );
   };
 
-  const IconUsers = ({ color }) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
-  const IconCheckS = ({ color }) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
-  const IconFileS = ({ color }) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>;
-  const IconCalS = ({ color }) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
-  const IconActS = ({ color }) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
-
   const metricCards = [
-    { label: "Total Students", value: total, sub: "Registered accounts", color: "#6366f1", bg: dark ? "#1e1b4b22" : "#eef2ff", icon: <IconUsers color="#6366f1" />, spark: [total*0.3,total*0.5,total*0.65,total*0.8,total*0.9,total], trend: null },
-    { label: "Completed", value: completed, sub: `${pct(completed)}% of total`, color: "#16a34a", bg: dark ? "#14532d22" : "#f0fdf4", icon: <IconCheckS color="#16a34a" />, spark: [completed*0.1,completed*0.3,completed*0.5,completed*0.7,completed*0.9,completed], trend: pct(completed) },
-    { label: "Forms Filled", value: Math.round((mefFilled+defFilled)/2), sub: `MEF: ${mefFilled} · DEF: ${defFilled}`, color: "#7c3aed", bg: dark ? "#2e106522" : "#f5f3ff", icon: <IconFileS color="#7c3aed" />, spark: [mefFilled*0.2,defFilled*0.3,mefFilled*0.6,defFilled*0.7,mefFilled*0.9,Math.round((mefFilled+defFilled)/2)], trend: pct(Math.round((mefFilled+defFilled)/2)) },
-    { label: "Attended", value: attended1+attended2, sub: `1st: ${attended1} · 2nd: ${attended2}`, color: "#0d9488", bg: dark ? "#134e4a22" : "#f0fdfa", icon: <IconCalS color="#0d9488" />, spark: [attended1*0.2,attended1*0.5,attended1,attended1+attended2*0.3,attended1+attended2*0.7,attended1+attended2], trend: pct(attended2) },
-    { label: "In Progress", value: total-completed, sub: `${pct(total-completed)}% still going`, color: "#f59e0b", bg: dark ? "#78350f22" : "#fffbeb", icon: <IconActS color="#f59e0b" />, spark: stepCounts.slice(1,7), trend: null },
+    { label: "Total Students", value: total, sub: "Registered accounts", color: "#6366f1", bg: dark?"#1e1b4b22":"#eef2ff", icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, spark: [total*0.3,total*0.5,total*0.65,total*0.8,total*0.9,total], trend: null },
+    { label: "Completed", value: completed, sub: `${pct(completed)}% of total`, color: "#16a34a", bg: dark?"#14532d22":"#f0fdf4", icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>, spark: [completed*0.1,completed*0.3,completed*0.5,completed*0.7,completed*0.9,completed], trend: pct(completed) },
+    { label: "Forms Filled", value: Math.round((mefFilled+defFilled)/2), sub: `MEF: ${mefFilled} · DEF: ${defFilled}`, color: "#7c3aed", bg: dark?"#2e106522":"#f5f3ff", icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>, spark: [mefFilled*0.2,defFilled*0.3,mefFilled*0.6,defFilled*0.7,mefFilled*0.9,Math.round((mefFilled+defFilled)/2)], trend: pct(Math.round((mefFilled+defFilled)/2)) },
+    { label: "Attended", value: attended1+attended2, sub: `1st: ${attended1} · 2nd: ${attended2}`, color: "#0d9488", bg: dark?"#134e4a22":"#f0fdfa", icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>, spark: [attended1*0.2,attended1*0.5,attended1,attended1+attended2*0.3,attended1+attended2*0.7,attended1+attended2], trend: pct(attended2) },
+    { label: "In Progress", value: total-completed, sub: `${pct(total-completed)}% still going`, color: "#f59e0b", bg: dark?"#78350f22":"#fffbeb", icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>, spark: stepCounts.slice(1,7), trend: null },
   ];
 
   return (
@@ -105,15 +102,13 @@ function StatsTab({ t, dark }) {
             </div>
             <div style={{ fontSize: 28, fontWeight: 800, color: t.text, lineHeight: 1, marginBottom: 4 }}>{card.value.toLocaleString()}</div>
             {card.trend !== null
-              ? <div style={{ fontSize: 12, color: card.color, fontWeight: 600, marginBottom: 8, display: "flex", alignItems: "center", gap: 4 }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={card.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>+{card.trend}% completion rate</div>
-              : <div style={{ fontSize: 11, color: t.textSub, marginBottom: 8 }}>{card.sub}</div>
-            }
+              ? <div style={{ fontSize: 12, color: card.color, fontWeight: 600, marginBottom: 8 }}>+{card.trend}% completion rate</div>
+              : <div style={{ fontSize: 11, color: t.textSub, marginBottom: 8 }}>{card.sub}</div>}
             <Sparkline values={card.spark} color={card.color} width={160} height={36} />
             <div style={{ fontSize: 11, color: t.textMuted, marginTop: 6 }}>{card.sub}</div>
           </div>
         ))}
       </div>
-
       <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, padding: "20px", marginBottom: 20 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 4 }}>Students per step</div>
         <div style={{ fontSize: 12, color: t.textSub, marginBottom: 16 }}>How far along each student is in the process</div>
@@ -134,25 +129,23 @@ function StatsTab({ t, dark }) {
           })}
         </div>
       </div>
-
       <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 14, padding: "20px" }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 4 }}>By batch</div>
         <div style={{ fontSize: 12, color: t.textSub, marginBottom: 16 }}>Completion rate by student ID prefix</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {["125","124","123","122","121"].map(prefix => {
-            const batchStudents = students.filter(s => s.studentId?.startsWith(prefix));
-            const batchTotal = batchStudents.length;
-            const batchDone  = batchStudents.filter(s => s.currentStep >= 7).length;
-            const batchPct   = batchTotal > 0 ? Math.round((batchDone / batchTotal) * 100) : 0;
-            if (batchTotal === 0) return null;
+            const bs = students.filter(s => s.studentId?.startsWith(prefix));
+            const bt = bs.length; const bd = bs.filter(s => s.currentStep >= 7).length;
+            const bp = bt > 0 ? Math.round((bd/bt)*100) : 0;
+            if (bt === 0) return null;
             return (
               <div key={prefix} style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: t.text, width: 36, flexShrink: 0 }}>{prefix}</div>
-                <div style={{ flex: 1, height: 10, background: dark ? "#1e293b" : "#f1f5f9", borderRadius: 5, overflow: "hidden" }}>
-                  <div style={{ width: `${batchPct}%`, height: "100%", background: "#16a34a", borderRadius: 5, transition: "width 0.5s ease" }} />
+                <div style={{ flex: 1, height: 10, background: dark?"#1e293b":"#f1f5f9", borderRadius: 5, overflow: "hidden" }}>
+                  <div style={{ width: `${bp}%`, height: "100%", background: "#16a34a", borderRadius: 5, transition: "width 0.5s ease" }}/>
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: t.text, width: 28, textAlign: "right", flexShrink: 0 }}>{batchPct}%</div>
-                <div style={{ fontSize: 11, color: t.textSub, width: 70, flexShrink: 0 }}>{batchDone}/{batchTotal} done</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: t.text, width: 28, textAlign: "right", flexShrink: 0 }}>{bp}%</div>
+                <div style={{ fontSize: 11, color: t.textSub, width: 70, flexShrink: 0 }}>{bd}/{bt} done</div>
               </div>
             );
           })}
@@ -162,421 +155,193 @@ function StatsTab({ t, dark }) {
   );
 }
 
-// ── Slots Tab ────────────────────────────────────────────────────────────────
+// ── Slots Tab ─────────────────────────────────────────────────────────────────
 function SlotsTab({ t, dark }) {
   const { show } = useModal();
   const [type, setType] = useState("phex");
   const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [showAdd, setShowAdd] = useState(false);
   const [newDate, setNewDate] = useState("");
   const [capacity, setCapacity] = useState(5);
   const [saving, setSaving] = useState(false);
-
-    const DEFAULT_TIMES = [
-    "8:00am","8:15am","8:30am","8:45am","9:00am","9:15am","9:30am","9:45am",
-    "10:00am","10:15am","10:30am","10:45am","11:00am","11:15am","11:30am","11:45am",
-    "1:00pm","1:15pm","1:30pm","1:45pm","2:00pm","2:15pm","2:30pm","2:45pm",
-    "3:00pm","3:15pm","3:30pm","3:45pm","4:00pm","4:15pm","4:30pm","4:45pm",
-    "5:00pm","5:15pm","5:30pm","5:45pm",
-  ];
-
+  const DEFAULT_TIMES = ["8:00am","8:15am","8:30am","8:45am","9:00am","9:15am","9:30am","9:45am","10:00am","10:15am","10:30am","10:45am","11:00am","11:15am","11:30am","11:45am","1:00pm","1:15pm","1:30pm","1:45pm","2:00pm","2:15pm","2:30pm","2:45pm","3:00pm","3:15pm","3:30pm","3:45pm","4:00pm","4:15pm","4:30pm","4:45pm","5:00pm","5:15pm","5:30pm","5:45pm"];
   const MNAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   const DNAMES = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
-  const [calYear,  setCalYear]  = useState(new Date().getFullYear());
+  const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
-
-  const getDaysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
-  const getFirstDay    = (y, m) => new Date(y, m, 1).getDay();
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const r = await fetch(`/api/hso/slots?type=${type}`, { credentials: "include" });
-      if (r.ok) setSlots(await r.json());
-    } catch (_) {}
-    setLoading(false);
-  };
-
+  const getDaysInMonth = (y,m) => new Date(y,m+1,0).getDate();
+  const getFirstDay = (y,m) => new Date(y,m,1).getDay();
+  const load = async () => { setLoading(true); try { const r = await fetch(`/api/hso/slots?type=${type}`,{credentials:"include"}); if(r.ok) setSlots(await r.json()); } catch(_){} setLoading(false); };
   useEffect(() => { load(); }, [type]);
-
-  const getSlotForDate = (dateStr) => slots.find(s => s.date === dateStr);
-
-  const handleCalendarClick = (dateStr, isSunday) => {
-    if (isSunday) return;
-    setNewDate(prev => prev === dateStr ? "" : dateStr);
-  };
-
+  const getSlotForDate = (d) => slots.find(s => s.date === d);
+  const handleCalendarClick = (d, isSunday) => { if(isSunday) return; setNewDate(prev => prev===d?"":d); };
   const handleAdd = async () => {
-    if (!newDate) { show({ type: "error", message: "Please select a date on the calendar." }); return; }
+    if(!newDate){show({type:"error",message:"Please select a date."});return;}
     setSaving(true);
     try {
-      const slotsPayload = DEFAULT_TIMES.map(time => ({ time, capacity, booked: 0 }));
-      const r = await fetch("/api/hso/slots", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ appointmentType: type, date: newDate, slots: slotsPayload }),
-      });
-      if (r.ok) { show({ type: "success", message: "Slots added for " + formatDate(newDate) + "!" }); setNewDate(""); load(); }
-      else { const d = await r.json(); show({ type: "error", message: d.error }); }
-    } catch (_) { show({ type: "error", message: "Server error." }); }
+      const r = await fetch("/api/hso/slots",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({appointmentType:type,date:newDate,slots:DEFAULT_TIMES.map(time=>({time,capacity,booked:0}))})});
+      if(r.ok){show({type:"success",message:"Slots added for "+formatDate(newDate)+"!"});setNewDate("");load();}
+      else{const d=await r.json();show({type:"error",message:d.error});}
+    }catch(_){show({type:"error",message:"Server error."});}
     setSaving(false);
   };
-
   const handleDelete = async (date) => {
-    if (!window.confirm("Delete all slots for " + formatDate(date) + "?")) return;
-    try {
-      await fetch("/api/hso/slots/" + type + "/" + date, { method: "DELETE", credentials: "include" });
-      if (newDate === date) setNewDate("");
-      load();
-    } catch (_) {}
+    if(!window.confirm("Delete all slots for "+formatDate(date)+"?"))return;
+    try{await fetch("/api/hso/slots/"+type+"/"+date,{method:"DELETE",credentials:"include"});if(newDate===date)setNewDate("");load();}catch(_){}
   };
-
-  const accentColor = type === "phex" ? t.blue : t.teal;
-  const accentBg    = type === "phex" ? t.blueBg : t.tealBg;
-  const accentSolid = type === "phex" ? (dark ? "#2563eb" : "#1e3a8a") : (dark ? "#0d9488" : "#0f766e");
-
-  const daysInMonth = getDaysInMonth(calYear, calMonth);
-  const firstDay    = getFirstDay(calYear, calMonth);
-  const prevMonth   = () => { if (calMonth === 0) { setCalYear(y => y-1); setCalMonth(11); } else setCalMonth(m => m-1); };
-  const nextMonth   = () => { if (calMonth === 11) { setCalYear(y => y+1); setCalMonth(0); } else setCalMonth(m => m+1); };
-
-  const selectedDaySlot = newDate ? getSlotForDate(newDate) : null;
+  const accentColor = type==="phex"?t.blue:t.teal;
+  const accentBg = type==="phex"?t.blueBg:t.tealBg;
+  const accentSolid = type==="phex"?(dark?"#2563eb":"#1e3a8a"):(dark?"#0d9488":"#0f766e");
+  const daysInMonth = getDaysInMonth(calYear,calMonth);
+  const firstDay = getFirstDay(calYear,calMonth);
+  const prevMonth = () => { if(calMonth===0){setCalYear(y=>y-1);setCalMonth(11);}else setCalMonth(m=>m-1); };
+  const nextMonth = () => { if(calMonth===11){setCalYear(y=>y+1);setCalMonth(0);}else setCalMonth(m=>m+1); };
+  const selectedDaySlot = newDate?getSlotForDate(newDate):null;
 
   return (
     <div>
-      {/* Type switcher */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        {["phex","dt"].map(t2 => (
-          <button key={t2} onClick={() => { setType(t2); setNewDate(""); }}
-            style={{ padding: "7px 16px", borderRadius: 8, border: "1.5px solid " + (type === t2 ? t.accent : t.cardBorder), background: type === t2 ? t.accentBg : t.card, color: type === t2 ? t.accent : t.textSub, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-            {t2 === "phex" ? "PHEx" : "Drug Test"}
+      <div style={{display:"flex",gap:8,marginBottom:16}}>
+        {["phex","dt"].map(t2=>(
+          <button key={t2} onClick={()=>{setType(t2);setNewDate("");}} style={{padding:"7px 16px",borderRadius:8,border:"1.5px solid "+(type===t2?t.accent:t.cardBorder),background:type===t2?t.accentBg:t.card,color:type===t2?t.accent:t.textSub,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+            {t2==="phex"?"PHEx":"Drug Test"}
           </button>
         ))}
       </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {/* Calendar */}
-        <div style={{ background: t.card, border: "1px solid " + t.cardBorder, borderRadius: 14, padding: "20px", display: "flex", flexDirection: "column", gap: 0 }}>
-          {/* Month nav */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <button onClick={prevMonth} style={{ background: "none", border: "none", cursor: "pointer", color: t.textSub, padding: "4px 8px", fontSize: 18, display: "flex", alignItems: "center" }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <span style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{MNAMES[calMonth]} {calYear}</span>
-            <button onClick={nextMonth} style={{ background: "none", border: "none", cursor: "pointer", color: t.textSub, padding: "4px 8px", fontSize: 18, display: "flex", alignItems: "center" }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-            </button>
+      <div style={{display:"flex",flexDirection:"column",gap:16}}>
+        <div style={{background:t.card,border:"1px solid "+t.cardBorder,borderRadius:14,padding:"20px"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+            <button onClick={prevMonth} style={{background:"none",border:"none",cursor:"pointer",color:t.textSub,padding:"4px 8px",display:"flex",alignItems:"center"}}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+            <span style={{fontSize:15,fontWeight:700,color:t.text}}>{MNAMES[calMonth]} {calYear}</span>
+            <button onClick={nextMonth} style={{background:"none",border:"none",cursor:"pointer",color:t.textSub,padding:"4px 8px",display:"flex",alignItems:"center"}}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
           </div>
-
-          {/* Day headers */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 6 }}>
-            {DNAMES.map(d => (
-              <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: d === "SUN" ? "#ef4444" : t.textMuted, padding: "4px 0" }}>{d}</div>
-            ))}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:6}}>
+            {DNAMES.map(d=><div key={d} style={{textAlign:"center",fontSize:11,fontWeight:700,color:d==="SUN"?"#ef4444":t.textMuted,padding:"4px 0"}}>{d}</div>)}
           </div>
-
-          {/* Calendar grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }}>
-            {Array.from({ length: firstDay }).map((_, i) => <div key={"e"+i} />)}
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const d = i + 1;
-              const isSunday = new Date(calYear, calMonth, d).getDay() === 0;
-              const dateStr = calYear + "-" + String(calMonth+1).padStart(2,"0") + "-" + String(d).padStart(2,"0");
-              const existingSlot = getSlotForDate(dateStr);
-              const isSelected = newDate === dateStr;
-              const totalCap = existingSlot?.slots?.reduce((a, s) => a + s.capacity, 0) || 0;
-              const totalBooked = existingSlot?.slots?.reduce((a, s) => a + s.booked, 0) || 0;
-              const isFull = existingSlot && totalBooked >= totalCap;
-
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
+            {Array.from({length:firstDay}).map((_,i)=><div key={"e"+i}/>)}
+            {Array.from({length:daysInMonth}).map((_,i)=>{
+              const d=i+1;const isSunday=new Date(calYear,calMonth,d).getDay()===0;
+              const dateStr=calYear+"-"+String(calMonth+1).padStart(2,"0")+"-"+String(d).padStart(2,"0");
+              const existingSlot=getSlotForDate(dateStr);const isSelected=newDate===dateStr;
+              const totalCap=existingSlot?.slots?.reduce((a,s)=>a+s.capacity,0)||0;
+              const totalBooked=existingSlot?.slots?.reduce((a,s)=>a+s.booked,0)||0;
+              const isFull=existingSlot&&totalBooked>=totalCap;
               return (
-                <div key={d} style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 0" }}>
-                  <button
-                    onClick={() => handleCalendarClick(dateStr, isSunday)}
-                    disabled={isSunday}
-                    title={existingSlot ? (totalBooked + "/" + totalCap + " booked") : (isSunday ? "Closed" : "Click to add slots")}
-                    style={{
-                      width: 36, height: 36, borderRadius: "50%", border: "none",
-                      cursor: isSunday ? "not-allowed" : "pointer",
-                      background: isSelected ? accentSolid
-                        : existingSlot ? (isFull ? "#fee2e2" : accentBg)
-                        : "transparent",
-                      color: isSelected ? "#fff"
-                        : existingSlot ? (isFull ? "#ef4444" : accentColor)
-                        : isSunday ? (dark ? "#374151" : "#d1d5db")
-                        : t.text,
-                      fontWeight: existingSlot || isSelected ? 700 : 400,
-                      fontSize: 13,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      position: "relative",
-                      transition: "all 0.15s",
-                    }}>
+                <div key={d} style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"2px 0"}}>
+                  <button onClick={()=>handleCalendarClick(dateStr,isSunday)} disabled={isSunday}
+                    style={{width:36,height:36,borderRadius:"50%",border:"none",cursor:isSunday?"not-allowed":"pointer",background:isSelected?accentSolid:existingSlot?(isFull?"#fee2e2":accentBg):"transparent",color:isSelected?"#fff":existingSlot?(isFull?"#ef4444":accentColor):isSunday?(dark?"#374151":"#d1d5db"):t.text,fontWeight:existingSlot||isSelected?700:400,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",position:"relative",transition:"all 0.15s"}}>
                     {d}
-                    {existingSlot && !isSelected && (
-                      <div style={{ position: "absolute", bottom: 3, left: "50%", transform: "translateX(-50%)", width: 4, height: 4, borderRadius: "50%", background: isFull ? "#ef4444" : accentColor }} />
-                    )}
+                    {existingSlot&&!isSelected&&<div style={{position:"absolute",bottom:3,left:"50%",transform:"translateX(-50%)",width:4,height:4,borderRadius:"50%",background:isFull?"#ef4444":accentColor}}/>}
                   </button>
                 </div>
               );
             })}
           </div>
-
-          {/* Legend */}
-          <div style={{ display: "flex", gap: 14, marginTop: 14, flexWrap: "wrap" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: t.textSub }}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: accentBg, border: "1.5px solid " + accentColor }} />
-              Has slots
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: t.textSub }}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#fee2e2", border: "1.5px solid #ef4444" }} />
-              Full
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: t.textSub }}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: accentSolid }} />
-              Selected
-            </div>
+          <div style={{display:"flex",gap:14,marginTop:14,flexWrap:"wrap"}}>
+            <div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:t.textSub}}><div style={{width:10,height:10,borderRadius:"50%",background:accentBg,border:"1.5px solid "+accentColor}}/> Has slots</div>
+            <div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:t.textSub}}><div style={{width:10,height:10,borderRadius:"50%",background:"#fee2e2",border:"1.5px solid #ef4444"}}/> Full</div>
+            <div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:t.textSub}}><div style={{width:10,height:10,borderRadius:"50%",background:accentSolid}}/> Selected</div>
           </div>
         </div>
-
-        {/* Action panel — shown when a date is selected */}
-        {newDate && (
-          <div style={{ background: t.card, border: "1.5px solid " + accentColor, borderRadius: 14, padding: "16px" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 4 }}>{formatDate(newDate)}</div>
-            {selectedDaySlot ? (
+        {newDate&&(
+          <div style={{background:t.card,border:"1.5px solid "+accentColor,borderRadius:14,padding:"16px"}}>
+            <div style={{fontSize:14,fontWeight:700,color:t.text,marginBottom:4}}>{formatDate(newDate)}</div>
+            {selectedDaySlot?(
               <div>
-                <div style={{ fontSize: 12, color: t.textSub, marginBottom: 12 }}>
-                  {selectedDaySlot.slots?.length || 0} time slots · {selectedDaySlot.slots?.reduce((a,s)=>a+s.booked,0)||0}/{selectedDaySlot.slots?.reduce((a,s)=>a+s.capacity,0)||0} booked
-                </div>
-                <div style={{ width: "100%", height: 6, borderRadius: 3, background: t.bg, overflow: "hidden", marginBottom: 12 }}>
-                  <div style={{ width: ((selectedDaySlot.slots?.reduce((a,s)=>a+s.booked,0)||0) / (selectedDaySlot.slots?.reduce((a,s)=>a+s.capacity,0)||1) * 100) + "%", height: "100%", background: accentColor, borderRadius: 3 }} />
-                </div>
-                <button onClick={() => handleDelete(newDate)}
-                  style={{ width: "100%", padding: "9px", border: "1px solid #fca5a5", borderRadius: 8, background: "#fee2e2", color: "#ef4444", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                  Delete all slots for this day
-                </button>
+                <div style={{fontSize:12,color:t.textSub,marginBottom:12}}>{selectedDaySlot.slots?.length||0} time slots · {selectedDaySlot.slots?.reduce((a,s)=>a+s.booked,0)||0}/{selectedDaySlot.slots?.reduce((a,s)=>a+s.capacity,0)||0} booked</div>
+                <div style={{width:"100%",height:6,borderRadius:3,background:t.bg,overflow:"hidden",marginBottom:12}}><div style={{width:((selectedDaySlot.slots?.reduce((a,s)=>a+s.booked,0)||0)/(selectedDaySlot.slots?.reduce((a,s)=>a+s.capacity,0)||1)*100)+"%",height:"100%",background:accentColor,borderRadius:3}}/></div>
+                <button onClick={()=>handleDelete(newDate)} style={{width:"100%",padding:"9px",border:"1px solid #fca5a5",borderRadius:8,background:"#fee2e2",color:"#ef4444",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Delete all slots for this day</button>
               </div>
-            ) : (
+            ):(
               <div>
-                <div style={{ fontSize: 12, color: t.textSub, marginBottom: 12 }}>No slots yet. Set a capacity and add slots.</div>
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ fontSize: 11, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 4 }}>Capacity per time slot</label>
-                  <input type="number" min="1" max="50" value={capacity} onChange={e => setCapacity(Number(e.target.value))}
-                    style={{ width: "100%", padding: "9px 12px", border: "1px solid " + t.inputBorder, borderRadius: 8, fontSize: 13, fontFamily: "inherit", background: t.input, color: t.text, boxSizing: "border-box", outline: "none" }} />
-                  <div style={{ fontSize: 11, color: t.textSub, marginTop: 4 }}>Will generate {DEFAULT_TIMES.length} slots (8am–12nn, 1pm–6pm) with {capacity} spots each.</div>
-                </div>
-                <button onClick={handleAdd} disabled={saving}
-                  style={{ width: "100%", padding: "10px", border: "none", borderRadius: 8, background: accentSolid, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: saving ? 0.7 : 1 }}>
-                  {saving ? "Adding…" : "Add " + DEFAULT_TIMES.length + " slots →"}
-                </button>
+                <div style={{fontSize:12,color:t.textSub,marginBottom:12}}>No slots yet.</div>
+                <div style={{marginBottom:12}}><label style={{fontSize:11,fontWeight:600,color:t.textSub,display:"block",marginBottom:4}}>Capacity per time slot</label><input type="number" min="1" max="50" value={capacity} onChange={e=>setCapacity(Number(e.target.value))} style={{width:"100%",padding:"9px 12px",border:"1px solid "+t.inputBorder,borderRadius:8,fontSize:13,fontFamily:"inherit",background:t.input,color:t.text,boxSizing:"border-box",outline:"none"}}/><div style={{fontSize:11,color:t.textSub,marginTop:4}}>Will generate {DEFAULT_TIMES.length} slots with {capacity} spots each.</div></div>
+                <button onClick={handleAdd} disabled={saving} style={{width:"100%",padding:"10px",border:"none",borderRadius:8,background:accentSolid,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",opacity:saving?0.7:1}}>{saving?"Adding…":"Add "+DEFAULT_TIMES.length+" slots →"}</button>
               </div>
             )}
           </div>
         )}
-
-        {/* No date selected hint */}
-        {!newDate && !loading && (
-          <div style={{ fontSize: 12, color: t.textMuted, textAlign: "center", padding: "8px 0" }}>
-            Click a date on the calendar to add or manage slots.
-          </div>
-        )}
+        {!newDate&&!loading&&<div style={{fontSize:12,color:t.textMuted,textAlign:"center",padding:"8px 0"}}>Click a date on the calendar to add or manage slots.</div>}
       </div>
     </div>
   );
 }
 
-// ── Venues Tab ───────────────────────────────────────────────────────────────
+// ── Venues Tab ────────────────────────────────────────────────────────────────
 function VenuesTab({ t }) {
   const { show } = useModal();
-  const [venues, setVenues] = useState({ phex_venue: "", phex_venue_sub: "", dt_venue: "", dt_venue_sub: "" });
+  const [venues, setVenues] = useState({ phex_venue:"", phex_venue_sub:"", dt_venue:"", dt_venue_sub:"" });
   const [batchWindows, setBatchWindows] = useState({});
-  const [announcement, setAnnouncement] = useState({ text: "", type: "info", active: false });
+  const [announcement, setAnnouncement] = useState({ text:"", type:"info", active:false });
   const [saving, setSaving] = useState(false);
   const [savingBatch, setSavingBatch] = useState(false);
   const [savingAnnouncement, setSavingAnnouncement] = useState(false);
 
   useEffect(() => {
-    fetch("/api/hso/settings", { credentials: "include" })
-      .then(r => r.ok ? r.json() : {})
-      .then(data => {
-        setVenues(v => ({ ...v, ...data }));
-        if (data.announcement) setAnnouncement(data.announcement);
-        if (data.batch_windows) setBatchWindows(data.batch_windows);
-        else setBatchWindows({
-          "125": { bookStart: "2026-06-05", bookEnd: "2026-06-19" },
-          "124": { bookStart: "2026-06-17", bookEnd: "2026-07-04" },
-          "123": { bookStart: "2026-07-03", bookEnd: "2026-07-16" },
-          "122": { bookStart: "2026-07-17", bookEnd: "2026-07-27" },
-          "121": { bookStart: "2026-07-25", bookEnd: "2026-07-31" },
-        });
-      })
-      .catch(() => {});
+    fetch("/api/hso/settings",{credentials:"include"}).then(r=>r.ok?r.json():{}).then(data=>{
+      setVenues(v=>({...v,...data}));
+      if(data.announcement)setAnnouncement(data.announcement);
+      if(data.batch_windows)setBatchWindows(data.batch_windows);
+      else setBatchWindows({"125":{bookStart:"2026-06-05",bookEnd:"2026-06-19"},"124":{bookStart:"2026-06-17",bookEnd:"2026-07-04"},"123":{bookStart:"2026-07-03",bookEnd:"2026-07-16"},"122":{bookStart:"2026-07-17",bookEnd:"2026-07-27"},"121":{bookStart:"2026-07-25",bookEnd:"2026-07-31"}});
+    }).catch(()=>{});
   }, []);
 
-  const saveBatchWindows = async () => {
-    setSavingBatch(true);
-    try {
-      const r = await fetch("/api/hso/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ key: "batch_windows", value: batchWindows }),
-      });
-      if (r.ok) show({ type: "success", message: "Booking windows updated!" });
-      else show({ type: "error", message: "Failed to update." });
-    } catch (_) { show({ type: "error", message: "Server error." }); }
-    setSavingBatch(false);
-  };
+  const save = async (key,value) => { setSaving(true); try { const r=await fetch("/api/hso/settings",{method:"PUT",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({key,value})}); if(r.ok)show({type:"success",message:"Venue updated!"}); else show({type:"error",message:"Failed."}); } catch(_){show({type:"error",message:"Server error."});} setSaving(false); };
+  const saveBatchWindows = async () => { setSavingBatch(true); try { const r=await fetch("/api/hso/settings",{method:"PUT",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({key:"batch_windows",value:batchWindows})}); if(r.ok)show({type:"success",message:"Booking windows updated!"}); else show({type:"error",message:"Failed."}); } catch(_){show({type:"error",message:"Server error."});} setSavingBatch(false); };
+  const saveAnnouncement = async () => { setSavingAnnouncement(true); try { const r=await fetch("/api/hso/settings",{method:"PUT",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({key:"announcement",value:announcement})}); if(r.ok)show({type:"success",message:"Announcement saved!"}); else show({type:"error",message:"Failed."}); } catch(_){show({type:"error",message:"Server error."});} setSavingAnnouncement(false); };
+  const updateBatchWindow = (prefix,field,value) => setBatchWindows(bw=>({...bw,[prefix]:{...bw[prefix],[field]:value}}));
 
-  const updateBatchWindow = (prefix, field, value) => {
-    setBatchWindows(bw => ({ ...bw, [prefix]: { ...bw[prefix], [field]: value } }));
-  };
-
-  const saveAnnouncement = async () => {
-    setSavingAnnouncement(true);
-    try {
-      const r = await fetch("/api/hso/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ key: "announcement", value: announcement }),
-      });
-      if (r.ok) show({ type: "success", message: announcement.active ? "Announcement published!" : "Announcement saved (inactive)." });
-      else show({ type: "error", message: "Failed to update." });
-    } catch (_) { show({ type: "error", message: "Server error." }); }
-    setSavingAnnouncement(false);
-  };
-
-  const save = async (key, value) => {
-    setSaving(true);
-    try {
-      const r = await fetch("/api/hso/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ key, value }),
-      });
-      if (r.ok) show({ type: "success", message: "Venue updated!" });
-      else show({ type: "error", message: "Failed to update." });
-    } catch (_) { show({ type: "error", message: "Server error." }); }
-    setSaving(false);
-  };
-
-  const inp = { width: "100%", padding: "10px 12px", border: `1px solid ${t.inputBorder}`, borderRadius: 8, fontSize: 13, fontFamily: "inherit", background: t.input, color: t.text, boxSizing: "border-box", outline: "none" };
-  const lbl = { fontSize: 11, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 4 };
-
-  const announcementTypes = [
-    { value: "info",    label: "Info",    color: "#1d4ed8", bg: "#eff6ff" },
-    { value: "success", label: "Success", color: "#16a34a", bg: "#f0fdf4" },
-    { value: "warning", label: "Warning", color: "#d97706", bg: "#fffbeb" },
-    { value: "urgent",  label: "Urgent",  color: "#dc2626", bg: "#fef2f2" },
-  ];
-  const currentTypeStyle = announcementTypes.find(a => a.value === announcement.type) || announcementTypes[0];
+  const inp={width:"100%",padding:"10px 12px",border:`1px solid ${t.inputBorder}`,borderRadius:8,fontSize:13,fontFamily:"inherit",background:t.input,color:t.text,boxSizing:"border-box",outline:"none"};
+  const lbl={fontSize:11,fontWeight:600,color:t.textSub,display:"block",marginBottom:4};
+  const announcementTypes=[{value:"info",label:"Info",color:"#1d4ed8",bg:"#eff6ff"},{value:"success",label:"Success",color:"#16a34a",bg:"#f0fdf4"},{value:"warning",label:"Warning",color:"#d97706",bg:"#fffbeb"},{value:"urgent",label:"Urgent",color:"#dc2626",bg:"#fef2f2"}];
+  const currentTypeStyle=announcementTypes.find(a=>a.value===announcement.type)||announcementTypes[0];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Announcement banner */}
-      <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: "16px" }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 4 }}>Announcement Banner</div>
-        <div style={{ fontSize: 11, color: t.textSub, marginBottom: 14 }}>Shown to all students at the top of their schedule page.</div>
-
-        <div style={{ marginBottom: 10 }}>
-          <label style={lbl}>Message</label>
-          <textarea
-            style={{ ...inp, minHeight: 70, resize: "vertical", fontFamily: "inherit" }}
-            placeholder="e.g. PHEx booking opens Monday, June 16 at 8:00 AM."
-            value={announcement.text || ""}
-            onChange={e => setAnnouncement(a => ({ ...a, text: e.target.value }))}
-          />
-        </div>
-
-        <div style={{ marginBottom: 14 }}>
-          <label style={lbl}>Type</label>
-          <div style={{ display: "flex", gap: 8 }}>
-            {announcementTypes.map(({ value, label, color, bg }) => (
-              <button key={value} onClick={() => setAnnouncement(a => ({ ...a, type: value }))}
-                style={{ flex: 1, padding: "8px", borderRadius: 8, border: `1.5px solid ${announcement.type === value ? color : t.cardBorder}`, background: announcement.type === value ? bg : t.card, color: announcement.type === value ? color : t.textSub, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Live preview */}
-        {announcement.text && (
-          <div style={{ marginBottom: 14 }}>
-            <label style={lbl}>Preview</label>
-            <div style={{ background: currentTypeStyle.bg, border: `1px solid ${currentTypeStyle.color}44`, borderRadius: 10, padding: "12px 14px", fontSize: 13, color: currentTypeStyle.color, fontWeight: 600, lineHeight: 1.5 }}>
-              {announcement.text}
-            </div>
-          </div>
-        )}
-
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, color: t.text, fontWeight: 600 }}>
-            <input type="checkbox" checked={!!announcement.active} onChange={e => setAnnouncement(a => ({ ...a, active: e.target.checked }))} style={{ width: 16, height: 16, accentColor: t.accent }} />
-            Show this announcement to students
-          </label>
-        </div>
-
-        <button onClick={saveAnnouncement} disabled={savingAnnouncement}
-          style={{ padding: "9px 20px", border: "none", borderRadius: 8, background: t.accentBtn, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: savingAnnouncement ? 0.7 : 1 }}>
-          {savingAnnouncement ? "Saving…" : "Save announcement"}
-        </button>
+    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+      <div style={{background:t.card,border:`1px solid ${t.cardBorder}`,borderRadius:12,padding:"16px"}}>
+        <div style={{fontSize:13,fontWeight:700,color:t.text,marginBottom:4}}>Announcement Banner</div>
+        <div style={{fontSize:11,color:t.textSub,marginBottom:14}}>Shown to all students at the top of their schedule page.</div>
+        <div style={{marginBottom:10}}><label style={lbl}>Message</label><textarea style={{...inp,minHeight:70,resize:"vertical",fontFamily:"inherit"}} placeholder="e.g. PHEx booking opens Monday, June 16 at 8:00 AM." value={announcement.text||""} onChange={e=>setAnnouncement(a=>({...a,text:e.target.value}))}/></div>
+        <div style={{marginBottom:14}}><label style={lbl}>Type</label><div style={{display:"flex",gap:8}}>{announcementTypes.map(({value,label,color,bg})=>(<button key={value} onClick={()=>setAnnouncement(a=>({...a,type:value}))} style={{flex:1,padding:"8px",borderRadius:8,border:`1.5px solid ${announcement.type===value?color:t.cardBorder}`,background:announcement.type===value?bg:t.card,color:announcement.type===value?color:t.textSub,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>))}</div></div>
+        {announcement.text&&(<div style={{marginBottom:14}}><label style={lbl}>Preview</label><div style={{background:currentTypeStyle.bg,border:`1px solid ${currentTypeStyle.color}44`,borderRadius:10,padding:"12px 14px",fontSize:13,color:currentTypeStyle.color,fontWeight:600,lineHeight:1.5}}>{announcement.text}</div></div>)}
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}><label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,color:t.text,fontWeight:600}}><input type="checkbox" checked={!!announcement.active} onChange={e=>setAnnouncement(a=>({...a,active:e.target.checked}))} style={{width:16,height:16,accentColor:t.accent}}/>Show this announcement to students</label></div>
+        <button onClick={saveAnnouncement} disabled={savingAnnouncement} style={{padding:"9px 20px",border:"none",borderRadius:8,background:t.accentBtn,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",opacity:savingAnnouncement?0.7:1}}>{savingAnnouncement?"Saving…":"Save announcement"}</button>
       </div>
-
-      {[
-        { label: "PHEx Venue", mainKey: "phex_venue", subKey: "phex_venue_sub", mainPh: "e.g. Waldo Perfecto Seminar Room", subPh: "e.g. Ground floor, Br. Connon Hall" },
-        { label: "Drug Test Venue", mainKey: "dt_venue", subKey: "dt_venue_sub", mainPh: "e.g. 2nd Floor, Enrique Razon Sports Center", subPh: "e.g. ERSC — across from the main gym" },
-      ].map(({ label, mainKey, subKey, mainPh, subPh }) => (
-        <div key={mainKey} style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: "16px" }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>{label}</div>
-          <div style={{ marginBottom: 10 }}>
-            <label style={lbl}>Room / Building</label>
-            <input style={inp} placeholder={mainPh} value={venues[mainKey] || ""} onChange={e => setVenues(v => ({ ...v, [mainKey]: e.target.value }))} />
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <label style={lbl}>Floor / Description</label>
-            <input style={inp} placeholder={subPh} value={venues[subKey] || ""} onChange={e => setVenues(v => ({ ...v, [subKey]: e.target.value }))} />
-          </div>
-          <button onClick={() => { save(mainKey, venues[mainKey]); save(subKey, venues[subKey]); }}
-            disabled={saving}
-            style={{ padding: "9px 20px", border: "none", borderRadius: 8, background: t.accentBtn, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: saving ? 0.7 : 1 }}>
-            Save venue
-          </button>
+      {[{label:"PHEx Venue",mainKey:"phex_venue",subKey:"phex_venue_sub",mainPh:"e.g. Waldo Perfecto Seminar Room",subPh:"e.g. Ground floor, Br. Connon Hall"},{label:"Drug Test Venue",mainKey:"dt_venue",subKey:"dt_venue_sub",mainPh:"e.g. 2nd Floor, Enrique Razon Sports Center",subPh:"e.g. ERSC — across from the main gym"}].map(({label,mainKey,subKey,mainPh,subPh})=>(
+        <div key={mainKey} style={{background:t.card,border:`1px solid ${t.cardBorder}`,borderRadius:12,padding:"16px"}}>
+          <div style={{fontSize:13,fontWeight:700,color:t.text,marginBottom:12}}>{label}</div>
+          <div style={{marginBottom:10}}><label style={lbl}>Room / Building</label><input style={inp} placeholder={mainPh} value={venues[mainKey]||""} onChange={e=>setVenues(v=>({...v,[mainKey]:e.target.value}))}/></div>
+          <div style={{marginBottom:12}}><label style={lbl}>Floor / Description</label><input style={inp} placeholder={subPh} value={venues[subKey]||""} onChange={e=>setVenues(v=>({...v,[subKey]:e.target.value}))}/></div>
+          <button onClick={()=>{save(mainKey,venues[mainKey]);save(subKey,venues[subKey]);}} disabled={saving} style={{padding:"9px 20px",border:"none",borderRadius:8,background:t.accentBtn,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",opacity:saving?0.7:1}}>Save venue</button>
         </div>
       ))}
-
-      {/* Booking windows per batch */}
-      <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: "16px" }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 4 }}>Booking Windows per Batch</div>
-        <div style={{ fontSize: 11, color: t.textSub, marginBottom: 14 }}>Set when each batch (by ID prefix) can book PHEx/DT appointments.</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {Object.keys(batchWindows).sort((a,b) => b.localeCompare(a)).map(prefix => (
-            <div key={prefix} style={{ display: "grid", gridTemplateColumns: "60px 1fr 1fr", gap: 10, alignItems: "end" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{prefix}</div>
-              <div>
-                <label style={lbl}>Opens</label>
-                <input type="date" style={inp} value={batchWindows[prefix]?.bookStart || ""} onChange={e => updateBatchWindow(prefix, "bookStart", e.target.value)} />
-              </div>
-              <div>
-                <label style={lbl}>Closes</label>
-                <input type="date" style={inp} value={batchWindows[prefix]?.bookEnd || ""} onChange={e => updateBatchWindow(prefix, "bookEnd", e.target.value)} />
-              </div>
+      <div style={{background:t.card,border:`1px solid ${t.cardBorder}`,borderRadius:12,padding:"16px"}}>
+        <div style={{fontSize:13,fontWeight:700,color:t.text,marginBottom:4}}>Booking Windows per Batch</div>
+        <div style={{fontSize:11,color:t.textSub,marginBottom:14}}>Set when each batch (by ID prefix) can book appointments.</div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {Object.keys(batchWindows).sort((a,b)=>b.localeCompare(a)).map(prefix=>(
+            <div key={prefix} style={{display:"grid",gridTemplateColumns:"60px 1fr 1fr",gap:10,alignItems:"end"}}>
+              <div style={{fontSize:13,fontWeight:700,color:t.text}}>{prefix}</div>
+              <div><label style={lbl}>Opens</label><input type="date" style={inp} value={batchWindows[prefix]?.bookStart||""} onChange={e=>updateBatchWindow(prefix,"bookStart",e.target.value)}/></div>
+              <div><label style={lbl}>Closes</label><input type="date" style={inp} value={batchWindows[prefix]?.bookEnd||""} onChange={e=>updateBatchWindow(prefix,"bookEnd",e.target.value)}/></div>
             </div>
           ))}
         </div>
-        <button onClick={saveBatchWindows} disabled={savingBatch}
-          style={{ marginTop: 14, padding: "9px 20px", border: "none", borderRadius: 8, background: t.accentBtn, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: savingBatch ? 0.7 : 1 }}>
-          {savingBatch ? "Saving…" : "Save booking windows"}
-        </button>
+        <button onClick={saveBatchWindows} disabled={savingBatch} style={{marginTop:14,padding:"9px 20px",border:"none",borderRadius:8,background:t.accentBtn,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",opacity:savingBatch?0.7:1}}>{savingBatch?"Saving…":"Save booking windows"}</button>
       </div>
     </div>
   );
 }
 
-// ── Students Tab ─────────────────────────────────────────────────────────────
+// ── Students Tab — enhanced search & filter ───────────────────────────────────
 function StudentsTab({ t, isMaster }) {
   const { show } = useModal();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [filterMEF, setFilterMEF] = useState("all");   // all | filled | unfilled
+  const [filterDEF, setFilterDEF] = useState("all");
+  const [filterCollege, setFilterCollege] = useState("all");
 
   const load = () => {
     fetch("/api/hso/students", { credentials: "include" })
@@ -584,8 +349,22 @@ function StudentsTab({ t, isMaster }) {
       .then(data => { setStudents(data); setLoading(false); })
       .catch(() => setLoading(false));
   };
-
   useEffect(() => { load(); }, []);
+
+  const colleges = ["all", ...Array.from(new Set(students.map(s => s.college).filter(Boolean))).sort()];
+
+  const filtered = students.filter(s => {
+    const q = search.toLowerCase();
+    const matchSearch = !search || s.studentId?.includes(search) ||
+      s.firstName?.toLowerCase().includes(q) ||
+      s.lastName?.toLowerCase().includes(q) ||
+      s.email?.toLowerCase().includes(q) ||
+      s.college?.toLowerCase().includes(q);
+    const matchMEF = filterMEF === "all" || (filterMEF === "filled" ? s.filledMEF : !s.filledMEF);
+    const matchDEF = filterDEF === "all" || (filterDEF === "filled" ? s.filledDEF : !s.filledDEF);
+    const matchCollege = filterCollege === "all" || s.college === filterCollege;
+    return matchSearch && matchMEF && matchDEF && matchCollege;
+  });
 
   const handleDelete = async (id, name) => {
     if (!window.confirm(`Delete account for ${name}? This will also delete all their appointments.`)) return;
@@ -597,37 +376,70 @@ function StudentsTab({ t, isMaster }) {
     } catch (_) { show({ type: "error", message: "Server error." }); }
   };
 
-  const filtered = students.filter(s =>
-    s.studentId?.includes(search) ||
-    s.firstName?.toLowerCase().includes(search.toLowerCase()) ||
-    s.lastName?.toLowerCase().includes(search.toLowerCase()) ||
-    s.email?.toLowerCase().includes(search.toLowerCase())
+  const stepLabel = (n) => ["","Booking","Forms","Checklist 1","Attend 1","Checklist 2","Attend 2","Results"][n] || `Step ${n}`;
+  const FilterBtn = ({ label, value, current, onChange }) => (
+    <button onClick={() => onChange(value)}
+      style={{ padding:"5px 10px", borderRadius:6, border:`1px solid ${current===value?t.accent:t.cardBorder}`, background:current===value?t.accentBg:t.card, color:current===value?t.accent:t.textSub, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit", whiteSpace:"nowrap" }}>
+      {label}
+    </button>
   );
-
-  const stepLabel = (n) => ["", "Booking", "Forms", "Checklist 1", "Attend 1", "Checklist 2", "Attend 2", "Results"][n] || `Step ${n}`;
 
   return (
     <div>
-      <input placeholder="Search by name, ID, or email…" value={search} onChange={e => setSearch(e.target.value)}
-        style={{ width: "100%", padding: "10px 14px", border: `1px solid ${t.inputBorder}`, borderRadius: 10, fontSize: 13, fontFamily: "inherit", background: t.input, color: t.text, boxSizing: "border-box", marginBottom: 14, outline: "none" }} />
+      {/* Search */}
+      <input placeholder="Search by name, ID, email, or college…" value={search} onChange={e => setSearch(e.target.value)}
+        style={{ width:"100%", padding:"10px 14px", border:`1px solid ${t.inputBorder}`, borderRadius:10, fontSize:13, fontFamily:"inherit", background:t.input, color:t.text, boxSizing:"border-box", marginBottom:10, outline:"none" }}/>
+
+      {/* Filters */}
+      <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap", alignItems:"center" }}>
+        <span style={{ fontSize:11, fontWeight:700, color:t.textSub }}>MEF:</span>
+        <FilterBtn label="All" value="all" current={filterMEF} onChange={setFilterMEF}/>
+        <FilterBtn label="✓ Filled" value="filled" current={filterMEF} onChange={setFilterMEF}/>
+        <FilterBtn label="✗ Unfilled" value="unfilled" current={filterMEF} onChange={setFilterMEF}/>
+        <span style={{ fontSize:11, fontWeight:700, color:t.textSub, marginLeft:8 }}>DEF:</span>
+        <FilterBtn label="All" value="all" current={filterDEF} onChange={setFilterDEF}/>
+        <FilterBtn label="✓ Filled" value="filled" current={filterDEF} onChange={setFilterDEF}/>
+        <FilterBtn label="✗ Unfilled" value="unfilled" current={filterDEF} onChange={setFilterDEF}/>
+      </div>
+
+      {/* College filter */}
+      {colleges.length > 2 && (
+        <div style={{ marginBottom:14 }}>
+          <select value={filterCollege} onChange={e => setFilterCollege(e.target.value)}
+            style={{ padding:"7px 12px", border:`1px solid ${t.inputBorder}`, borderRadius:8, fontSize:12, fontFamily:"inherit", background:t.input, color:t.text, outline:"none", cursor:"pointer" }}>
+            {colleges.map(c => <option key={c} value={c}>{c === "all" ? "All colleges" : c}</option>)}
+          </select>
+          <span style={{ fontSize:11, color:t.textSub, marginLeft:10 }}>{filtered.length} student{filtered.length !== 1 ? "s" : ""} found</span>
+        </div>
+      )}
+
       {loading ? (
-        <div style={{ fontSize: 13, color: t.textMuted, textAlign: "center", padding: "20px 0" }}>Loading…</div>
+        <div style={{ fontSize:13, color:t.textMuted, textAlign:"center", padding:"20px 0" }}>Loading…</div>
       ) : filtered.length === 0 ? (
-        <div style={{ fontSize: 13, color: t.textMuted, textAlign: "center", padding: "20px 0" }}>No students found.</div>
+        <div style={{ fontSize:13, color:t.textMuted, textAlign:"center", padding:"20px 0" }}>No students match the filters.</div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
           {filtered.map((s, i) => (
-            <div key={i} style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <div style={{ flex: 1, minWidth: 160 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{s.firstName} {s.lastName}</div>
-                <div style={{ fontSize: 11, color: t.textSub }}>{s.studentId} · {s.email}</div>
+            <div key={i} style={{ background:t.card, border:`1px solid ${t.cardBorder}`, borderRadius:12, padding:"12px 16px", display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+              <div style={{ flex:1, minWidth:160 }}>
+                <div style={{ fontSize:13, fontWeight:700, color:t.text }}>{s.firstName} {s.lastName}</div>
+                <div style={{ fontSize:11, color:t.textSub }}>{s.studentId} · {s.college || "No college"}</div>
+                <div style={{ fontSize:11, color:t.textMuted }}>{s.email}</div>
               </div>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: s.currentStep >= 7 ? t.greenBg : t.blueBg, color: s.currentStep >= 7 ? t.green : t.blue }}>
-                {stepLabel(s.currentStep || 1)}
-              </span>
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                <span style={{ fontSize:11, fontWeight:700, padding:"3px 8px", borderRadius:20, background:s.filledMEF?(t.greenBg||"#f0fdf4"):(t.bg), color:s.filledMEF?"#16a34a":t.textMuted, border:`1px solid ${s.filledMEF?"#16a34a":t.cardBorder}` }}>
+                  {s.filledMEF?"✓ MEF":"✗ MEF"}
+                </span>
+                <span style={{ fontSize:11, fontWeight:700, padding:"3px 8px", borderRadius:20, background:s.filledDEF?(t.greenBg||"#f0fdf4"):(t.bg), color:s.filledDEF?"#16a34a":t.textMuted, border:`1px solid ${s.filledDEF?"#16a34a":t.cardBorder}` }}>
+                  {s.filledDEF?"✓ DEF":"✗ DEF"}
+                </span>
+                <span style={{ fontSize:11, fontWeight:700, padding:"3px 8px", borderRadius:20, background:s.currentStep>=7?t.greenBg:t.blueBg, color:s.currentStep>=7?"#16a34a":t.blue }}>
+                  {stepLabel(s.currentStep||1)}
+                </span>
+              </div>
               {isMaster && (
                 <button onClick={() => handleDelete(s._id, `${s.firstName} ${s.lastName}`)}
-                  style={{ background: "none", border: `1px solid ${t.cardBorder}`, borderRadius: 8, padding: "5px 10px", color: t.red || "#ef4444", fontSize: 12, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+                  style={{ background:"none", border:`1px solid ${t.cardBorder}`, borderRadius:8, padding:"5px 10px", color:t.red||"#ef4444", fontSize:12, cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>
                   Delete
                 </button>
               )}
@@ -639,122 +451,48 @@ function StudentsTab({ t, isMaster }) {
   );
 }
 
-// ── Users Tab (Master only) ───────────────────────────────────────────────────
+// ── Users Tab ─────────────────────────────────────────────────────────────────
 function UsersTab({ t }) {
   const { show } = useModal();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ email: "", firstName: "", lastName: "", role: "admin", password: "" });
+  const [form, setForm] = useState({ email:"", firstName:"", lastName:"", role:"admin", password:"" });
   const [saving, setSaving] = useState(false);
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-
-  const load = () => {
-    fetch("/api/hso/users", { credentials: "include" })
-      .then(r => r.ok ? r.json() : [])
-      .then(data => { setUsers(data); setLoading(false); })
-      .catch(() => setLoading(false));
-  };
-  useEffect(() => { load(); }, []);
-
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+  const load = () => { fetch("/api/hso/users",{credentials:"include"}).then(r=>r.ok?r.json():[]).then(data=>{setUsers(data);setLoading(false);}).catch(()=>setLoading(false)); };
+  useEffect(()=>{load();},[]);
   const handleCreate = async () => {
-    if (!form.email || !form.firstName || !form.lastName || !form.password)
-      { show({ type: "error", message: "All fields required." }); return; }
+    if(!form.email||!form.firstName||!form.lastName||!form.password){show({type:"error",message:"All fields required."});return;}
     setSaving(true);
-    try {
-      const r = await fetch("/api/hso/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify(form),
-      });
-      const d = await r.json();
-      if (r.ok) { show({ type: "success", message: "Account created!" }); setShowAdd(false); setForm({ email: "", firstName: "", lastName: "", role: "admin", password: "" }); load(); }
-      else show({ type: "error", message: d.error });
-    } catch (_) { show({ type: "error", message: "Server error." }); }
+    try{const r=await fetch("/api/hso/users",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify(form)});const d=await r.json();if(r.ok){show({type:"success",message:"Account created!"});setShowAdd(false);setForm({email:"",firstName:"",lastName:"",role:"admin",password:""});load();}else show({type:"error",message:d.error});}catch(_){show({type:"error",message:"Server error."});}
     setSaving(false);
   };
-
-  const handleRoleChange = async (id, role) => {
-    try {
-      await fetch(`/api/hso/users/${id}/role`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ role }),
-      });
-      load();
-    } catch (_) {}
-  };
-
-  const handleDelete = async (id, name) => {
-    if (!window.confirm(`Delete account for ${name}?`)) return;
-    try {
-      const r = await fetch(`/api/hso/users/${id}`, { method: "DELETE", credentials: "include" });
-      const d = await r.json();
-      if (!r.ok) show({ type: "error", message: d.error });
-      else load();
-    } catch (_) {}
-  };
-
-  const inp = { width: "100%", padding: "9px 12px", border: `1px solid ${t.inputBorder}`, borderRadius: 8, fontSize: 13, fontFamily: "inherit", background: t.input, color: t.text, boxSizing: "border-box", outline: "none" };
-  const lbl = { fontSize: 11, fontWeight: 600, color: t.textSub, display: "block", marginBottom: 4 };
-  const roleColors = { master: t.blue, admin: t.teal, nurse: "#7c3aed" };
-
+  const handleRoleChange = async (id,role) => { try{await fetch(`/api/hso/users/${id}/role`,{method:"PUT",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({role})});load();}catch(_){} };
+  const handleDelete = async (id,name) => { if(!window.confirm(`Delete account for ${name}?`))return;try{const r=await fetch(`/api/hso/users/${id}`,{method:"DELETE",credentials:"include"});const d=await r.json();if(!r.ok)show({type:"error",message:d.error});else load();}catch(_){} };
+  const inp={width:"100%",padding:"9px 12px",border:`1px solid ${t.inputBorder}`,borderRadius:8,fontSize:13,fontFamily:"inherit",background:t.input,color:t.text,boxSizing:"border-box",outline:"none"};
+  const lbl={fontSize:11,fontWeight:600,color:t.textSub,display:"block",marginBottom:4};
+  const roleColors={master:t.blue,admin:t.teal,nurse:"#7c3aed"};
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
-        <button onClick={() => setShowAdd(true)}
-          style={{ padding: "7px 16px", border: "none", borderRadius: 8, background: t.accentBtn, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Add account
-        </button>
+      <div style={{display:"flex",justifyContent:"flex-end",marginBottom:14}}>
+        <button onClick={()=>setShowAdd(true)} style={{padding:"7px 16px",border:"none",borderRadius:8,background:t.accentBtn,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:6}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add account</button>
       </div>
-
-      {showAdd && (
-        <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: "16px", marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>New HSO Account</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-            <div><label style={lbl}>First name</label><input style={inp} value={form.firstName} onChange={e => set("firstName", e.target.value)} /></div>
-            <div><label style={lbl}>Last name</label><input style={inp} value={form.lastName} onChange={e => set("lastName", e.target.value)} /></div>
-          </div>
-          <div style={{ marginBottom: 10 }}><label style={lbl}>Email</label><input style={inp} placeholder="email@dlsu.edu.ph" value={form.email} onChange={e => set("email", e.target.value)} /></div>
-          <div style={{ marginBottom: 10 }}><label style={lbl}>Password</label><input type="password" style={inp} value={form.password} onChange={e => set("password", e.target.value)} /></div>
-          <div style={{ marginBottom: 14 }}>
-            <label style={lbl}>Role</label>
-            <select style={{ ...inp }} value={form.role} onChange={e => set("role", e.target.value)}>
-              <option value="admin">Admin</option>
-              <option value="nurse">Nurse</option>
-              <option value="master">Master</option>
-            </select>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setShowAdd(false)} style={{ flex: 1, padding: "9px", border: `1px solid ${t.cardBorder}`, borderRadius: 8, background: t.card, color: t.textSub, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
-            <button onClick={handleCreate} disabled={saving} style={{ flex: 1, padding: "9px", border: "none", borderRadius: 8, background: t.accentBtn, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: saving ? 0.7 : 1 }}>{saving ? "Creating…" : "Create account"}</button>
-          </div>
-        </div>
-      )}
-
-      {loading ? (
-        <div style={{ fontSize: 13, color: t.textMuted, textAlign: "center", padding: "20px 0" }}>Loading…</div>
-      ) : users.length === 0 ? (
-        <div style={{ fontSize: 13, color: t.textMuted, textAlign: "center", padding: "20px 0" }}>No HSO accounts yet.</div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {users.map((u, i) => (
-            <div key={i} style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <div style={{ flex: 1, minWidth: 160 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{u.firstName} {u.lastName}</div>
-                <div style={{ fontSize: 11, color: t.textSub }}>{u.email}</div>
-              </div>
-              <select value={u.role} onChange={e => handleRoleChange(u._id, e.target.value)}
-                style={{ padding: "5px 10px", border: `1.5px solid ${roleColors[u.role] || t.cardBorder}`, borderRadius: 8, background: t.card, color: roleColors[u.role] || t.text, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", outline: "none" }}>
-                <option value="admin">Admin</option>
-                <option value="nurse">Nurse</option>
-                <option value="master">Master</option>
-              </select>
-              <button onClick={() => handleDelete(u._id, `${u.firstName} ${u.lastName}`)}
-                style={{ background: "none", border: `1px solid ${t.cardBorder}`, borderRadius: 8, padding: "6px 10px", color: t.red || "#ef4444", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
-                Delete
-              </button>
+      {showAdd&&(<div style={{background:t.card,border:`1px solid ${t.cardBorder}`,borderRadius:12,padding:"16px",marginBottom:16}}>
+        <div style={{fontSize:13,fontWeight:700,color:t.text,marginBottom:12}}>New HSO Account</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}><div><label style={lbl}>First name</label><input style={inp} value={form.firstName} onChange={e=>set("firstName",e.target.value)}/></div><div><label style={lbl}>Last name</label><input style={inp} value={form.lastName} onChange={e=>set("lastName",e.target.value)}/></div></div>
+        <div style={{marginBottom:10}}><label style={lbl}>Email</label><input style={inp} placeholder="email@dlsu.edu.ph" value={form.email} onChange={e=>set("email",e.target.value)}/></div>
+        <div style={{marginBottom:10}}><label style={lbl}>Password</label><input type="password" style={inp} value={form.password} onChange={e=>set("password",e.target.value)}/></div>
+        <div style={{marginBottom:14}}><label style={lbl}>Role</label><select style={{...inp}} value={form.role} onChange={e=>set("role",e.target.value)}><option value="admin">Admin</option><option value="nurse">Nurse</option><option value="master">Master</option></select></div>
+        <div style={{display:"flex",gap:8}}><button onClick={()=>setShowAdd(false)} style={{flex:1,padding:"9px",border:`1px solid ${t.cardBorder}`,borderRadius:8,background:t.card,color:t.textSub,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>Cancel</button><button onClick={handleCreate} disabled={saving} style={{flex:1,padding:"9px",border:"none",borderRadius:8,background:t.accentBtn,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",opacity:saving?0.7:1}}>{saving?"Creating…":"Create account"}</button></div>
+      </div>)}
+      {loading?<div style={{fontSize:13,color:t.textMuted,textAlign:"center",padding:"20px 0"}}>Loading…</div>:users.length===0?<div style={{fontSize:13,color:t.textMuted,textAlign:"center",padding:"20px 0"}}>No HSO accounts yet.</div>:(
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {users.map((u,i)=>(
+            <div key={i} style={{background:t.card,border:`1px solid ${t.cardBorder}`,borderRadius:12,padding:"12px 16px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+              <div style={{flex:1,minWidth:160}}><div style={{fontSize:13,fontWeight:700,color:t.text}}>{u.firstName} {u.lastName}</div><div style={{fontSize:11,color:t.textSub}}>{u.email}</div></div>
+              <select value={u.role} onChange={e=>handleRoleChange(u._id,e.target.value)} style={{padding:"5px 10px",border:`1.5px solid ${roleColors[u.role]||t.cardBorder}`,borderRadius:8,background:t.card,color:roleColors[u.role]||t.text,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",outline:"none"}}><option value="admin">Admin</option><option value="nurse">Nurse</option><option value="master">Master</option></select>
+              <button onClick={()=>handleDelete(u._id,`${u.firstName} ${u.lastName}`)} style={{background:"none",border:`1px solid ${t.cardBorder}`,borderRadius:8,padding:"6px 10px",color:t.red||"#ef4444",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>
             </div>
           ))}
         </div>
@@ -763,19 +501,61 @@ function UsersTab({ t }) {
   );
 }
 
-// ── Nurse Forms Tab ──────────────────────────────────────────────────────────
+// ── Nurse Forms Tab — search, filter, offline support ─────────────────────────
 function NurseFormsTab({ t, dark }) {
   const { show } = useModal();
   const [type, setType] = useState("phex");
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-  const [searching, setSearching] = useState(false);
+  const [filterStatus, setFilterStatus] = useState("all"); // all | filled | unfilled
   const [allStudents, setAllStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [offlineQueue, setOfflineQueue] = useState(getOfflineQueue());
+  const [syncing, setSyncing] = useState(false);
+
+  // Online/offline detection
+  useEffect(() => {
+    const online  = () => { setIsOnline(true); syncOfflineQueue(); };
+    const offline = () => setIsOnline(false);
+    window.addEventListener("online", online);
+    window.addEventListener("offline", offline);
+    return () => { window.removeEventListener("online", online); window.removeEventListener("offline", offline); };
+  }, []);
+
+  // Sync offline queue when back online
+  const syncOfflineQueue = async () => {
+    const q = getOfflineQueue();
+    if (q.length === 0) return;
+    setSyncing(true);
+    let syncedCount = 0;
+    for (const item of q) {
+      try {
+        const url = item.formType === "mef"
+          ? `/api/hso/students/${item.studentMongoId}/mef`
+          : `/api/hso/students/${item.studentMongoId}/def`;
+        const r = await fetch(url, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" }, credentials: "include",
+          body: JSON.stringify(item.payload),
+        });
+        if (r.ok) {
+          removeFromOfflineQueue(item.studentId, item.formType);
+          syncedCount++;
+        }
+      } catch (_) {}
+    }
+    setOfflineQueue(getOfflineQueue());
+    setSyncing(false);
+    if (syncedCount > 0) {
+      show({ type: "success", message: `Synced ${syncedCount} offline save${syncedCount > 1 ? "s" : ""} to server.` });
+      load(); loadStudents();
+    }
+  };
 
   const load = () => {
+    if (!isOnline) return;
     setLoading(true);
     fetch(`/api/hso/appointments/today?type=${type}`, { credentials: "include" })
       .then(r => r.ok ? r.json() : [])
@@ -783,138 +563,157 @@ function NurseFormsTab({ t, dark }) {
       .catch(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [type]);
-
-  // Load all students once for search
-  useEffect(() => {
+  const loadStudents = () => {
+    if (!isOnline) return;
     fetch("/api/hso/students", { credentials: "include" })
       .then(r => r.ok ? r.json() : [])
-      .then(data => setAllStudents(data))
+      .then(data => {
+        setAllStudents(data);
+        // Merge offline queue status into student list
+        const q = getOfflineQueue();
+        if (q.length > 0) {
+          setAllStudents(prev => prev.map(s => {
+            const queued = q.find(i => i.studentMongoId === s._id);
+            if (!queued) return s;
+            return { ...s, [queued.formType === "mef" ? "filledMEF" : "filledDEF"]: true, _offline: true };
+          }));
+        }
+      })
       .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (!search.trim()) { setSearchResults([]); return; }
-    const q = search.toLowerCase();
-    setSearchResults(allStudents.filter(s =>
-      s.studentId?.includes(search) ||
-      s.firstName?.toLowerCase().includes(q) ||
-      s.lastName?.toLowerCase().includes(q) ||
-      s.email?.toLowerCase().includes(q)
-    ).slice(0, 8));
-  }, [search, allStudents]);
-
-  const toggleForm = async (studentMongoId, field, currentValue) => {
-    try {
-      const r = await fetch(`/api/hso/students/${studentMongoId}/forms`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ [field]: !currentValue }),
-      });
-      if (r.ok) {
-        show({ type: "success", message: `${field === "filledMEF" ? "MEF" : "DEF"} ${!currentValue ? "marked as filled" : "unmarked"}.` });
-        load();
-        // Update search results / allStudents in place
-        setAllStudents(prev => prev.map(s => s._id === studentMongoId ? { ...s, [field]: !currentValue } : s));
-      } else {
-        show({ type: "error", message: "Failed to update." });
-      }
-    } catch (_) { show({ type: "error", message: "Server error." }); }
   };
 
-  const formatDate = (str) => {
-    const d = new Date(str + "T00:00:00");
-    return d.toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" });
+  useEffect(() => { load(); }, [type, isOnline]);
+  useEffect(() => { loadStudents(); }, [isOnline]);
+
+  // Filter students for search
+  const formField = type === "phex" ? "filledMEF" : "filledDEF";
+  const searchResults = search.trim() ? allStudents.filter(s => {
+    const q = search.toLowerCase();
+    const matchSearch = s.studentId?.includes(search) || s.firstName?.toLowerCase().includes(q) || s.lastName?.toLowerCase().includes(q) || s.email?.toLowerCase().includes(q);
+    const matchStatus = filterStatus === "all" || (filterStatus === "filled" ? s[formField] : !s[formField]);
+    return matchSearch && matchStatus;
+  }).slice(0, 12) : [];
+
+  const filteredAppointments = appointments.filter(a => {
+    if (!a.student) return false;
+    const matchStatus = filterStatus === "all" || (filterStatus === "filled" ? a.student[formField] : !a.student[formField]);
+    return matchStatus;
+  });
+
+  const StatusBadge = ({ student }) => {
+    const filled = student[formField];
+    const isQueued = offlineQueue.some(i => i.studentMongoId === student._id && i.formType === (type === "phex" ? "mef" : "def"));
+    if (isQueued) return (
+      <span style={{ padding:"4px 10px", borderRadius:8, border:"1.5px solid #f59e0b", background:"#fffbeb", color:"#d97706", fontSize:12, fontWeight:700, display:"flex", alignItems:"center", gap:5 }}>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+        Queued offline
+      </span>
+    );
+    if (filled) return (
+      <span style={{ padding:"4px 10px", borderRadius:8, border:"1.5px solid #16a34a", background:"#f0fdf4", color:"#16a34a", fontSize:12, fontWeight:700, display:"flex", alignItems:"center", gap:5 }}>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        {type === "phex" ? "MEF" : "DEF"} Filled
+      </span>
+    );
+    return null;
   };
 
   const StudentRow = ({ student, timeSlot, appointmentDate }) => {
     if (!student) return null;
     return (
-      <div style={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ flex: 1, minWidth: 160, cursor: "pointer" }} onClick={() => setSelectedStudent(student)}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{student.firstName} {student.lastName}</div>
-          <div style={{ fontSize: 11, color: t.textSub }}>{student.studentId} · {student.email}</div>
-          {appointmentDate && timeSlot && <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{formatDate(appointmentDate)} at {timeSlot}</div>}
+      <div style={{ background:t.card, border:`1px solid ${t.cardBorder}`, borderRadius:12, padding:"12px 16px", display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+        <div style={{ flex:1, minWidth:160, cursor:"pointer" }} onClick={() => setSelectedStudent(student)}>
+          <div style={{ fontSize:13, fontWeight:700, color:t.text }}>{student.firstName} {student.lastName}</div>
+          <div style={{ fontSize:11, color:t.textSub }}>{student.studentId} · {student.college || student.email}</div>
+          {appointmentDate && timeSlot && <div style={{ fontSize:11, color:t.textMuted, marginTop:2 }}>{formatDate(appointmentDate)} at {timeSlot}</div>}
         </div>
-        {(type === "phex" ? student.filledMEF : student.filledDEF) && (
-          <span style={{ padding: "6px 12px", borderRadius: 8, border: `1.5px solid #16a34a`, background: dark ? "#14532d33" : "#f0fdf4", color: "#16a34a", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            {type === "phex" ? "MEF" : "DEF"} Filled
-          </span>
-        )}
+        <StatusBadge student={student}/>
         <button onClick={() => setSelectedStudent(student)}
-          style={{ padding: "6px 12px", borderRadius: 8, border: `1.5px solid ${t.accent}`, background: t.accentBg, color: t.accent, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-          {type === "phex"
-            ? (student.filledMEF ? "Edit MEF" : "Fill MEF")
-            : (student.filledDEF ? "Edit DEF" : "Fill DEF")}
+          style={{ padding:"6px 12px", borderRadius:8, border:`1.5px solid ${t.accent}`, background:t.accentBg, color:t.accent, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+          {type === "phex" ? (student.filledMEF ? "Edit MEF" : "Fill MEF") : (student.filledDEF ? "Edit DEF" : "Fill DEF")}
         </button>
       </div>
     );
   };
 
-  // If a student is selected, show the NurseMEFPage or NurseDEFPage based on type
   if (selectedStudent) {
-    if (type === "phex") {
-      return (
-        <NurseMEFPage
-          studentMongoId={selectedStudent._id}
-          onBack={() => setSelectedStudent(null)}
-          onSaved={() => {
-            setSelectedStudent(null);
-            load();
-            setAllStudents(prev => prev.map(s => s._id === selectedStudent._id ? { ...s, filledMEF: true } : s));
-          }}
-        />
-      );
-    }
-    return (
-      <NurseDEFPage
-        studentMongoId={selectedStudent._id}
-        onBack={() => setSelectedStudent(null)}
-        onSaved={() => {
-          setSelectedStudent(null);
-          load();
-          setAllStudents(prev => prev.map(s => s._id === selectedStudent._id ? { ...s, filledDEF: true } : s));
-        }}
-      />
-    );
+    const MongoId = selectedStudent._id;
+    const handleSaved = () => {
+      setSelectedStudent(null);
+      load();
+      setAllStudents(prev => prev.map(s => s._id === MongoId
+        ? { ...s, [type === "phex" ? "filledMEF" : "filledDEF"]: true }
+        : s));
+    };
+    if (type === "phex") return <NurseMEFPage studentMongoId={MongoId} onBack={() => setSelectedStudent(null)} onSaved={handleSaved}/>;
+    return <NurseDEFPage studentMongoId={MongoId} onBack={() => setSelectedStudent(null)} onSaved={handleSaved}/>;
   }
+
+  const FilterBtn = ({ label, value }) => (
+    <button onClick={() => setFilterStatus(value)}
+      style={{ padding:"5px 10px", borderRadius:6, border:`1px solid ${filterStatus===value?t.accent:t.cardBorder}`, background:filterStatus===value?t.accentBg:t.card, color:filterStatus===value?t.accent:t.textSub, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+      {label}
+    </button>
+  );
 
   return (
     <div>
-      {/* Search */}
-      <div style={{ marginBottom: 20 }}>
-        <input placeholder="Search by name, ID, or email…" value={search} onChange={e => setSearch(e.target.value)}
-          style={{ width: "100%", padding: "10px 14px", border: `1px solid ${t.inputBorder}`, borderRadius: 10, fontSize: 13, fontFamily: "inherit", background: t.input, color: t.text, boxSizing: "border-box", outline: "none" }} />
-        {searchResults.length > 0 && (
-          <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-            {searchResults.map((s, i) => <StudentRow key={i} student={s} />)}
-          </div>
-        )}
+      {/* Online/offline banner */}
+      {!isOnline && (
+        <div style={{ background:"#fffbeb", border:"1px solid #fcd34d", borderRadius:10, padding:"10px 14px", marginBottom:14, display:"flex", alignItems:"center", gap:10, fontSize:13, color:"#92400e", fontWeight:600 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.56 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
+          You're offline — saves will be queued and synced when reconnected.
+        </div>
+      )}
+
+      {/* Sync banner */}
+      {isOnline && offlineQueue.length > 0 && (
+        <div style={{ background:"#f0fdf4", border:"1px solid #86efac", borderRadius:10, padding:"10px 14px", marginBottom:14, display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
+          <span style={{ fontSize:13, color:"#15803d", fontWeight:600 }}>
+            {syncing ? "Syncing…" : `${offlineQueue.length} offline save${offlineQueue.length>1?"s":""} waiting to sync.`}
+          </span>
+          {!syncing && <button onClick={syncOfflineQueue} style={{ padding:"5px 12px", border:"none", borderRadius:6, background:"#16a34a", color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>Sync now</button>}
+        </div>
+      )}
+
+      {/* Search & filter */}
+      <input placeholder="Search by name, ID, email, or college…" value={search} onChange={e => setSearch(e.target.value)}
+        style={{ width:"100%", padding:"10px 14px", border:`1px solid ${t.inputBorder}`, borderRadius:10, fontSize:13, fontFamily:"inherit", background:t.input, color:t.text, boxSizing:"border-box", marginBottom:10, outline:"none" }}/>
+
+      <div style={{ display:"flex", gap:6, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
+        <span style={{ fontSize:11, fontWeight:700, color:t.textSub }}>Status:</span>
+        <FilterBtn label="All" value="all"/>
+        <FilterBtn label="✓ Filled" value="filled"/>
+        <FilterBtn label="✗ Unfilled" value="unfilled"/>
       </div>
 
-      {!search.trim() && (
+      {/* Search results */}
+      {search.trim() ? (
+        searchResults.length === 0
+          ? <div style={{ fontSize:13, color:t.textMuted, textAlign:"center", padding:"20px 0" }}>No students found.</div>
+          : <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              {searchResults.map((s, i) => <StudentRow key={i} student={s}/>)}
+            </div>
+      ) : (
         <>
           {/* Type switcher */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          <div style={{ display:"flex", gap:8, marginBottom:16 }}>
             {["phex","dt"].map(t2 => (
               <button key={t2} onClick={() => setType(t2)}
-                style={{ padding: "7px 16px", borderRadius: 8, border: "1.5px solid " + (type === t2 ? t.accent : t.cardBorder), background: type === t2 ? t.accentBg : t.card, color: type === t2 ? t.accent : t.textSub, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                {t2 === "phex" ? "MEF" : "DEF"}
+                style={{ padding:"7px 16px", borderRadius:8, border:"1.5px solid "+(type===t2?t.accent:t.cardBorder), background:type===t2?t.accentBg:t.card, color:type===t2?t.accent:t.textSub, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+                {t2==="phex"?"MEF":"DEF"}
               </button>
             ))}
           </div>
-
-          <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 4 }}>All {type === "phex" ? "MEF" : "DEF"} Appointments</div>
-          <div style={{ fontSize: 11, color: t.textSub, marginBottom: 12 }}>Upcoming and past appointments, sorted by date</div>
-
+          <div style={{ fontSize:13, fontWeight:700, color:t.text, marginBottom:4 }}>All {type==="phex"?"MEF":"DEF"} Appointments</div>
+          <div style={{ fontSize:11, color:t.textSub, marginBottom:12 }}>Upcoming and past appointments, sorted by date</div>
           {loading ? (
-            <div style={{ fontSize: 13, color: t.textMuted, textAlign: "center", padding: "20px 0" }}>Loading…</div>
-          ) : appointments.length === 0 ? (
-            <div style={{ fontSize: 13, color: t.textMuted, textAlign: "center", padding: "20px 0" }}>No appointments today.</div>
+            <div style={{ fontSize:13, color:t.textMuted, textAlign:"center", padding:"20px 0" }}>Loading…</div>
+          ) : filteredAppointments.length === 0 ? (
+            <div style={{ fontSize:13, color:t.textMuted, textAlign:"center", padding:"20px 0" }}>No appointments match the filter.</div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {appointments.map((a, i) => <StudentRow key={i} student={a.student} timeSlot={a.timeSlot} appointmentDate={a.appointmentDate} />)}
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              {filteredAppointments.map((a, i) => <StudentRow key={i} student={a.student} timeSlot={a.timeSlot} appointmentDate={a.appointmentDate}/>)}
             </div>
           )}
         </>
@@ -923,7 +722,7 @@ function NurseFormsTab({ t, dark }) {
   );
 }
 
-// ── Main Dashboard ────────────────────────────────────────────────────────────
+// ── Main Dashboard ─────────────────────────────────────────────────────────────
 export default function AdminDashboard({ userData, onLogout, onBack }) {
   const { dark, toggle, t } = useTheme();
   const isMobile = useIsMobile();
@@ -933,44 +732,36 @@ export default function AdminDashboard({ userData, onLogout, onBack }) {
   const [activeTab, setActiveTab] = useState(tabs[0]);
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", background: t.bg, minHeight: 0 }}>
-      {/* NavBar */}
-      <div style={{ background: dark ? "#1e293b" : "#1e3a8a", color: "#fff", padding: "14px 24px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>HSO Dashboard</div>
-          <div style={{ fontSize: 12, opacity: 0.7 }}>{isMaster ? "Master" : isNurse ? "Nurse" : "Admin"} · {userData?.firstName} {userData?.lastName}</div>
+    <div style={{ flex:1, display:"flex", flexDirection:"column", background:t.bg, minHeight:0 }}>
+      <div style={{ background:dark?"#1e293b":"#1e3a8a", color:"#fff", padding:"14px 24px", display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:16, fontWeight:700 }}>HSO Dashboard</div>
+          <div style={{ fontSize:12, opacity:0.7 }}>{isMaster?"Master":isNurse?"Nurse":"Admin"} · {userData?.firstName} {userData?.lastName}</div>
         </div>
-        <button onClick={toggle} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", width: 34, height: 34, borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {dark
-            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-            : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          }
+        <button onClick={toggle} style={{ background:"rgba(255,255,255,0.15)", border:"none", color:"#fff", width:34, height:34, borderRadius:8, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+          {dark?<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>}
         </button>
-        <button onClick={onLogout} style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
+        <button onClick={onLogout} style={{ background:"rgba(255,255,255,0.15)", border:"1px solid rgba(255,255,255,0.3)", color:"#fff", borderRadius:8, padding:"7px 14px", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", gap:6 }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           Sign out
         </button>
       </div>
-
-      {/* Tabs */}
-      <div style={{ display: "flex", borderBottom: `1px solid ${t.divider}`, background: t.card, flexShrink: 0, overflowX: "auto" }}>
+      <div style={{ display:"flex", borderBottom:`1px solid ${t.divider}`, background:t.card, flexShrink:0, overflowX:"auto" }}>
         {tabs.map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)}
-            style={{ padding: "12px 20px", border: "none", borderBottom: `2px solid ${activeTab === tab ? t.accent : "transparent"}`, background: "none", color: activeTab === tab ? t.accent : t.textSub, fontSize: 13, fontWeight: activeTab === tab ? 700 : 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+            style={{ padding:"12px 20px", border:"none", borderBottom:`2px solid ${activeTab===tab?t.accent:"transparent"}`, background:"none", color:activeTab===tab?t.accent:t.textSub, fontSize:13, fontWeight:activeTab===tab?700:500, cursor:"pointer", fontFamily:"inherit", whiteSpace:"nowrap" }}>
             {tab}
           </button>
         ))}
       </div>
-
-      {/* Content */}
-      <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "16px" : "28px 32px" }}>
-        <div style={{ maxWidth: 800, margin: "0 auto" }}>
-          {activeTab === "Forms"    && isNurse && <NurseFormsTab t={t} dark={dark} />}
-          {activeTab === "Stats"    && !isNurse && <StatsTab t={t} dark={dark} />}
-          {activeTab === "Slots"    && !isNurse && <SlotsTab t={t} dark={dark} />}
-          {activeTab === "Venues"   && !isNurse && <VenuesTab t={t} />}
-          {activeTab === "Students" && <StudentsTab t={t} isMaster={isMaster} />}
-          {activeTab === "Users"    && isMaster && <UsersTab t={t} />}
+      <div style={{ flex:1, overflowY:"auto", padding:isMobile?"16px":"28px 32px" }}>
+        <div style={{ maxWidth:800, margin:"0 auto" }}>
+          {activeTab==="Forms"    && isNurse  && <NurseFormsTab t={t} dark={dark}/>}
+          {activeTab==="Stats"    && !isNurse && <StatsTab t={t} dark={dark}/>}
+          {activeTab==="Slots"    && !isNurse && <SlotsTab t={t} dark={dark}/>}
+          {activeTab==="Venues"   && !isNurse && <VenuesTab t={t}/>}
+          {activeTab==="Students" && <StudentsTab t={t} isMaster={isMaster}/>}
+          {activeTab==="Users"    && isMaster  && <UsersTab t={t}/>}
         </div>
       </div>
     </div>
