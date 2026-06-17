@@ -8,7 +8,7 @@ const path = require("path");
 const Appointment = require("../models/Appointment");
 const Settings   = require("../models/Settings");
 const { authMiddleware } = require("../middleware/auth");
-const { sendMEFFilledEmail, sendDEFFilledEmail } = require("../services/emailService");
+const { sendMEFFilledEmail, sendDEFFilledEmail } = require("../services/email");
 const requireRole = require("../middleware/requireRole");
 
 const Slot = require("../models/Slot");
