@@ -8,6 +8,7 @@ const path = require("path");
 const Appointment = require("../models/Appointment");
 const Settings   = require("../models/Settings");
 const { authMiddleware } = require("../middleware/auth");
+const { sendMEFFilledEmail, sendDEFFilledEmail } = require("../services/emailService");
 const requireRole = require("../middleware/requireRole");
 
 const Slot = require("../models/Slot");
@@ -208,6 +209,11 @@ router.put("/students/:id/mef", authMiddleware, requireRole("admin", "master", "
     // Mark as filled
     user.filledMEF = true;
     await user.save();
+
+    // Send email notification (non-blocking — never crashes the request)
+    const nurse = await User.findById(req.user.id).select("firstName lastName");
+    const academicYear = mergedData["Academic Year"] || "";
+    sendMEFFilledEmail(user, nurse, { academicYear }).catch(() => {});
 
     res.json({ message: "MEF saved.", formData: mergedData });
   } catch (err) {
@@ -1616,6 +1622,11 @@ router.put("/students/:id/def", authMiddleware, requireRole("admin", "master", "
 
     user.filledDEF = true;
     await user.save();
+
+    // Send email notification (non-blocking — never crashes the request)
+    const nurse = await User.findById(req.user.id).select("firstName lastName");
+    const academicYear = mergedData["Academic Year"] || "";
+    sendDEFFilledEmail(user, nurse, { academicYear }).catch(() => {});
 
     res.json({ message: "DEF saved.", formData: mergedData });
   } catch (err) {
